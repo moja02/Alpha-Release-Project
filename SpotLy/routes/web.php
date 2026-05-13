@@ -10,3 +10,8 @@ Route::get('/', function () {
 Route::get('/login', function () {
     return view('auth.login');
 });
+
+// مسار فتح لوحة تحكم الموظف الميداني
+Route::get('/employee-dashboard', function () {
+    return view('dashboards.employee');
+});

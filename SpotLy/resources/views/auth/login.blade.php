@@ -33,12 +33,12 @@
         <form id="loginForm">
             <div class="mb-3">
                 <label for="emailInput" class="form-label">Email address</label>
-                <input type="email" class="form-control" id="emailInput" required placeholder="name@example.com">
+                <input type="email" class="form-control" id="emailInput" required >
             </div>
             
             <div class="mb-3">
                 <label for="passwordInput" class="form-label">Password</label>
-                <input type="password" class="form-control" id="passwordInput" required placeholder="••••••••">
+                <input type="password" class="form-control" id="passwordInput" required >
             </div>
 
             <button type="submit" class="btn btn-primary w-100" id="submitButton">
@@ -96,7 +96,7 @@
                     setTimeout(() => {
                         const userRole = responseData.accountData.role;
                         alert(`Welcome ${responseData.accountData.name}! You are logged in as: ${userRole}`);
-                        // window.location.href = '/' + userRole + '-dashboard'; 
+                        window.location.href = '/' + userRole + '-dashboard'; 
                     }, 1500);
 
                 } else {
