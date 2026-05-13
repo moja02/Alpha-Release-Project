@@ -180,15 +180,11 @@
                                 <input type="text" class="form-control" id="userPhoneInput" required placeholder="مثال: 0912345678">
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">كلمة المرور الافتراضية</label>
-                                <input type="password" class="form-control" id="userPasswordInput" required placeholder="••••••••">
+                                <label class="form-label">رقم لوحة السيارة</label>
+                                <input type="text" class="form-control" id="userPlateInput" placeholder="مثال: 5-12345" required>
                             </div>
                         </div>
-                        <div class="mb-4">
-                            <label class="form-label">رقم لوحة السيارة</label>
-                            <input type="text" class="form-control" id="userPlateInput" placeholder="مثال: 5-12345" required>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100" id="createUserBtn">تسجيل السائق وإرسال الإشعار الترحيبي</button>
+                        <button type="submit" class="btn btn-primary w-100 mt-2" id="createUserBtn">تسجيل السائق وتوليد رمز الدخول</button>
                     </form>
                 </div>
             </div>
@@ -353,21 +349,17 @@
         document.getElementById('createUserForm').addEventListener('submit', async function(event) {
             event.preventDefault();
             
-            
+            // تطبيق شروط التكويد: استخدام CamelCase لأسماء المتغيرات (إزالة متغير الباسوورد)
             const userNameValue = document.getElementById('userNameInput').value;
             const userEmailValue = document.getElementById('userEmailInput').value;
             const userPhoneValue = document.getElementById('userPhoneInput').value;
-            const userPasswordValue = document.getElementById('userPasswordInput').value;
             const userPlateValue = document.getElementById('userPlateInput').value;
-            const alertContainer = document.getElementById('createUserAlert');
             const submitButton = document.getElementById('createUserBtn');
 
             submitButton.disabled = true;
-            alertContainer.classList.add('d-none');
 
-            
             try {
-                //  إرسال البيانات الفعلية لإنشاء الحساب عبر الـ API
+                // تعليق مضمن: إرسال البيانات بدون كلمة مرور ليقوم الخادم بتوليدها برمجياً
                 const apiResponse = await fetch('/api/accounts/create', {
                     method: 'POST',
                     headers: {
@@ -378,7 +370,6 @@
                         name: userNameValue,
                         email: userEmailValue,
                         phone: userPhoneValue,
-                        password: userPasswordValue,
                         role: 'user',
                         plateNumber: userPlateValue
                     })
@@ -387,19 +378,34 @@
                 const responseData = await apiResponse.json();
 
                 if (apiResponse.ok) {
-                    alertContainer.className = 'alert alert-success';
-                    alertContainer.innerText = 'تم تسجيل السائق بنجاح! (ID الحساب: ' + responseData.accountId + ')';
-                    alertContainer.classList.remove('d-none');
+                    // إشعار نجاح يبلغ الموظف أن الرمز أرسل للسائق مباشرة
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'تم تسجيل السائق بنجاح',
+                        html: `
+                            <div class="text-end mt-3">
+                                <p><strong>ID الحساب:</strong> ${responseData.accountId}</p>
+                                <p class="text-success">✅ تم إرسال رمز الدخول العشوائي إلى بريد السائق بنجاح.</p>
+                            </div>
+                        `,
+                        confirmButtonColor: '#2c3e50'
+                    });
                     document.getElementById('createUserForm').reset();
                 } else {
-                    alertContainer.className = 'alert alert-danger';
-                    alertContainer.innerText = responseData.message || 'حدث خطأ أثناء التسجيل.';
-                    alertContainer.classList.remove('d-none');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'خطأ في التسجيل',
+                        text: responseData.message || 'تأكد من عدم تكرار البريد الإلكتروني.',
+                        confirmButtonColor: '#d33'
+                    });
                 }
             } catch (networkError) {
-                alertContainer.className = 'alert alert-danger';
-                alertContainer.innerText = 'تعذر الاتصال بالخادم المحلي.';
-                alertContainer.classList.remove('d-none');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'خطأ في الاتصال',
+                    text: 'تعذر الوصول للخادم المحلي.',
+                    confirmButtonColor: '#d33'
+                });
             } finally {
                 submitButton.disabled = false;
             }

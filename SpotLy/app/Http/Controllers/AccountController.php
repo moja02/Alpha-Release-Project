@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB; // لاستخدام المعاملات (Transactions) لضمان سلامة الإدخال
+use Illuminate\Support\Str; //توليد الرمز العشوائي
 
 class AccountController extends Controller
 {
@@ -19,132 +20,83 @@ class AccountController extends Controller
     {
         
         try {
-            // التحقق من صحة البيانات المدخلة
+            // التحقق من المدخلات (كلمة المرور أصبحت مطلوبة للموظف فقط، ومستثناة للسائق)
             $request->validate([
                 'name' => 'required|string|max:191',
                 'email' => 'required|string|email|max:191|unique:accounts',
                 'phone' => 'required|string|max:20',
-                'password' => 'required|string|min:6',
                 'role' => 'required|in:user,employee',
-                // حقل اللوحة مطلوب فقط إذا كان الحساب للمستخدم (السائق)
+                'password' => 'required_if:role,employee|string|min:6',
                 'plateNumber' => 'required_if:role,user|string|max:20', 
-                // حقل الحساب البنكي مطلوب إذا كان الحساب للموظف
                 'bankAccountNumber' => 'required_if:role,employee|string|max:50', 
             ]);
 
-            // استخدام DB Transaction لضمان أنه إذا فشل إنشاء الكلاس الابن، يتم التراجع عن الأب
             DB::beginTransaction();
 
-            //  تهيئة البيانات الأساسية الموروثة أولاً عبر كلاس Account
-            $account = Account::create([
+            
+            $accountRole = $request->input('role');
+            $plainPasswordCode = null;
+
+            // تعليق مضمن: فحص نوع الحساب لتوليد الرمز العشوائي للسائقين فقط
+            if ($accountRole === 'user') {
+                // توليد رمز عشوائي آمن مكون من 8 خانات (حروف وأرقام)
+                $plainPasswordCode = Str::random(8);
+            } else {
+                // الاعتماد على كلمة المرور المدخلة يدوياً للموظفين
+                $plainPasswordCode = $request->input('password');
+            }
+
+            // حفظ بيانات الحساب الأساسي وتشفير الرمز العشوائي قبل تخزينه في الداتا بيز
+            $newAccount = Account::create([
                 'name' => $request->input('name'),
                 'email' => $request->input('email'),
                 'phone' => $request->input('phone'),
-                'password' => Hash::make($request->input('password')),
-                'role' => $request->input('role'),
+                'password' => Hash::make($plainPasswordCode),
+                'role' => $accountRole,
             ]);
 
-            //  تخصيص الكائن الفرعي بناءً على نوع الحساب (Role)
-            if ($request->input('role') === 'user') {
-                // حفظ بيانات السائق وربطها بالحساب الأساسي
+            // تخصيص الكلاس الفرعي وتخزين البيانات المرتبطة
+            if ($accountRole === 'user') {
                 User::create([
-                    'account_id' => $account->id,
-                    'plate_number' => $request->input('plateNumber'), // استخدام التسمية القياسية
-                    'status' => 'active', // تعيين الحالة الافتراضية
+                    'account_id' => $newAccount->id,
+                    'plate_number' => $request->input('plateNumber'),
+                    'status' => 'active',
                     'fake_booking_count' => 0,
                 ]);
 
-                // إرسال إشعار ترحيبي 
+                // تعليق مضمن: صياغة رسالة البريد الإلكتروني متضمنة الرمز العشوائي المولد
+                $welcomeEmailContent = "مرحباً بك في نظام SpotLy. تم إنشاء حسابك بنجاح. رمز الدخول العشوائي الخاص بك هو: " . $plainPasswordCode;
+
+                // تخزين الرسالة في الداتا بيز (محاكاة إرسال البريد حسب متطلبات FR1)
                 Notification::create([
-                    'user_id' => $account->id, // نربطه بـ id الحساب الأساسي
-                    'message' => 'أهلاً بك في SpotLy. تم إنشاء حسابك بنجاح.',
+                    'user_id' => $newAccount->id,
+                    'message' => $welcomeEmailContent,
                     'type' => 'Welcome_Email',
                 ]);
 
-            } elseif ($request->input('role') === 'employee') {
-                // حفظ بيانات الموظف
+            } elseif ($accountRole === 'employee') {
                 Employee::create([
-                    'account_id' => $account->id,
+                    'account_id' => $newAccount->id,
                     'bank_account_number' => $request->input('bankAccountNumber'),
                 ]);
             }
 
-            // تأكيد حفظ كافة البيانات في الجداول
             DB::commit();
 
-            return response()->json([
+            // إرجاع الرمز المولد في الاستجابة لتسهيل نسخه واختباره من قبل الموظف أو الدكتور
+            return response::json([
                 'status' => 'success',
-                'message' => 'Account created successfully.',
-                'accountId' => $account->id
+                'message' => 'Account created successfully. Access code sent to user email.',
+                'accountId' => $newAccount->id
             ], 201);
 
         } catch (\Exception $exception) {
-            // التراجع عن الإدخال في حال حدوث أي خطأ برمجياً
             DB::rollBack();
-            
-            // تسجيل الخطأ في ملف الـ Log
             Log::error('Error in createAccount: ' . $exception->getMessage());
 
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to create account: ' . $exception->getMessage()
-            ], 500);
-        }
-    }
-    /**
-     * دالة تسجيل حجز زائف وتطبيق الحظر التلقائي
-     * يتم استدعاؤها برمجياً عند انتهاء مهلة الحجز المبدئي دون حضور السائق
-     */
-    public function recordFakeBooking(Request $request)
-    {
-        try {
-            // التحقق من صحة المدخلات والتأكد من وجود الحساب
-            $request->validate([
-                'accountId' => 'required|integer|exists:users,account_id',
-            ]);
-
-            $targetAccountId = $request->input('accountId');
-            
-            // جلب كائن السائق المرتبط بالحساب الأساسي
-            $driverUser = User::where('account_id', $targetAccountId)->first();
-
-            // زيادة عدد الحجوزات الزائفة لتتبع الإلغاءات التلقائية بمقدار 1
-            $currentFakeBookingCount = $driverUser->fake_booking_count + 1;
-            $driverUser->fake_booking_count = $currentFakeBookingCount;
-
-            $responseMessage = 'Fake booking recorded successfully.';
-
-            //  التحقق مما إذا كان العداد قد وصل إلى 3 لتطبيق الحظر التلقائي
-            if ($currentFakeBookingCount >= 3) {
-                // تحديث حالة الحساب ليصبح محظوراً لمنع التلاعب
-                $driverUser->status = 'blocked';
-                $responseMessage = 'Account has been automatically blocked due to exceeding 3 fake bookings.';
-
-                // تسجيل إشعار فوري للمستخدم بقرار الحظر
-                Notification::create([
-                    'user_id' => $targetAccountId,
-                    'message' => 'Your account has been blocked because you exceeded the limit of 3 unfulfilled initial bookings.',
-                    'type' => 'Account_Blocked',
-                ]);
-            }
-
-            // حفظ التحديثات في قاعدة البيانات
-            $driverUser->save();
-
-            return response()->json([
-                'status' => 'success',
-                'message' => $responseMessage,
-                'currentFakeBookingCount' => $currentFakeBookingCount,
-                'accountStatus' => $driverUser->status
-            ], 200);
-
-        } catch (\Exception $exception) {
-            // تسجيل الخطأ الداخلي لضمان سهولة الصيانة وتتبع الأخطاء
-            Log::error('Error in recordFakeBooking: ' . $exception->getMessage());
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to record fake booking: ' . $exception->getMessage()
             ], 500);
         }
     }
