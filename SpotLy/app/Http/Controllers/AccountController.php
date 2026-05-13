@@ -148,4 +148,79 @@ class AccountController extends Controller
             ], 500);
         }
     }
+    /**
+     * دالة تسجيل الدخول للنظام (تطبيق متطلب FR1)
+     * تتحقق من الهوية وتوجه المستخدمين والموظفين حسب صلاحياتهم
+     */
+    public function login(Request $request)
+    {
+        
+        try {
+            // التحقق من صحة البيانات المرسلة من واجهة تسجيل الدخول
+            $request->validate([
+                'email' => 'required|string|email',
+                'password' => 'required|string',
+            ]);
+
+            
+            $inputEmail = $request->input('email');
+            $inputPassword = $request->input('password');
+
+            //  البحث عن الحساب الأساسي في قاعدة البيانات بواسطة البريد الإلكتروني
+            $account = Account::where('email', $inputEmail)->first();
+
+            // التحقق من وجود الحساب ومطابقة كلمة المرور المشفرة
+            if (!$account || !Hash::check($inputPassword, $account->password)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid email or password.'
+                ], 401);
+            }
+
+            //  جلب تفاصيل الملف الشخصي بناءً على الصلاحيات لتوجيهه للوحة التحكم المناسبة
+            $profileDetails = null;
+
+            if ($account->role === 'user') {
+                $profileDetails = User::where('account_id', $account->id)->first();
+                
+                // فحص أمني: منع المستخدم من الدخول إذا كان حسابه معطلاً أو محظوراً
+                if ($profileDetails && $profileDetails->status === 'blocked') {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Access Denied: Your account has been blocked due to exceeding 3 fake bookings.'
+                    ], 403);
+                }
+            } elseif ($account->role === 'employee') {
+                $profileDetails = Employee::where('account_id', $account->id)->first();
+            }
+
+            //  توليد رمز مصادقة (Token) إذا تم تفعيل Laravel Sanctum للـ API
+            $authToken = method_exists($account, 'createToken') 
+                ? $account->createToken('ApiAuthToken')->plainTextToken 
+                : 'stateless_session_active';
+
+            // إرجاع استجابة JSON تحتوي على بيانات الهوية والصلاحية لتسهيل عرض لوحة التحكم
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Logged in successfully.',
+                'token' => $authToken,
+                'accountData' => [
+                    'accountId' => $account->id,
+                    'name' => $account->name,
+                    'email' => $account->email,
+                    'role' => $account->role,
+                    'profile' => $profileDetails
+                ]
+            ], 200);
+
+        } catch (\Exception $exception) {
+            // تسجيل الخطأ الفني في السجل لضمان سهولة الصيانة
+            Log::error('Error in login method: ' . $exception->getMessage());
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'An error occurred during login: ' . $exception->getMessage()
+            ], 500);
+        }
+    }
 }
