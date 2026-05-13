@@ -160,6 +160,7 @@ class AccountController extends Controller
                     'accountId' => $account->id,
                     'name' => $account->name,
                     'email' => $account->email,
+                    'phone' => $account->phone,
                     'role' => $account->role,
                     'profile' => $profileDetails
                 ]

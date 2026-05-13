@@ -72,19 +72,22 @@
         <hr class="border-secondary border-opacity-50 mx-3">
         <nav class="nav flex-column">
             <a class="nav-link active" onclick="switchTab('overviewTab', this)">
-                🏠 نظرة عامة
+                 نظرة عامة
             </a>
             <a class="nav-link" onclick="switchTab('profileTab', this)">
-                ⚙️ البيانات الشخصية
+                 البيانات الشخصية
             </a>
             <a class="nav-link" onclick="switchTab('createUserTab', this)">
-                👤 إضافة مستخدم (سائق)
+                 إضافة مستخدم (سائق)
             </a>
             <a class="nav-link" onclick="switchTab('verifyVehicleTab', this)">
-                🚘 التحقق من السيارات
+                 التحقق من السيارات
             </a>
             <a class="nav-link" onclick="switchTab('rechargeWalletTab', this)">
-                💳 شحن المحافظ
+                 شحن المحافظ
+            </a>
+            <a class="nav-link" onclick="switchTab('transferRequestsTab', this)">
+                 طلبات التحويل البنكي
             </a>
         </nav>
     </aside>
@@ -238,6 +241,29 @@
 
                         <button type="submit" class="btn btn-warning w-100 fw-bold mt-2" id="rechargeWalletBtn">تنفيذ الشحن وإضافة الرصيد</button>
                     </form>
+                </div>
+            </div>
+        </section>
+        <section id="transferRequestsTab" class="content-section d-none">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>📄 طلبات الشحن بانتظار المراجعة</span>
+                    <button class="btn btn-sm btn-primary" onclick="loadPendingRequests()">تحديث القائمة</button>
+                </div>
+                <div class="card-body">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID المستخدم</th>
+                                <th>الاسم</th>
+                                <th>المبلغ (نقاط)</th>
+                                <th>الإيصال</th>
+                                <th>الإجراء</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pendingRequestsTable">
+                            </tbody>
+                    </table>
                 </div>
             </div>
         </section>
@@ -524,6 +550,57 @@
                 });
             }
         });
+        async function loadPendingRequests() {
+            try {
+                const response = await fetch('/api/recharges/pending');
+                const result = await response.json();
+                const tableBody = document.getElementById('pendingRequestsTable');
+                tableBody.innerHTML = '';
+
+                result.data.forEach(req => {
+                    tableBody.innerHTML += `
+                        <tr>
+                            <td>${req.user_id}</td>
+                            <td>${req.user.name}</td>
+                            <td>${req.amount}</td>
+                            <td><a href="/storage/${req.receipt_path}" target="_blank">عرض الإيصال</a></td>
+                            <td>
+                                <button class="btn btn-sm btn-success" onclick="verifyRequest(${req.id}, 'approve')">اعتماد</button>
+                                <button class="btn btn-sm btn-danger" onclick="rejectRequest(${req.id})">رفض</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        async function verifyRequest(requestId, action, reason = null) {
+            try {
+                const response = await fetch('/api/recharges/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ requestId, action, rejectionReason: reason })
+                });
+                
+                if (response.ok) {
+                    Swal.fire('تم!', 'تمت معالجة الطلب بنجاح', 'success');
+                    loadPendingRequests();
+                }
+            } catch (e) { Swal.fire('خطأ', 'تعذر تنفيذ العملية', 'error'); }
+        }
+
+        function rejectRequest(requestId) {
+            Swal.fire({
+                title: 'سبب الرفض',
+                input: 'text',
+                showCancelButton: true,
+                confirmButtonText: 'تأكيد الرفض',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    verifyRequest(requestId, 'reject', result.value);
+                }
+            });
+        }
     </script>
 </body>
 </html>
