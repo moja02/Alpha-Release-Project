@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Log;
 
 return new class extends Migration
 {
@@ -10,16 +11,41 @@ return new class extends Migration
      * Run the migrations.
      */
     public function up(): void
-    {
-        Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->rememberToken();
-            $table->timestamps();
-        });
+    {   
+        try {
+            Schema::create('accounts', function (Blueprint $table) {
+                $table->id(); // id
+                $table->string('name'); // name
+                $table->string('email')->unique(); // email
+                $table->string('phone'); // phone
+                $table->string('password');
+                
+                // تحديد نوع الحساب لتسهيل التوجيه في لوحات التحكم
+                $table->enum('role', ['user', 'employee', 'admin'])->default('user');
+                
+                $table->timestamps();
+            });
+        } catch (\Exception $e) {
+            Log::error('Error creating accounts table: ' . $e->getMessage());
+        }
+
+        try {
+            Schema::create('users', function (Blueprint $table) {
+                $table->id();
+                
+                // المفتاح الأجنبي يربط الكلاس الابن بالكلاس الأب Account
+                $table->foreignId('account_id')->constrained('accounts')->onDelete('cascade');
+                
+                // الخصائص الخاصة بالـ User
+                $table->string('plate_number'); // plateNumber
+                $table->enum('status', ['active', 'blocked'])->default('active'); // status
+                $table->integer('fake_booking_count')->default(0); // fakeBookingCount
+                
+                $table->timestamps();
+            });
+        } catch (\Exception $e) {
+            Log::error('Error creating users table: ' . $e->getMessage());
+        }
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
@@ -42,6 +68,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('accounts');
         Schema::dropIfExists('users');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
