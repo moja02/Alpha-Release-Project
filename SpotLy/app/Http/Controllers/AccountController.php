@@ -223,4 +223,59 @@ class AccountController extends Controller
             ], 500);
         }
     }
+    /**
+     * دالة تحديث البيانات الشخصية (FR1)
+     * تسمح للموظف بتعديل رقم الهاتف، كلمة المرور، والحساب المصرفي
+     */
+    public function updateProfile(Request $request)
+    {
+        try {
+            // التحقق من صحة المدخلات
+            $request->validate([
+                'accountId' => 'required|integer|exists:accounts,id',
+                'phone' => 'required|string|max:20',
+                'password' => 'nullable|string|min:6', // اختياري: فقط إذا أراد التغيير
+                'bankAccountNumber' => 'nullable|string|max:50',
+            ]);
+
+            $targetId = $request->input('accountId');
+            
+            DB::beginTransaction();
+
+            // 1. تحديث بيانات الحساب الأساسي (Account)
+            $account = Account::findOrFail($targetId);
+            $account->phone = $request->input('phone');
+            
+            // إذا قام المستخدم بكتابة كلمة مرور جديدة، يتم تشفيرها وحفظها
+            if ($request->filled('password')) {
+                $account->password = Hash::make($request->input('password'));
+            }
+            $account->save();
+
+            // 2. تحديث بيانات الموظف (Employee) إن وجدت
+            if ($account->role === 'employee') {
+                $employee = Employee::where('account_id', $targetId)->first();
+                if ($employee) {
+                    $employee->bank_account_number = $request->input('bankAccountNumber');
+                    $employee->save();
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Profile updated successfully.',
+                'updatedData' => [
+                    'phone' => $account->phone,
+                    'bankAccountNumber' => $account->role === 'employee' ? $employee->bank_account_number : null
+                ]
+            ], 200);
+
+        } catch (\Exception $exception) {
+            DB::rollBack();
+            Log::error('Error updating profile: ' . $exception->getMessage());
+            return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
+        }
+    }
 }

@@ -15,3 +15,5 @@ Route::post('/accounts/record-fake-booking', [AccountController::class, 'recordF
 
 // مسار تسجيل الدخول للتحقق من الهوية وجلب الصلاحيات
 Route::post('/accounts/login', [AccountController::class, 'login']);
+
+Route::post('/accounts/update-profile', [AccountController::class, 'updateProfile']);

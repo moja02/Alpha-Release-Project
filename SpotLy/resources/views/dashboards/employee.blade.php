@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SpotLy - لوحة تحكم الموظف</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { 
             background-color: #f4f6f9; 
@@ -73,6 +74,9 @@
             <a class="nav-link active" onclick="switchTab('overviewTab', this)">
                 🏠 نظرة عامة
             </a>
+            <a class="nav-link" onclick="switchTab('profileTab', this)">
+                ⚙️ البيانات الشخصية
+            </a>
             <a class="nav-link" onclick="switchTab('createUserTab', this)">
                 👤 إضافة مستخدم (سائق)
             </a>
@@ -117,6 +121,37 @@
                         <h6 class="text-muted">المحافظ الرقمية</h6>
                         <p class="fs-6 mb-0">تنفيذ أوامر الشحن المباشر للأرصدة</p>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="profileTab" class="content-section d-none">
+            <div class="card" style="max-width: 600px;">
+                <div class="card-header text-dark">
+                    ⚙️ إعدادات الحساب والبيانات الشخصية
+                </div>
+                <div class="card-body">
+                    <div id="profileAlert" class="alert d-none" role="alert"></div>
+                    <form id="profileForm">
+                        <div class="mb-3">
+                            <label class="form-label">الاسم الكامل (غير قابل للتعديل)</label>
+                            <input type="text" class="form-control bg-light" id="profileNameDisplay" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">رقم الهاتف</label>
+                            <input type="text" class="form-control" id="profilePhoneInput" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">رقم الحساب المصرفي</label>
+                            <input type="text" class="form-control" id="profileBankInput">
+                        </div>
+                        <hr>
+                        <div class="mb-3">
+                            <label class="form-label">كلمة مرور جديدة (اتركها فارغة إذا كنت لا تريد التغيير)</label>
+                            <input type="password" class="form-control" id="profilePasswordInput" placeholder="••••••••">
+                        </div>
+                        <button type="submit" class="btn btn-dark w-100" id="updateProfileBtn">حفظ التغييرات الجديدة</button>
+                    </form>
                 </div>
             </div>
         </section>
@@ -230,37 +265,85 @@
         });
 
         // التنقل بين الأقسام وإظهار القسم المطلوب فقط بناءً على اختيار القائمة
+        
         function switchTab(sectionId, clickedLink) {
+            
             try {
-                // إخفاء كافة الأقسام النشطة
+                // 1. إخفاء كافة الأقسام النشطة في واجهة المستخدم
                 const allSections = document.querySelectorAll('.content-section');
                 allSections.forEach(section => section.classList.add('d-none'));
 
-                // إظهار القسم المستهدف
+                // 2. إظهار القسم المستهدف (Section) بناءً على المعرف الممرر
                 const targetSection = document.getElementById(sectionId);
                 if (targetSection) {
                     targetSection.classList.remove('d-none');
                 }
 
-                // إزالة التفعيل من كافة الروابط في القائمة الجانبية
+                // 3. إزالة فئة التفعيل (active) من كافة روابط القائمة الجانبية
                 const allLinks = document.querySelectorAll('.sidebar .nav-link');
                 allLinks.forEach(link => link.classList.remove('active'));
 
-                // تفعيل الرابط المضغوط وتحديث العنوان العلوي
+                // 4. تفعيل الرابط الذي تم الضغط عليه وتحديث عنوان الصفحة العلوي
                 clickedLink.classList.add('active');
                 const titleDisplay = document.getElementById('pageTitleDisplay');
                 titleDisplay.innerText = clickedLink.innerText.trim();
 
+                // ---  فحص إذا كان القسم المختار هو قسم البيانات الشخصية ---
+                if (sectionId === 'profileTab') {
+                    //  استدعاء دالة تحميل البيانات الشخصية لتعبئة الحقول
+                    loadProfileData();
+                }
+
             } catch (exception) {
+                // تسجيل الخطأ في حال حدوث خلل أثناء التبديل بين الأقسام
                 console.error("خطأ أثناء التبديل بين الأقسام", exception);
+            }
+        }
+
+        /**
+         * دالة مساعدة لجلب بيانات الموظف من الـ LocalStorage وتوزيعها على الحقول
+         */
+        function loadProfileData() {
+            try {
+                
+                const userDataString = localStorage.getItem('userData');
+                
+                if (userDataString) {
+                    const userData = JSON.parse(userDataString);
+                    
+                    // تعبئة حقول نموذج الملف الشخصي بالبيانات الحالية
+                    document.getElementById('profileNameDisplay').value = userData.name;
+                    document.getElementById('profilePhoneInput').value = userData.phone;
+                    
+                    // التحقق من وجود بيانات الملف الشخصي (Profile) وتعبئة الحساب المصرفي
+                    if (userData.profile && userData.profile.bank_account_number) {
+                        document.getElementById('profileBankInput').value = userData.profile.bank_account_number;
+                    }
+                }
+            } catch (exception) {
+                console.error("خطأ أثناء تحميل بيانات الملف الشخصي", exception);
             }
         }
 
         //  دالة تسجيل الخروج ومسح الجلسة
         function logoutEmployee() {
+
             try {
-                localStorage.clear();
-                window.location.href = '/login';
+                Swal.fire({
+                    title: 'هل تريد تسجيل الخروج؟',
+                    text: "سيتم إنهاء جلستك الحالية في النظام",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'نعم، تسجيل الخروج',
+                    cancelButtonText: 'إلغاء'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        localStorage.clear();
+                        window.location.href = '/login';
+                    }
+                });
             } catch (exception) {
                 console.error("خطأ أثناء تسجيل الخروج", exception);
             }
@@ -356,6 +439,83 @@
                 alertContainer.classList.remove('d-none');
             } catch (exception) {
                 console.error(exception);
+            }
+        });
+
+        // تعليق مضمن: دالة مساعدة لتعبئة حقل النقاط تلقائياً عند الضغط على الخيارات الجاهزة
+        function setRechargeAmount(selectedAmount) {
+            // الالتزام بقاعدة try/catch الإلزامية لجميع الدوال
+            try {
+                // استخدام متغيرات CamelCase
+                const pointsInputElement = document.getElementById('pointsAmountInput');
+                pointsInputElement.value = selectedAmount;
+
+                // إزالة التنسيق النشط من كافة الأزرار السريعة
+                const allFastButtons = document.querySelectorAll('.fast-amount-btn');
+                allFastButtons.forEach(button => {
+                    button.classList.remove('btn-secondary', 'text-white');
+                    button.classList.add('btn-outline-secondary');
+                });
+
+                // تمييز الزر المضغوط حالياً لإعطاء تغذية بصرية للموظف
+                const clickedButton = event.target;
+                clickedButton.classList.remove('btn-outline-secondary');
+                clickedButton.classList.add('btn-secondary', 'text-white');
+
+            } catch (exception) {
+                console.error("خطأ في تحديث قيمة الشحن السريع", exception);
+            }
+        }
+        document.getElementById('profileForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const alertDiv = document.getElementById('profileAlert');
+            const updateBtn = document.getElementById('updateProfileBtn');
+            const userData = JSON.parse(localStorage.getItem('userData'));
+
+            updateBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/accounts/update-profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        accountId: userData.accountId,
+                        phone: document.getElementById('profilePhoneInput').value,
+                        password: document.getElementById('profilePasswordInput').value,
+                        bankAccountNumber: document.getElementById('profileBankInput').value
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // إخفاء الـ alert العادي واستخدام SweetAlert بدلاً منه
+                    alertDiv.classList.add('d-none');
+                    
+                    // تحديث البيانات في LocalStorage
+                    userData.phone = result.updatedData.phone;
+                    if(userData.profile) userData.profile.bank_account_number = result.updatedData.bankAccountNumber;
+                    localStorage.setItem('userData', JSON.stringify(userData));
+
+                    // إشعار نجاح منبثق
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'تم التحديث!',
+                        text: 'تم حفظ بياناتك الشخصية بنجاح.',
+                        confirmButtonColor: '#2c3e50'
+                    });
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                alertDiv.classList.add('d-none');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'فشل التحديث',
+                    text: error.message,
+                    confirmButtonColor: '#d33'
+                });
             }
         });
     </script>
