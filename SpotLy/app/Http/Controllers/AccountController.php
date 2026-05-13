@@ -91,4 +91,61 @@ class AccountController extends Controller
             ], 500);
         }
     }
+    /**
+     * دالة تسجيل حجز زائف وتطبيق الحظر التلقائي
+     * يتم استدعاؤها برمجياً عند انتهاء مهلة الحجز المبدئي دون حضور السائق
+     */
+    public function recordFakeBooking(Request $request)
+    {
+        try {
+            // التحقق من صحة المدخلات والتأكد من وجود الحساب
+            $request->validate([
+                'accountId' => 'required|integer|exists:users,account_id',
+            ]);
+
+            $targetAccountId = $request->input('accountId');
+            
+            // جلب كائن السائق المرتبط بالحساب الأساسي
+            $driverUser = User::where('account_id', $targetAccountId)->first();
+
+            // زيادة عدد الحجوزات الزائفة لتتبع الإلغاءات التلقائية بمقدار 1
+            $currentFakeBookingCount = $driverUser->fake_booking_count + 1;
+            $driverUser->fake_booking_count = $currentFakeBookingCount;
+
+            $responseMessage = 'Fake booking recorded successfully.';
+
+            //  التحقق مما إذا كان العداد قد وصل إلى 3 لتطبيق الحظر التلقائي
+            if ($currentFakeBookingCount >= 3) {
+                // تحديث حالة الحساب ليصبح محظوراً لمنع التلاعب
+                $driverUser->status = 'blocked';
+                $responseMessage = 'Account has been automatically blocked due to exceeding 3 fake bookings.';
+
+                // تسجيل إشعار فوري للمستخدم بقرار الحظر
+                Notification::create([
+                    'user_id' => $targetAccountId,
+                    'message' => 'Your account has been blocked because you exceeded the limit of 3 unfulfilled initial bookings.',
+                    'type' => 'Account_Blocked',
+                ]);
+            }
+
+            // حفظ التحديثات في قاعدة البيانات
+            $driverUser->save();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => $responseMessage,
+                'currentFakeBookingCount' => $currentFakeBookingCount,
+                'accountStatus' => $driverUser->status
+            ], 200);
+
+        } catch (\Exception $exception) {
+            // تسجيل الخطأ الداخلي لضمان سهولة الصيانة وتتبع الأخطاء
+            Log::error('Error in recordFakeBooking: ' . $exception->getMessage());
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to record fake booking: ' . $exception->getMessage()
+            ], 500);
+        }
+    }
 }
