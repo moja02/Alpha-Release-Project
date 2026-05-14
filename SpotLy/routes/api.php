@@ -29,8 +29,20 @@ Route::post('/accounts/update-profile', [ProfileController::class, 'updateProfil
 
 // مسارات المحفظة والشحن (Wallet & Finances)
 Route::get('/recharges/pending', [RechargeController::class, 'getPendingRecharges']);
-Route::post('/recharges/verify', [RechargeController::class, 'verifyRechargeRequest']);
+Route::post('/recharges/verify', [RechargeController::class, 'verifyRequest']);
+// إضافة مسار الشحن الفوري الخاص بالموظف
+Route::post('/recharges/direct', [RechargeController::class, 'directRecharge']);
+
+// مسارات المحفظة وطلبات التحويل الخاصة بالسائق
+Route::get('/wallet/balance', [RechargeController::class, 'getBalance']);
+Route::post('/recharges/request', [RechargeController::class, 'submitRequest']);
+Route::get('/recharges/user-requests', [RechargeController::class, 'getUserRechargeRequests']);
 
 // مسارات استعادة كلمة المرور عبر الـ OTP
 Route::post('/auth/forgot-password/send-otp', [AuthController::class, 'sendOtp']);
 Route::post('/auth/forgot-password/reset', [AuthController::class, 'verifyOtpAndResetPassword']);
+
+// مسارات المواقف والحجوزات الخاصة بالسائق (FR3)
+Route::get('/parkings/spots', [BookingController::class, 'getSpots']);
+Route::get('/bookings/active', [BookingController::class, 'getActiveBooking']);
+Route::post('/bookings/create', [BookingController::class, 'createBooking']);

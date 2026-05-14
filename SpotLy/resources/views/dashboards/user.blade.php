@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpotLy - بوابة السائق التفاعلية</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { 
+            background-color: #f4f6f9; 
+            font-family: system-ui, -apple-system, sans-serif; 
+            overflow-x: hidden;
+        }
+        .sidebar {
+            height: 100vh;
+            background-color: #1e293b;
+            color: white;
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 260px;
+            padding-top: 20px;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        .sidebar .nav-link {
+            color: #94a3b8;
+            padding: 12px 20px;
+            margin: 4px 10px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            color: white;
+            background-color: #334155;
+            font-weight: bold;
+        }
+        .main-content {
+            margin-right: 260px;
+            padding: 25px;
+        }
+        .dashboard-header {
+            background-color: #ffffff;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+            margin-bottom: 25px;
+        }
+        .spot-card:hover {
+            transform: translateY(-5px);
+        }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="text-center mb-4">
+            <h4 class="text-white fw-bold">🚗 SpotLy</h4>
+            <span class="badge bg-primary text-white px-3 py-1 rounded-pill">بوابة السائق</span>
+        </div>
+        <hr class="border-secondary border-opacity-50 mx-3">
+        <nav class="nav flex-column">
+            <a class="nav-link active" onclick="switchTab('overviewTab', this)">🏠 نظرة عامة</a>
+            <a class="nav-link" onclick="switchTab('bookingTab', this)">🚗 حجز موقف تفاعلي</a>
+            <a class="nav-link" onclick="switchTab('walletTab', this)">💳 المحفظة وطلب الشحن</a>
+            <a class="nav-link" onclick="switchTab('profileTab', this)">⚙️ الإعدادات الشخصية</a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <header class="dashboard-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-secondary fw-bold" id="pageTitleDisplay">🏠 نظرة عامة</h5>
+            <div>
+                <span id="userNameDisplay" class="me-3 fw-bold text-dark"></span>
+                <button onclick="logoutUser()" class="btn btn-sm btn-outline-danger px-3 rounded-pill">تسجيل الخروج</button>
+            </div>
+        </header>
+
+        <section id="overviewTab" class="content-section">
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card p-3 text-center border-0 shadow-sm rounded-4 border-start border-success border-4">
+                        <h6 class="text-muted mb-1">حالة الحساب</h6>
+                        <p class="fs-5 fw-bold mb-0 text-success" id="statusDisplay">نشط</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card p-3 text-center border-0 shadow-sm rounded-4 border-start border-warning border-4 position-relative">
+                        <h6 class="text-muted mb-1">رصيد المحفظة</h6>
+                        <p class="fs-5 fw-bold mb-0 text-warning">
+                            <span id="balanceDisplay">0</span> نقطة
+                            <button onclick="fetchWalletBalance()" class="btn btn-sm btn-link text-warning p-0 ms-2" title="تحديث الرصيد">
+                                🔄
+                            </button>
+                        </p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card p-3 text-center border-0 shadow-sm rounded-4 border-start border-danger border-4">
+                        <h6 class="text-muted mb-1">مخالفات عدم الحضور</h6>
+                        <p class="fs-5 fw-bold mb-0 text-danger"><span id="fakeBookingDisplay">0</span> / 3</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="quickActiveTicketAlert" class="alert alert-primary border-0 shadow-sm rounded-4 d-none mb-4">
+                <div class="d-flex align-items-center">
+                    <span class="fs-3 me-3">🎟️</span>
+                    <div>
+                        <h6 class="fw-bold mb-1">لديك حجز نشط حالياً!</h6>
+                        <p class="mb-0 small">يمكنك عرض تفاصيل التذكرة من تبويب "حجز موقف".</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-white py-3 fw-bold">🏷️ معلومات المركبة المسجلة</div>
+                <div class="card-body">
+                    <p class="mb-0 fs-5 text-dark">رقم اللوحة التشغيلية: <span id="plateDisplay" class="text-primary fw-bold ms-2">--</span></p>
+                </div>
+            </div>
+        </section>
+
+        <section id="bookingTab" class="content-section d-none">
+            
+            <div id="activeTicketSection" class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 d-none">
+                <div class="card-header bg-gradient bg-success text-white p-4 border-0 d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="fw-bold mb-1">🎟️ تذكرتك الإلكترونية النشطة</h5>
+                        <p class="fs-6 mb-0 text-white text-opacity-75">تم حجز الموقف بنجاح وبانتظار وصولك الميداني</p>
+                    </div>
+                    <span class="fs-1">⚡</span>
+                </div>
+                <div class="card-body p-4 bg-white">
+                    <div class="row align-items-center text-center text-md-start g-3">
+                        <div class="col-md-4 border-end-md">
+                            <span class="text-muted d-block mb-1">رقم الموقف المحجوز</span>
+                            <h2 class="fw-bold text-dark display-6 mb-0" id="ticketSpotNumber">--</h2>
+                        </div>
+                        <div class="col-md-4 border-end-md">
+                            <span class="text-muted d-block mb-1">طريقة الدفع المعتمدة</span>
+                            <h4 class="fw-bold text-primary mb-0" id="ticketPaymentMethod">--</h4>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <span class="text-muted d-block mb-2">حالة التذكرة</span>
+                            <span class="badge bg-success rounded-pill px-4 py-2 fs-6 pb-1 animate-pulse">نشط وقيد الانتظار</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="bookingSpotsGridSection" class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-gradient bg-primary text-white p-4 border-0 d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="fw-bold mb-1">📍 خريطة المواقف المباشرة</h5>
+                        <p class="fs-6 mb-0 text-white text-opacity-75">اضغط على الموقف المتاح باللون الأخضر لإتمام عملية الحجز</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <span class="badge bg-success px-3 py-2 rounded-pill">متاح</span>
+                        <span class="badge bg-danger px-3 py-2 rounded-pill">محجوز</span>
+                    </div>
+                </div>
+
+                <div class="card-body p-4 bg-light">
+                    <div class="row g-3" id="spotsGridContainer">
+                        <div class="text-center py-5 text-muted">جاري تحميل خريطة المواقف المباشرة...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="walletTab" class="content-section d-none">
+            <div class="row g-4">
+                <div class="col-lg-5">
+                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
+                        <div class="card-header bg-gradient bg-warning text-dark p-4 border-0 d-flex align-items-center justify-content-between">
+                            <div>
+                                <h5 class="fw-bold mb-1">📄 طلب شحن الرصيد</h5>
+                            </div>
+                            <span class="fs-2">💳</span>
+                        </div>
+                        <div class="card-body p-4">
+                            <form id="rechargeRequestForm">
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-secondary">الساحة المستهدفة للشحن</label>
+                                    <select class="form-select form-select-lg shadow-none" id="targetParkingSelect" required>
+                                        <option value="" selected disabled>اختر الساحة التي حولت إليها...</option>
+                                        </select>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-secondary">عدد النقاط المطلوب</label>
+                                    <input type="number" class="form-control form-control-lg shadow-none" id="rechargeAmountInput" min="5" placeholder="الحد الأدنى 5 نقاط" required>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-secondary">صورة إيصال التحويل</label>
+                                    <input type="file" class="form-control form-control-lg shadow-none" id="receiptFileInput" accept="image/*" required>
+                                </div>
+                                <button type="submit" class="btn btn-warning btn-lg w-100 fw-bold shadow-sm rounded-3 py-3" id="submitRechargeBtn">
+                                    إرسال الطلب للمراجعة 🚀
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-7">
+                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
+                        <div class="card-header bg-gradient bg-info text-white p-4 border-0 d-flex align-items-center justify-content-between">
+                            <h5 class="fw-bold mb-0">📜 سجل طلبات الشحن السابقة</h5>
+                            <button onclick="loadUserRechargeHistory()" class="btn btn-sm btn-light rounded-pill px-3">تحديث السجل</button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0 align-middle text-center">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>النقاط</th>
+                                            <th>تاريخ الطلب</th>
+                                            <th>الحالة</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="rechargeHistoryTableBody">
+                                        <tr>
+                                            <td colspan="3" class="text-muted py-5">جاري تحميل السجل...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="profileTab" class="content-section d-none">
+            <div class="row justify-content-center">
+                <div class="col-lg-8 col-xl-7">
+                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                        <div class="card-header bg-gradient bg-primary text-white p-4 border-0 d-flex align-items-center justify-content-between">
+                            <div>
+                                <h5 class="fw-bold mb-1">⚙️ تحديث البيانات الشخصية</h5>
+                                <p class="fs-6 mb-0 text-white text-opacity-75">إدارة بيانات الاتصال وتأمين حسابك</p>
+                            </div>
+                            <span class="fs-1">🔒</span>
+                        </div>
+                        <div class="card-body p-4">
+                            <form id="profileForm">
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-secondary">الاسم الكامل</label>
+                                    <input type="text" class="form-control form-control-lg bg-light text-muted" id="profileNameDisplay" readonly>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-secondary">رقم الهاتف</label>
+                                    <input type="text" class="form-control form-control-lg shadow-none" id="profilePhoneInput" required>
+                                </div>
+                                <hr class="my-4 border-secondary border-opacity-25">
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-secondary">كلمة مرور جديدة (اختياري)</label>
+                                    <input type="password" class="form-control form-control-lg shadow-none" id="profilePasswordInput" placeholder="•••••••• (اتركها فارغة إذا لم ترغب بالتغيير)">
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm rounded-3 py-3" id="updateProfileBtn">
+                                    حفظ التعديلات الشخصية 💾
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let currentUserData = null;
+
+        // ---  تهيئة الصفحة وقراءة بيانات الجلسة ---
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            try {
+                const userDataString = localStorage.getItem('userData');
+                if (userDataString) {
+                    currentUserData = JSON.parse(userDataString);
+                    initializeDriverDashboard();
+                } else {
+                    window.location.href = '/login';
+                }
+            } catch (exception) {
+                console.error("خطأ في تهيئة لوحة السائق", exception);
+            }
+        });
+
+        // ---  توزيع بيانات السائق على عناصر الواجهة ---
+        function initializeDriverDashboard() {
+            try {
+                document.getElementById('userNameDisplay').innerText = 'السائق: ' + currentUserData.name;
+                
+                if (currentUserData.profile) {
+                    document.getElementById('fakeBookingDisplay').innerText = currentUserData.profile.fake_booking_count || 0;
+                    document.getElementById('plateDisplay').innerText = currentUserData.profile.plate_number || '--';
+                    
+                    const statusVal = currentUserData.profile.status;
+                    const statusElem = document.getElementById('statusDisplay');
+                    statusElem.innerText = statusVal === 'active' ? 'نشط' : 'محظور';
+                    statusElem.className = statusVal === 'active' ? 'fs-5 fw-bold mb-0 text-success' : 'fs-5 fw-bold mb-0 text-danger';
+                }
+
+                //  جلب الرصيد وفحص الحجوزات فور الدخول للنظام
+                fetchWalletBalance();
+                checkActiveBookingForOverview();
+            } catch (exception) {
+                console.error(exception);
+            }
+        }
+
+        // ---  جلب رصيد المحفظة الرقمية ---
+        async function fetchWalletBalance() {
+            try {
+                // التأكد من وجود بيانات المستخدم وصلاحية المعرف
+                if (!currentUserData || !currentUserData.accountId) return;
+
+                //  طلب الرصيد من مسار API المحفظة لضمان جلب البيانات من جدول wallets
+                const apiResponse = await fetch('/api/wallet/balance?userId=' + currentUserData.accountId);
+                const resultData = await apiResponse.json();
+
+                if (apiResponse.ok && resultData.status === 'success') {
+                    const balanceElement = document.getElementById('balanceDisplay');
+                    
+                    // تأثير بصري بسيط عند تحديث الرقم
+                    balanceElement.style.opacity = '0.5';
+                    
+                    setTimeout(() => {
+                        try {
+                            balanceElement.innerText = resultData.balance;
+                            balanceElement.style.opacity = '1';
+                        } catch (innerException) {
+                            console.error(innerException);
+                        }
+                    }, 300);
+                }
+            } catch (exception) {
+                console.error("خطأ أثناء تحديث رصيد المحفظة", exception);
+            }
+        }
+        // دالة جلب السجل
+        async function loadUserRechargeHistory() {
+            try {
+                const response = await fetch('/api/recharges/user-requests?userId=' + currentUserData.accountId);
+                const resultData = await response.json();
+                const tableBodyElement = document.getElementById('rechargeHistoryTableBody');
+
+                if (tableBodyElement && response.ok && resultData.status === 'success') {
+                    tableBodyElement.innerHTML = '';
+
+                    if (resultData.data.length > 0) {
+                        resultData.data.forEach(requestItem => {
+                            try {
+                                let statusBadgeClass = 'bg-warning text-dark';
+                                let statusLabel = 'قيد المراجعة';
+
+                                if (requestItem.status === 'Approved') {
+                                    statusBadgeClass = 'bg-success text-white';
+                                    statusLabel = 'تم الاعتماد';
+                                } else if (requestItem.status === 'Rejected') {
+                                    statusBadgeClass = 'bg-danger text-white';
+                                    statusLabel = 'مرفوض';
+                                }
+
+                                const requestDateValue = new Date(requestItem.created_at).toLocaleDateString('ar-LY', {
+                                    year: 'numeric', month: 'short', day: 'numeric'
+                                });
+
+                                tableBodyElement.innerHTML += `
+                                    <tr>
+                                        <td class="fw-bold text-dark">${requestItem.requested_points}</td>
+                                        <td class="text-muted">${requestDateValue}</td>
+                                        <td><span class="badge ${statusBadgeClass} rounded-pill px-3 py-1">${statusLabel}</span></td>
+                                    </tr>
+                                `;
+                            } catch (innerException) {
+                                console.error(innerException);
+                            }
+                        });
+                    } else {
+                        tableBodyElement.innerHTML = '<tr><td colspan="3" class="text-muted py-5">لا توجد طلبات شحن سابقة في سجلك.</td></tr>';
+                    }
+                }
+            } catch (exception) {
+                console.error(exception);
+            }
+        }
+        // دالة جلب كافة المواقف وتعبئة قائمة الشحن المنسدلة ديناميكياً
+        async function loadParkingOptionsForRecharge() {
+            try {
+                // استدعاء واجهة البرمجيات لجلب الساحات المربوطة بالموظفين
+                const response = await fetch('/api/parkings/spots');
+                const resultData = await response.json();
+                const selectElement = document.getElementById('targetParkingSelect');
+                
+                if (selectElement && response.ok && resultData.status === 'success') {
+                    // تفريغ القائمة وتجهيزها للاختيار
+                    selectElement.innerHTML = '<option value="" selected disabled>اختر الساحة التي حولت لرقم حسابها...</option>';
+                    
+                    //  تكرار البيانات الواردة من الباك إند وتوليد خيارات القائمة
+                    resultData.data.forEach(parkingItem => {
+                        try {
+                            const optionElement = document.createElement('option');
+                            optionElement.value = parkingItem.id;
+                            // عرض اسم الساحة وموقعها لتسهيل التعرف عليها من قبل السائق
+                            optionElement.textContent = `${parkingItem.name} (${parkingItem.location_park})`;
+                            selectElement.appendChild(optionElement);
+                        } catch (innerException) {
+                            console.error(innerException);
+                        }
+                    });
+                }
+            } catch (exception) {
+                console.error("خطأ في تحميل قائمة الساحات للشحن", exception);
+            }
+        }
+        // --- دالة فحص التذكرة النشطة (لإظهار التنبيه في الصفحة الرئيسية) ---
+        async function checkActiveBookingForOverview() {
+            try {
+                const response = await fetch('/api/bookings/active?userId=' + currentUserData.accountId);
+                const result = await response.json();
+                const alertElement = document.getElementById('quickActiveTicketAlert');
+
+                if (response.ok && result.hasActiveBooking) {
+                    alertElement.classList.remove('d-none');
+                } else {
+                    alertElement.classList.add('d-none');
+                }
+            } catch (exception) {
+                console.error(exception);
+            }
+        }
+        // ---  التبديل الديناميكي بين التبويبات ---
+        function switchTab(sectionIdValue, clickedLinkElement) {
+            try {
+                const allSections = document.querySelectorAll('.content-section');
+                allSections.forEach(sectionItem => {
+                    try {
+                        sectionItem.classList.add('d-none');
+                    } catch (innerException) {
+                        console.error(innerException);
+                    }
+                });
+
+                const targetSection = document.getElementById(sectionIdValue);
+                if (targetSection) {
+                    targetSection.classList.remove('d-none');
+                }
+
+                const allNavLinks = document.querySelectorAll('.sidebar .nav-link');
+                allNavLinks.forEach(linkItem => {
+                    try {
+                        linkItem.classList.remove('active');
+                    } catch (innerException) {
+                        console.error(innerException);
+                    }
+                });
+
+                clickedLinkElement.classList.add('active');
+                document.getElementById('pageTitleDisplay').innerText = clickedLinkElement.innerText.trim();
+
+                //  تنفيذ تحديثات البيانات بناءً على القسم النشط
+                if (sectionIdValue === 'overviewTab') {
+                    fetchWalletBalance(); // تحديث الرصيد فور العودة للرئيسية
+                    checkActiveBookingForOverview(); // فحص الحجوزات
+                } else if (sectionIdValue === 'profileTab') {
+                    loadProfileData();
+                } else if (sectionIdValue === 'bookingTab') {
+                    checkActiveTicketAndLoadGrid();
+                } else if (sectionIdValue === 'walletTab') {
+                    loadUserRechargeHistory();
+                    loadParkingOptionsForRecharge();
+                }
+
+            } catch (exception) {
+                console.error("خطأ في التبديل وتحديث البيانات", exception);
+            }
+        }
+
+        // معالجة رفع إيصال التحويل البنكي للشحن مع تضمين معرف الساحة
+        document.getElementById('rechargeRequestForm').addEventListener('submit', async function(event) {
+            try {
+                event.preventDefault();
+                
+                // تعليق مضمن: قراءة معرف الساحة، المبلغ، والملف من الواجهة
+                const parkingIdValue = document.getElementById('targetParkingSelect').value;
+                const amountInputValue = document.getElementById('rechargeAmountInput').value;
+                const fileInputValue = document.getElementById('receiptFileInput').files[0];
+                const submitButtonElement = document.getElementById('submitRechargeBtn');
+
+                // تحقق إضافي لمنع الإرسال إذا نسي السائق اختيار الساحة
+                if (!parkingIdValue) {
+                    Swal.fire('تنبيه هام', 'يرجى اختيار الساحة المستهدفة من القائمة قبل الإرسال.', 'warning');
+                    return;
+                }
+
+                submitButtonElement.disabled = true;
+
+                try {
+                    // تعليق مضمن: بناء حزمة البيانات (FormData) لتشمل parkingId الإلزامي
+                    const formDataPayload = new FormData();
+                    formDataPayload.append('userId', currentUserData.accountId);
+                    formDataPayload.append('parkingId', parkingIdValue); 
+                    formDataPayload.append('amount', amountInputValue);
+                    formDataPayload.append('receipt', fileInputValue);
+
+                    Swal.fire({
+                        title: 'جاري رفع الإيصال...',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            try {
+                                Swal.showLoading();
+                            } catch (innerException) {
+                                console.error(innerException);
+                            }
+                        }
+                    });
+
+                    // إرسال الطلب إلى الخادم
+                    const response = await fetch('/api/recharges/request', {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json' },
+                        body: formDataPayload
+                    });
+
+                    const resultData = await response.json();
+
+                    if (response.ok) {
+                        Swal.fire('تم الإرسال بنجاح', 'تم توجيه طلبك للموظف المسؤول عن الساحة.', 'success');
+                        
+                        // تصفير النموذج وتحديث جدول السجل فوراً
+                        document.getElementById('rechargeRequestForm').reset();
+                        loadUserRechargeHistory();
+                    } else {
+                        throw new Error(resultData.message || 'فشل رفع الإيصال.');
+                    }
+                } catch (exception) {
+                    Swal.fire('خطأ', exception.message, 'error');
+                } finally {
+                    submitButtonElement.disabled = false;
+                }
+            } catch (exception) {
+                console.error(exception);
+            }
+        });
+
+        /*
+        |--------------------------------------------------------------------------
+        | النواة التشغيلية: دوال إدارة الحجز والمواقف التفاعلية (FR3)
+        |--------------------------------------------------------------------------
+        */
+
+        // ---  فحص التذكرة النشطة وتحميل شبكة المواقف ---
+        async function checkActiveTicketAndLoadGrid() {
+            try {
+                //  التحقق من وجود حجز مؤكد
+                const response = await fetch('/api/bookings/active?userId=' + currentUserData.accountId);
+                const resultData = await response.json();
+
+                const activeTicketCard = document.getElementById('activeTicketSection');
+                const gridMapCard = document.getElementById('bookingSpotsGridSection');
+
+                if (response.ok && resultData.status === 'success' && resultData.hasActiveBooking) {
+                    const bookingRecord = resultData.bookingData;
+                    
+                    // عرض اسم الساحة بدلاً من رقم الموقف الفردي
+                    document.getElementById('ticketSpotNumber').innerText = bookingRecord.parking_name;
+                    // بما أن طريقة الدفع غير مخزنة في الداتا بيز، سنعرض نوع الحجز
+                    document.getElementById('ticketPaymentMethod').innerText = bookingRecord.type === 'initial' ? '⏱️ حجز مبدئي (مؤقت)' : '✅ حجز فعلي';
+
+                    if (activeTicketCard) activeTicketCard.classList.remove('d-none');
+                    if (gridMapCard) gridMapCard.classList.add('d-none');
+                } else {
+                    if (activeTicketCard) activeTicketCard.classList.add('d-none');
+                    if (gridMapCard) gridMapCard.classList.remove('d-none');
+                    
+                    loadLiveSpotsGrid();
+                }
+            } catch (exception) {
+                console.error("خطأ في فحص التذكرة النشطة", exception);
+            }
+        }
+
+        // ---  رسم خريطة ساحات الوقوف التفاعلية بناءً على السعة ---
+        async function loadLiveSpotsGrid() {
+            try {
+                const response = await fetch('/api/parkings/spots');
+                const resultData = await response.json();
+                const gridContainerElement = document.getElementById('spotsGridContainer');
+
+                if (gridContainerElement && response.ok && resultData.status === 'success') {
+                    gridContainerElement.innerHTML = '';
+
+                    resultData.data.forEach(parkingArea => {
+                        try {
+                            const isAreaAvailable = parkingArea.available_capacity > 0;
+                            const areaBadgeClass = isAreaAvailable ? 'bg-success' : 'bg-danger';
+                            const areaStatusLabel = isAreaAvailable ? 'متاح للحجز' : 'ممتلئ بالكامل';
+                            const areaOpacityStyle = isAreaAvailable ? 'opacity: 1;' : 'opacity: 0.6; cursor: not-allowed;';
+                            
+                            // التأكد من وجود رقم حساب أو عرض رسالة تنبيه
+                            const bankAccountDisplay = parkingArea.employee_bank_account || 'غير متوفر حالياً';
+
+                            gridContainerElement.innerHTML += `
+                                <div class="col-12 col-md-6 col-lg-4">
+                                    <div class="card spot-card text-center p-3 border-0 shadow-sm rounded-4 h-100" 
+                                         style="${areaOpacityStyle} transition: all 0.3s; ${isAreaAvailable ? 'cursor: pointer;' : ''}"
+                                         onclick="initiateSpotReservation(${parkingArea.id}, '${parkingArea.name}', ${parkingArea.available_capacity})">
+                                        <div class="card-body p-3">
+                                            <span class="display-6 d-block mb-3">${isAreaAvailable ? '🅿️' : '⛔'}</span>
+                                            <h4 class="fw-bold text-dark mb-1">${parkingArea.name}</h4>
+                                            <p class="text-muted small mb-3"><i class="me-1">📍</i> ${parkingArea.location_park}</p>
+                                            
+                                            <div class="alert alert-light border-0 py-2 mb-3 rounded-3" style="background-color: #f8fafc;">
+                                                <small class="text-muted d-block mb-1">الحساب المصرفي للتحويل:</small>
+                                                <span class="fw-bold text-primary" style="letter-spacing: 1px;">${bankAccountDisplay}</span>
+                                            </div>
+
+                                            <div class="d-flex justify-content-center align-items-center gap-2">
+                                                <span class="badge ${areaBadgeClass} rounded-pill px-3 py-2">${areaStatusLabel}</span>
+                                                <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">
+                                                    السعة: ${parkingArea.available_capacity} / ${parkingArea.total_capacity}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        } catch (innerException) {
+                            console.error(innerException);
+                        }
+                    });
+                }
+            } catch (exception) {
+                console.error("خطأ في تحميل خريطة المواقف", exception);
+            }
+        }
+
+        // ---  بدء إجراءات الحجز التفاعلي  ---
+        function initiateSpotReservation(spotIdValue, spotNumberValue, spotStatusValue) {
+            try {
+                // منع التفاعل إذا كان الموقف محجوزاً
+                if (spotStatusValue !== 'available') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'الموقف غير متاح',
+                        text: 'عذراً، هذا الموقف محجوز مسبقاً أو غير متاح في الوقت الحالي.',
+                        confirmButtonColor: '#2c3e50'
+                    });
+                    return;
+                }
+
+                //  إظهار نافذة منبثقة لاختيار طريقة الدفع وتأكيد رغبة الحجز
+                Swal.fire({
+                    title: `تأكيد حجز الموقف (${spotNumberValue})`,
+                    text: 'تكلفة حجز الموقف هي 10 نقاط. يرجى تحديد طريقة الدفع المفضلة:',
+                    icon: 'question',
+                    input: 'radio',
+                    inputOptions: {
+                        'wallet': '💳 خصم فوري من المحفظة الرقمية',
+                        'cash': '💵 الدفع نقداً للموظف عند الوصول'
+                    },
+                    inputValidator: (selectedValue) => {
+                        try {
+                            if (!selectedValue) {
+                                return 'يرجى تحديد طريقة الدفع لإتمام إصدار التذكرة!';
+                            }
+                        } catch (innerException) {
+                            console.error(innerException);
+                        }
+                    },
+                    showCancelButton: true,
+                    confirmButtonText: 'تأكيد وإصدار التذكرة 🚀',
+                    cancelButtonText: 'تراجع',
+                    confirmButtonColor: '#2c3e50',
+                    cancelButtonColor: '#d33'
+                }).then((modalResult) => {
+                    try {
+                        if (modalResult.isConfirmed) {
+                            executeBookingRequest(spotIdValue, modalResult.value);
+                        }
+                    } catch (innerException) {
+                        console.error(innerException);
+                    }
+                });
+
+            } catch (exception) {
+                console.error("خطأ في نافذة الحجز", exception);
+            }
+        }
+
+        // ---  إرسال طلب الاعتماد النهائي وإصدار التذكرة ---
+        async function executeBookingRequest(targetSpotIdValue, selectedMethodValue) {
+            try {
+                Swal.fire({
+                    title: 'جاري إصدار التذكرة...',
+                    text: 'يرجى الانتظار لحين تأكيد الموقف وتحديث الخريطة',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        try {
+                            Swal.showLoading();
+                        } catch (innerException) {
+                            console.error(innerException);
+                        }
+                    }
+                });
+
+                //  إرسال الطلب الفعلي للباك إند لخصم الرصيد وتحديث الجداول
+                const response = await fetch('/api/bookings/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUserData.accountId,
+                        parkingId: targetSpotIdValue,
+                        paymentMethod: selectedMethodValue
+                    })
+                });
+
+                const responseData = await response.json();
+
+                if (response.ok && responseData.status === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'تم الحجز بنجاح! 🎟️',
+                        text: 'تم إصدار تذكرتك الإلكترونية. يرجى التوجه للموقف وتأكيد حضورك.',
+                        confirmButtonColor: '#2c3e50'
+                    }).then(() => {
+                        try {
+                            // تحديث الرصيد وإعادة تحميل التبويب لعرض التذكرة النشطة فوراً
+                            fetchWalletBalance();
+                            checkActiveTicketAndLoadGrid();
+                        } catch (innerException) {
+                            console.error(innerException);
+                        }
+                    });
+                } else {
+                    throw new Error(responseData.message || 'تعذر إتمام عملية الحجز.');
+                }
+            } catch (exception) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'فشل الحجز',
+                    text: exception.message,
+                    confirmButtonColor: '#d33'
+                });
+            }
+        }
+
+        // دالة لجلب الساحات المتاحة وتعبئة القائمة المنسدلة
+        async function loadParkingOptions() {
+            try {
+                const response = await fetch('/api/parkings/spots');
+                const resultData = await response.json();
+                const selectElement = document.getElementById('targetParkingSelect');
+                
+                if (selectElement && response.ok) {
+                    selectElement.innerHTML = '<option value="" selected disabled>اختر الساحة التي حولت إليها...</option>';
+                    resultData.data.forEach(parking => {
+                        selectElement.innerHTML += `<option value="${parking.id}">${parking.name}</option>`;
+                    });
+                }
+            } catch (exception) { console.error(exception); }
+        }
+
+        // تحديث مستمع حدث الإرسال ليشمل parkingId
+        document.getElementById('rechargeRequestForm').addEventListener('submit', async function(event) {
+            try {
+                event.preventDefault();
+                const parkingIdValue = document.getElementById('targetParkingSelect').value;
+                const amountValue = document.getElementById('rechargeAmountInput').value;
+                const fileValue = document.getElementById('receiptFileInput').files[0];
+
+                const formData = new FormData();
+                formData.append('userId', currentUserData.accountId);
+                formData.append('parkingId', parkingIdValue);
+                formData.append('amount', amountValue);
+                formData.append('receipt', fileValue);
+
+                const response = await fetch('/api/recharges/request', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    Swal.fire('تم الإرسال', 'تم توجيه طلبك للموظف المسؤول عن الساحة.', 'success');
+                    loadUserRechargeHistory();
+                }
+            } catch (exception) { console.error(exception); }
+        });
+
+        /*
+        |--------------------------------------------------------------------------
+        | دوال الإعدادات والمحفظة وتسجيل الخروج
+        |--------------------------------------------------------------------------
+        */
+
+        function loadProfileData() {
+            try {
+                document.getElementById('profileNameDisplay').value = currentUserData.name;
+                document.getElementById('profilePhoneInput').value = currentUserData.phone || '';
+            } catch (exception) {
+                console.error("خطأ في تحميل بيانات الملف الشخصي", exception);
+            }
+        }
+
+        function logoutUser() {
+            try {
+                Swal.fire({
+                    title: 'تسجيل الخروج',
+                    text: "هل ترغب في مغادرة بوابة السائق؟",
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'نعم، تسجيل الخروج',
+                    cancelButtonText: 'إلغاء'
+                }).then((result) => {
+                    try {
+                        if (result.isConfirmed) {
+                            localStorage.clear();
+                            window.location.href = '/login';
+                        }
+                    } catch (innerException) {
+                        console.error(innerException);
+                    }
+                });
+            } catch (exception) {
+                console.error("خطأ أثناء تسجيل الخروج", exception);
+            }
+        }
+
+        // معالجة رفع إيصال التحويل البنكي للشحن
+        document.getElementById('rechargeRequestForm').addEventListener('submit', async function(event) {
+            try {
+                event.preventDefault();
+                
+                const amountInputValue = document.getElementById('rechargeAmountInput').value;
+                const fileInputValue = document.getElementById('receiptFileInput').files[0];
+                const submitButtonElement = document.getElementById('submitRechargeBtn');
+
+                submitButtonElement.disabled = true;
+
+                try {
+                    const formDataPayload = new FormData();
+                    formDataPayload.append('userId', currentUserData.accountId);
+                    formDataPayload.append('amount', amountInputValue);
+                    formDataPayload.append('receipt', fileInputValue);
+
+                    Swal.fire({
+                        title: 'جاري رفع الإيصال...',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            try {
+                                Swal.showLoading();
+                            } catch (innerException) {
+                                console.error(innerException);
+                            }
+                        }
+                    });
+
+                    const response = await fetch('/api/recharges/request', {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json' },
+                        body: formDataPayload
+                    });
+
+                    const resultData = await response.json();
+
+                    if (response.ok) {
+                        Swal.fire('تم الإرسال بنجاح', 'تم رفع إيصال التحويل للمراجعة والاعتماد من قبل الموظف الميداني.', 'success');
+                        document.getElementById('rechargeRequestForm').reset();
+                    } else {
+                        throw new Error(resultData.message || 'فشل رفع الإيصال.');
+                    }
+                } catch (exception) {
+                    Swal.fire('خطأ', exception.message, 'error');
+                } finally {
+                    submitButtonElement.disabled = false;
+                }
+            } catch (exception) {
+                console.error(exception);
+            }
+        });
+
+        // معالجة تحديث البيانات الشخصية للسائق
+        document.getElementById('profileForm').addEventListener('submit', async function(event) {
+            try {
+                event.preventDefault();
+                
+                const submitButtonElement = document.getElementById('updateProfileBtn');
+                submitButtonElement.disabled = true;
+
+                try {
+                    const response = await fetch('/api/accounts/update-profile', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            accountId: currentUserData.accountId,
+                            phone: document.getElementById('profilePhoneInput').value,
+                            password: document.getElementById('profilePasswordInput').value
+                        })
+                    });
+
+                    const resultData = await response.json();
+
+                    if (response.ok) {
+                        currentUserData.phone = resultData.updatedData.phone;
+                        localStorage.setItem('userData', JSON.stringify(currentUserData));
+                        Swal.fire('تم التحديث!', 'تم حفظ بيانات الاتصال وتأمين الحساب بنجاح.', 'success');
+                    } else {
+                        throw new Error(resultData.message);
+                    }
+                } catch (exception) {
+                    Swal.fire('خطأ في التحديث', exception.message, 'error');
+                } finally {
+                    submitButtonElement.disabled = false;
+                }
+            } catch (exception) {
+                console.error(exception);
+            }
+        });
+    </script>
+</body>
+</html>

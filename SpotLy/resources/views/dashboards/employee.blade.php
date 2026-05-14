@@ -12,7 +12,6 @@
             font-family: system-ui, -apple-system, sans-serif; 
             overflow-x: hidden;
         }
-        /* تنسيق القائمة الجانبية اليمنى */
         .sidebar {
             height: 100vh;
             background-color: #2c3e50;
@@ -37,7 +36,6 @@
             background-color: #34495e;
             font-weight: bold;
         }
-        /* تنسيق منطقة المحتوى الرئيسي لتترك مساحة للقائمة الجانبية */
         .main-content {
             margin-right: 260px;
             padding: 25px;
@@ -690,7 +688,6 @@
             submitRechargeBtn.disabled = true;
 
             try {
-                // إظهار مؤشر تحميل تفاعلي من SweetAlert يمنع النقر العشوائي أثناء الاتصال
                 Swal.fire({
                     title: 'جاري معالجة الشحن...',
                     html: `إضافة <b>${pointsAmountValue}</b> نقاط للحساب رقم <b>${targetUserIdValue}</b>`,
@@ -704,23 +701,22 @@
                     }
                 });
 
-                // إرسال الطلب الفعلي إلى مسار الاعتماد المالي لإضافة الرصيد
-                const response = await fetch('/api/recharges/verify', {
+                //  توجيه الطلب إلى مسار الشحن الفوري المخصص
+                const response = await fetch('/api/recharges/direct', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
                     body: JSON.stringify({
-                        requestId: targetUserIdValue, // تمرير المعرف المستهدف كطلب
-                        action: 'approve',
+                        userId: targetUserIdValue, // إرسال معرف السائق بشكل صحيح
                         amount: pointsAmountValue
                     })
                 });
 
                 const resultData = await response.json();
 
-                if (response.ok) {
+                if (response.ok && resultData.status === 'success') {
                     Swal.fire({
                         icon: 'success',
                         title: 'تم الشحن بنجاح! 💳',
@@ -728,11 +724,10 @@
                         confirmButtonColor: '#2c3e50'
                     });
 
-                    // إعادة تهيئة النموذج ومسح التحديدات البصرية بالكامل
                     document.getElementById('rechargeWalletForm').reset();
                     clearRadioSelection();
                 } else {
-                    throw new Error(resultData.message || 'فشل تنفيذ عملية الشحن.');
+                    throw new Error(resultData.message || 'فشل تنفيذ عملية الشحن. تأكد من صحة معرف السائق.');
                 }
 
             } catch (exception) {
@@ -758,42 +753,33 @@
 
     // جلب طلبات الشحن المعلقة المرفوعة من السائقين وعرضها ديناميكياً في الجدول
     async function loadPendingRequests() {
-        try {
-            const response = await fetch('/api/recharges/pending');
-            const result = await response.json();
-            const tableBody = document.getElementById('pendingRequestsTable');
-            
-            if (tableBody) {
-                tableBody.innerHTML = '';
+            try {
+                // جلب معرف الموظف من بيانات الملف الشخصي في localStorage
+                const userData = JSON.parse(localStorage.getItem('userData'));
+                const employeeIdValue = userData.profile.id; 
+
+                const response = await fetch('/api/recharges/pending?employeeId=' + employeeIdValue);
+                const result = await response.json();
+                const tableBody = document.getElementById('pendingRequestsTable');
                 
-                if (result.data && result.data.length > 0) {
+                if (tableBody && response.ok) {
+                    tableBody.innerHTML = '';
                     result.data.forEach(req => {
-                        try {
-                            // توليد صفوف الجدول وتضمين روابط مراجعة إيصال التحويل
-                            tableBody.innerHTML += `
-                                <tr>
-                                    <td>${req.user_id}</td>
-                                    <td>${req.user ? req.user.name : 'سائق غير معروف'}</td>
-                                    <td><span class="badge bg-warning text-dark fs-6">${req.amount}</span></td>
-                                    <td><a href="/storage/${req.receipt_path}" class="btn btn-sm btn-outline-info" target="_blank">📄 عرض الإيصال</a></td>
-                                    <td>
-                                        <button class="btn btn-sm btn-success me-1" onclick="verifyRequest(${req.id}, 'approve')">✅ اعتماد</button>
-                                        <button class="btn btn-sm btn-danger" onclick="rejectRequest(${req.id})">❌ رفض</button>
-                                    </td>
-                                </tr>
-                            `;
-                        } catch (innerException) {
-                            console.error(innerException);
-                        }
+                        tableBody.innerHTML += `
+                            <tr>
+                                <td>${req.user_id}</td>
+                                <td>${req.user_name}</td>
+                                <td><span class="badge bg-warning text-dark">${req.requested_points}</span></td>
+                                <td><a href="/storage/${req.receipt_file}" target="_blank">📄 الإيصال</a></td>
+                                <td>
+                                    <button class="btn btn-sm btn-success" onclick="verifyRequest(${req.id}, 'approve')">اعتماد</button>
+                                </td>
+                            </tr>
+                        `;
                     });
-                } else {
-                    tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">لا توجد طلبات شحن معلقة حالياً.</td></tr>';
                 }
-            }
-        } catch (exception) { 
-            console.error("خطأ في جلب طلبات التحويل", exception); 
+            } catch (exception) { console.error(exception); }
         }
-    }
 
     // إرسال قرار الموظف (اعتماد/رفض) لطلب التحويل وتحديث رصيد السائق في الباك إند
     async function verifyRequest(requestId, action, reason = null) {

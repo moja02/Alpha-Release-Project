@@ -27,7 +27,7 @@ class ProfileController extends Controller
             
             DB::beginTransaction();
 
-            // تعليق مضمن: تحديث بيانات جدول الحسابات الأساسي
+            //  تحديث بيانات جدول الحسابات الأساسي
             $account = Account::findOrFail($targetId);
             $account->phone = $request->input('phone');
             
