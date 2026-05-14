@@ -766,32 +766,6 @@
             } catch (exception) { console.error(exception); }
         }
 
-        // تحديث مستمع حدث الإرسال ليشمل parkingId
-        document.getElementById('rechargeRequestForm').addEventListener('submit', async function(event) {
-            try {
-                event.preventDefault();
-                const parkingIdValue = document.getElementById('targetParkingSelect').value;
-                const amountValue = document.getElementById('rechargeAmountInput').value;
-                const fileValue = document.getElementById('receiptFileInput').files[0];
-
-                const formData = new FormData();
-                formData.append('userId', currentUserData.accountId);
-                formData.append('parkingId', parkingIdValue);
-                formData.append('amount', amountValue);
-                formData.append('receipt', fileValue);
-
-                const response = await fetch('/api/recharges/request', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                if (response.ok) {
-                    Swal.fire('تم الإرسال', 'تم توجيه طلبك للموظف المسؤول عن الساحة.', 'success');
-                    loadUserRechargeHistory();
-                }
-            } catch (exception) { console.error(exception); }
-        });
-
         /*
         |--------------------------------------------------------------------------
         | دوال الإعدادات والمحفظة وتسجيل الخروج
@@ -833,58 +807,6 @@
             }
         }
 
-        // معالجة رفع إيصال التحويل البنكي للشحن
-        document.getElementById('rechargeRequestForm').addEventListener('submit', async function(event) {
-            try {
-                event.preventDefault();
-                
-                const amountInputValue = document.getElementById('rechargeAmountInput').value;
-                const fileInputValue = document.getElementById('receiptFileInput').files[0];
-                const submitButtonElement = document.getElementById('submitRechargeBtn');
-
-                submitButtonElement.disabled = true;
-
-                try {
-                    const formDataPayload = new FormData();
-                    formDataPayload.append('userId', currentUserData.accountId);
-                    formDataPayload.append('amount', amountInputValue);
-                    formDataPayload.append('receipt', fileInputValue);
-
-                    Swal.fire({
-                        title: 'جاري رفع الإيصال...',
-                        allowOutsideClick: false,
-                        didOpen: () => {
-                            try {
-                                Swal.showLoading();
-                            } catch (innerException) {
-                                console.error(innerException);
-                            }
-                        }
-                    });
-
-                    const response = await fetch('/api/recharges/request', {
-                        method: 'POST',
-                        headers: { 'Accept': 'application/json' },
-                        body: formDataPayload
-                    });
-
-                    const resultData = await response.json();
-
-                    if (response.ok) {
-                        Swal.fire('تم الإرسال بنجاح', 'تم رفع إيصال التحويل للمراجعة والاعتماد من قبل الموظف الميداني.', 'success');
-                        document.getElementById('rechargeRequestForm').reset();
-                    } else {
-                        throw new Error(resultData.message || 'فشل رفع الإيصال.');
-                    }
-                } catch (exception) {
-                    Swal.fire('خطأ', exception.message, 'error');
-                } finally {
-                    submitButtonElement.disabled = false;
-                }
-            } catch (exception) {
-                console.error(exception);
-            }
-        });
 
         // معالجة تحديث البيانات الشخصية للسائق
         document.getElementById('profileForm').addEventListener('submit', async function(event) {
