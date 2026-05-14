@@ -11,4 +11,10 @@ class Employee extends Model
         'account_id',
         'bank_account_number',
     ];
+
+    //  علاقة الموظف بساحة الوقوف التي يديرها
+    public function parking()
+    {
+        return $this->hasOne(Parking::class, 'employee_id');
+    }
 }

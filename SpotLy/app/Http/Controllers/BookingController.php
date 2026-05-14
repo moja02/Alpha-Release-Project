@@ -72,8 +72,12 @@ class BookingController extends Controller
     public function getSpots()
     {
         try {
-            //  جلب ساحات المواقف لعرضها في الخريطة التفاعلية
-            $parkingAreas = DB::table('parkings')->orderBy('id')->get();
+            // استخدام Left Join لضمان ظهور الساحة حتى لو لم يتم تعيين موظف لها بعد
+            $parkingAreas = DB::table('parkings')
+                ->leftJoin('employees', 'parkings.employee_id', '=', 'employees.id')
+                ->select('parkings.*', 'employees.bank_account_number as employee_bank_account')
+                ->orderBy('parkings.id')
+                ->get();
             
             return response()->json([
                 'status' => 'success',
@@ -84,8 +88,7 @@ class BookingController extends Controller
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }
-
-      
+    
      // جلب بيانات التذكرة النشطة للسائق (الحجز المبدئي أو الفعلي)
      
     public function getActiveBooking(Request $request)
