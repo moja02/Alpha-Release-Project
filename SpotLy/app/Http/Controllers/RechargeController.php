@@ -36,6 +36,65 @@ class RechargeController extends Controller
     }
 
     /**
+     * تنفيذ الشحن الفوري المباشر من قبل الموظف
+     */
+    public function directRecharge(Request $request)
+    {
+        try {
+            // التحقق من وجود الحساب المستهدف
+            $request->validate([
+                'userId' => 'required|exists:accounts,id',
+                'amount' => 'required|integer|min:1'
+            ]);
+
+            $targetUserId = $request->input('userId');
+            $rechargeAmount = $request->input('amount');
+
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            // تعليق مضمن: البحث عن محفظة السائق، وإنشاؤها إن لم تكن موجودة
+            $userWallet = \Illuminate\Support\Facades\DB::table('wallets')->where('user_id', $targetUserId)->first();
+
+            if (!$userWallet) {
+                \Illuminate\Support\Facades\DB::table('wallets')->insert([
+                    'user_id' => $targetUserId,
+                    'balance' => $rechargeAmount,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            } else {
+                \Illuminate\Support\Facades\DB::table('wallets')
+                    ->where('user_id', $targetUserId)
+                    ->increment('balance', $rechargeAmount);
+            }
+
+            // إرسال إشعار فوري للسائق بالشحن المباشر
+            \Illuminate\Support\Facades\DB::table('notifications')->insert([
+                'user_id' => $targetUserId,
+                'message' => "تم شحن محفظتك بـ {$rechargeAmount} نقطة مباشرة من قبل الإدارة.",
+                'type' => 'Direct_Recharge',
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'تم شحن المحفظة بنجاح.'
+            ], 200);
+
+        } catch (\Exception $exception) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('Error in direct recharge: ' . $exception->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => $exception->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * معالجة واعتماد/رفض طلب الشحن
      */
     public function verifyRechargeRequest(Request $request)

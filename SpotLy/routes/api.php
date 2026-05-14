@@ -30,6 +30,8 @@ Route::post('/accounts/update-profile', [ProfileController::class, 'updateProfil
 // مسارات المحفظة والشحن (Wallet & Finances)
 Route::get('/recharges/pending', [RechargeController::class, 'getPendingRecharges']);
 Route::post('/recharges/verify', [RechargeController::class, 'verifyRechargeRequest']);
+// إضافة مسار الشحن الفوري الخاص بالموظف
+Route::post('/recharges/direct', [RechargeController::class, 'directRecharge']);
 
 // مسارات المحفظة وطلبات التحويل الخاصة بالسائق
 Route::get('/wallet/balance', [RechargeController::class, 'getBalance']);

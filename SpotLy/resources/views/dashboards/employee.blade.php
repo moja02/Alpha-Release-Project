@@ -690,7 +690,6 @@
             submitRechargeBtn.disabled = true;
 
             try {
-                // إظهار مؤشر تحميل تفاعلي من SweetAlert يمنع النقر العشوائي أثناء الاتصال
                 Swal.fire({
                     title: 'جاري معالجة الشحن...',
                     html: `إضافة <b>${pointsAmountValue}</b> نقاط للحساب رقم <b>${targetUserIdValue}</b>`,
@@ -704,23 +703,22 @@
                     }
                 });
 
-                // إرسال الطلب الفعلي إلى مسار الاعتماد المالي لإضافة الرصيد
-                const response = await fetch('/api/recharges/verify', {
+                // تعليق مضمن: توجيه الطلب إلى مسار الشحن الفوري المخصص
+                const response = await fetch('/api/recharges/direct', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
                     body: JSON.stringify({
-                        requestId: targetUserIdValue, // تمرير المعرف المستهدف كطلب
-                        action: 'approve',
+                        userId: targetUserIdValue, // إرسال معرف السائق بشكل صحيح
                         amount: pointsAmountValue
                     })
                 });
 
                 const resultData = await response.json();
 
-                if (response.ok) {
+                if (response.ok && resultData.status === 'success') {
                     Swal.fire({
                         icon: 'success',
                         title: 'تم الشحن بنجاح! 💳',
@@ -728,11 +726,10 @@
                         confirmButtonColor: '#2c3e50'
                     });
 
-                    // إعادة تهيئة النموذج ومسح التحديدات البصرية بالكامل
                     document.getElementById('rechargeWalletForm').reset();
                     clearRadioSelection();
                 } else {
-                    throw new Error(resultData.message || 'فشل تنفيذ عملية الشحن.');
+                    throw new Error(resultData.message || 'فشل تنفيذ عملية الشحن. تأكد من صحة معرف السائق.');
                 }
 
             } catch (exception) {
