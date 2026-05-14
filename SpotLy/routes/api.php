@@ -30,3 +30,7 @@ Route::post('/accounts/update-profile', [ProfileController::class, 'updateProfil
 // مسارات المحفظة والشحن (Wallet & Finances)
 Route::get('/recharges/pending', [RechargeController::class, 'getPendingRecharges']);
 Route::post('/recharges/verify', [RechargeController::class, 'verifyRechargeRequest']);
+
+// مسارات استعادة كلمة المرور عبر الـ OTP
+Route::post('/auth/forgot-password/send-otp', [AuthController::class, 'sendOtp']);
+Route::post('/auth/forgot-password/reset', [AuthController::class, 'verifyOtpAndResetPassword']);

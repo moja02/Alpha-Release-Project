@@ -129,66 +129,123 @@
         </section>
 
         <section id="profileTab" class="content-section d-none">
-            <div class="card" style="max-width: 600px;">
-                <div class="card-header text-dark">
-                    ⚙️ إعدادات الحساب والبيانات الشخصية
-                </div>
-                <div class="card-body">
-                    <div id="profileAlert" class="alert d-none" role="alert"></div>
-                    <form id="profileForm">
-                        <div class="mb-3">
-                            <label class="form-label">الاسم الكامل (غير قابل للتعديل)</label>
-                            <input type="text" class="form-control bg-light" id="profileNameDisplay" readonly>
+            <div class="row justify-content-center">
+                <div class="col-lg-8 col-xl-7">
+                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                        <div class="card-header bg-gradient bg-primary text-white p-4 border-0 d-flex align-items-center justify-content-between">
+                            <div>
+                                <h5 class="fw-bold mb-1">⚙️ إعدادات الحساب والبيانات الشخصية</h5>
+                                <p class="fs-6 mb-0 text-white text-opacity-75">إدارة بيانات الاتصال والحساب المصرفي الخاص بك</p>
+                            </div>
+                            <span class="fs-1">🔒</span>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">رقم الهاتف</label>
-                            <input type="text" class="form-control" id="profilePhoneInput" required>
+
+                        <div class="card-body p-4">
+                            <div id="profileAlert" class="alert d-none" role="alert"></div>
+
+                            <form id="profileForm">
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-secondary">الاسم الكامل (غير قابل للتعديل)</label>
+                                    <div class="input-group input-group-lg shadow-none">
+                                        <span class="input-group-text bg-light border-end-0">👤</span>
+                                        <input type="text" class="form-control border-start-0 ps-0 bg-light text-muted" id="profileNameDisplay" readonly>
+                                    </div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-secondary">رقم الهاتف للتواصل</label>
+                                    <div class="input-group input-group-lg shadow-none">
+                                        <span class="input-group-text bg-light border-end-0">📞</span>
+                                        <input type="text" class="form-control border-start-0 ps-0" id="profilePhoneInput" required placeholder="أدخل رقم هاتفك المحدث">
+                                    </div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-secondary">رقم الحساب المصرفي (IBAN / رقم الحساب)</label>
+                                    <div class="input-group input-group-lg shadow-none">
+                                        <span class="input-group-text bg-light border-end-0">🏦</span>
+                                        <input type="text" class="form-control border-start-0 ps-0" id="profileBankInput" placeholder="أدخل بيانات حسابك المصرفي">
+                                    </div>
+                                </div>
+
+                                <hr class="my-4 border-secondary border-opacity-25">
+
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-secondary">كلمة مرور جديدة</label>
+                                    <div class="input-group input-group-lg shadow-none">
+                                        <span class="input-group-text bg-light border-end-0">🔑</span>
+                                        <input type="password" class="form-control border-start-0 ps-0" id="profilePasswordInput" placeholder="•••••••• (اتركها فارغة إذا لم ترغب بالتغيير)">
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm rounded-3 py-3" id="updateProfileBtn">
+                                    حفظ التعديلات وتحديث الجلسة 💾
+                                </button>
+                            </form>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">رقم الحساب المصرفي</label>
-                            <input type="text" class="form-control" id="profileBankInput">
-                        </div>
-                        <hr>
-                        <div class="mb-3">
-                            <label class="form-label">كلمة مرور جديدة (اتركها فارغة إذا كنت لا تريد التغيير)</label>
-                            <input type="password" class="form-control" id="profilePasswordInput" placeholder="••••••••">
-                        </div>
-                        <button type="submit" class="btn btn-dark w-100" id="updateProfileBtn">حفظ التغييرات الجديدة</button>
-                    </form>
+                    </div>
                 </div>
             </div>
         </section>
 
         <section id="createUserTab" class="content-section d-none">
-            <div class="card" style="max-width: 700px;">
-                <div class="card-header text-primary">
-                    👤 تسجيل مستخدم جديد (سائق)
-                </div>
-                <div class="card-body">
-                    <div id="createUserAlert" class="alert d-none" role="alert"></div>
-                    <form id="createUserForm">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">الاسم الكامل</label>
-                                <input type="text" class="form-control" id="userNameInput" required placeholder="أدخل اسم السائق">
+            <div class="row justify-content-center">
+                <div class="col-lg-10 col-xl-8">
+                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                        <div class="card-header bg-gradient bg-primary text-white p-4 border-0 d-flex align-items-center justify-content-between">
+                            <div>
+                                <h5 class="fw-bold mb-1">👤 تسجيل سائق جديد في النظام</h5>
+                                <p class="fs-6 mb-0 text-white text-opacity-75">إنشاء حساب تشغيلي وتخصيص بيانات المركبة</p>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">البريد الإلكتروني</label>
-                                <input type="email" class="form-control" id="userEmailInput" required placeholder="name@example.com">
-                            </div>
+                            <span class="fs-1">🚗</span>
                         </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">رقم الهاتف</label>
-                                <input type="text" class="form-control" id="userPhoneInput" required placeholder="مثال: 0912345678">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">رقم لوحة السيارة</label>
-                                <input type="text" class="form-control" id="userPlateInput" placeholder="مثال: 5-12345" required>
-                            </div>
+
+                        <div class="card-body p-4">
+                            <div id="createUserAlert" class="alert d-none" role="alert"></div>
+
+                            <form id="createUserForm">
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold text-secondary">الاسم الكامل</label>
+                                        <div class="input-group input-group-lg shadow-none">
+                                            <span class="input-group-text bg-light border-end-0">📝</span>
+                                            <input type="text" class="form-control border-start-0 ps-0" id="userNameInput" required placeholder="أدخل اسم السائق">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold text-secondary">البريد الإلكتروني</label>
+                                        <div class="input-group input-group-lg shadow-none">
+                                            <span class="input-group-text bg-light border-end-0">📧</span>
+                                            <input type="email" class="form-control border-start-0 ps-0" id="userEmailInput" required placeholder="name@example.com">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold text-secondary">رقم الهاتف</label>
+                                        <div class="input-group input-group-lg shadow-none">
+                                            <span class="input-group-text bg-light border-end-0">📱</span>
+                                            <input type="text" class="form-control border-start-0 ps-0" id="userPhoneInput" required placeholder="مثال: 0912345678">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold text-secondary">رقم لوحة السيارة</label>
+                                        <div class="input-group input-group-lg shadow-none">
+                                            <span class="input-group-text bg-light border-end-0">🏷️</span>
+                                            <input type="text" class="form-control border-start-0 ps-0" id="userPlateInput" required placeholder="مثال: 5-12345">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm rounded-3 py-3" id="createUserBtn">
+                                    تسجيل السائق وتوليد بيانات الدخول 🚀
+                                </button>
+                            </form>
                         </div>
-                        <button type="submit" class="btn btn-primary w-100 mt-2" id="createUserBtn">تسجيل السائق وتوليد رمز الدخول</button>
-                    </form>
+                    </div>
                 </div>
             </div>
         </section>
@@ -212,38 +269,90 @@
         </section>
 
         <section id="rechargeWalletTab" class="content-section d-none">
-            <div class="card" style="max-width: 550px;">
-                <div class="card-header text-warning bg-transparent border-bottom-0 pt-3">
-                    💳 شحن محافظ المستخدمين المباشر
-                </div>
-                <div class="card-body">
-                    <div id="rechargeWalletAlert" class="alert d-none" role="alert"></div>
-                    <form id="rechargeWalletForm">
-                        <div class="mb-3">
-                            <label class="form-label text-secondary fw-bold">معرف الحساب الأساسي (Account ID)</label>
-                            <input type="number" class="form-control" id="targetUserIdInput" required placeholder="أدخل ID المستخدم (مثال: 1)">
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label text-secondary fw-bold d-block">النقاط المقترحة الجاهزة</label>
-                            <div class="d-flex flex-wrap gap-2 mb-2">
-                                <button type="button" class="btn btn-outline-secondary btn-sm fast-amount-btn" onclick="setRechargeAmount(5)">5 نقاط</button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm fast-amount-btn" onclick="setRechargeAmount(10)">10 نقاط</button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm fast-amount-btn" onclick="setRechargeAmount(15)">15 نقطة</button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm fast-amount-btn" onclick="setRechargeAmount(20)">20 نقطة</button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm fast-amount-btn" onclick="setRechargeAmount(25)">25 نقطة</button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm fast-amount-btn" onclick="setRechargeAmount(50)">50 نقطة</button>
+            <div class="row justify-content-center">
+                <div class="col-lg-8 col-xl-7">
+                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                        <div class="card-header bg-gradient bg-warning text-dark p-4 border-0 d-flex align-items-center justify-content-between">
+                            <div>
+                                <h5 class="fw-bold mb-1">💳 الشحن الفوري للمحفظة الرقمية</h5>
+                                <p class="fs-6 mb-0 text-dark text-opacity-75">إضافة رصيد نقاط مباشرة إلى حساب السائق</p>
                             </div>
-                            
-                            <label class="form-label text-secondary fw-bold mt-2">أو إدخال النقاط مخصصة (الحد الأدنى 3)</label>
-                            <input type="number" class="form-control" id="pointsAmountInput" min="3" placeholder="أدخل عدد النقاط يدوياً" required>
+                            <span class="fs-1">⚡</span>
                         </div>
 
-                        <button type="submit" class="btn btn-warning w-100 fw-bold mt-2" id="rechargeWalletBtn">تنفيذ الشحن وإضافة الرصيد</button>
-                    </form>
+                        <div class="card-body p-4">
+                            <form id="rechargeWalletForm">
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-secondary mb-2">👤 المستفيد (معرف الحساب - Account ID)</label>
+                                    <div class="input-group input-group-lg shadow-none">
+                                        <span class="input-group-text bg-light border-end-0">ID</span>
+                                        <input type="number" class="form-control border-start-0 ps-0" id="targetUserIdInput" required placeholder="أدخل رقم ID الخاص بالسائق (مثال: 1)">
+                                    </div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-secondary mb-3 d-block">✨ باقات الشحن السريعة المقترحة</label>
+                                    <div class="row g-2">
+                                        <div class="col-4 col-sm-4">
+                                            <input type="radio" class="btn-check fast-amount-radio" name="fastPoints" id="points5" autocomplete="off" onchange="updateCustomAmount(5)">
+                                            <label class="btn btn-outline-warning w-100 p-3 rounded-3 text-dark fw-bold border-2" for="points5">
+                                                <span class="fs-4 d-block">5</span>
+                                                <small class="text-muted">نقاط</small>
+                                            </label>
+                                        </div>
+                                        <div class="col-4 col-sm-4">
+                                            <input type="radio" class="btn-check fast-amount-radio" name="fastPoints" id="points10" autocomplete="off" onchange="updateCustomAmount(10)">
+                                            <label class="btn btn-outline-warning w-100 p-3 rounded-3 text-dark fw-bold border-2" for="points10">
+                                                <span class="fs-4 d-block">10</span>
+                                                <small class="text-muted">نقاط</small>
+                                            </label>
+                                        </div>
+                                        <div class="col-4 col-sm-4">
+                                            <input type="radio" class="btn-check fast-amount-radio" name="fastPoints" id="points15" autocomplete="off" onchange="updateCustomAmount(15)">
+                                            <label class="btn btn-outline-warning w-100 p-3 rounded-3 text-dark fw-bold border-2" for="points15">
+                                                <span class="fs-4 d-block">15</span>
+                                                <small class="text-muted">نقطة</small>
+                                            </label>
+                                        </div>
+                                        <div class="col-4 col-sm-4">
+                                            <input type="radio" class="btn-check fast-amount-radio" name="fastPoints" id="points20" autocomplete="off" onchange="updateCustomAmount(20)">
+                                            <label class="btn btn-outline-warning w-100 p-3 rounded-3 text-dark fw-bold border-2" for="points20">
+                                                <span class="fs-4 d-block">20</span>
+                                                <small class="text-muted">نقطة</small>
+                                            </label>
+                                        </div>
+                                        <div class="col-4 col-sm-4">
+                                            <input type="radio" class="btn-check fast-amount-radio" name="fastPoints" id="points25" autocomplete="off" onchange="updateCustomAmount(25)">
+                                            <label class="btn btn-outline-warning w-100 p-3 rounded-3 text-dark fw-bold border-2" for="points25">
+                                                <span class="fs-4 d-block">25</span>
+                                                <small class="text-muted">نقطة</small>
+                                            </label>
+                                        </div>
+                                        <div class="col-4 col-sm-4">
+                                            <input type="radio" class="btn-check fast-amount-radio" name="fastPoints" id="points50" autocomplete="off" onchange="updateCustomAmount(50)">
+                                            <label class="btn btn-outline-warning w-100 p-3 rounded-3 text-dark fw-bold border-2" for="points50">
+                                                <span class="fs-4 d-block">50</span>
+                                                <small class="text-muted">نقطة</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-secondary mb-2" for="pointsAmountInput">✏️ أو إدخال رصيد مخصص (الحد الأدنى 3 نقاط)</label>
+                                    <input type="number" class="form-control form-control-lg bg-light" id="pointsAmountInput" min="3" placeholder="أدخل عدد النقاط يدوياً" required oninput="clearRadioSelection()">
+                                </div>
+
+                                <button type="submit" class="btn btn-warning btn-lg w-100 fw-bold shadow-sm rounded-3 py-3" id="rechargeWalletBtn">
+                                    تنفيذ الشحن وإضافة الرصيد للمحفظة 🚀
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
+
         <section id="transferRequestsTab" class="content-section d-none">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -270,122 +379,140 @@
     </main>
 
     <script>
-        //  قراءة بيانات الجلسة عند تحميل الصفحة لعرض اسم الموظف
-        document.addEventListener('DOMContentLoaded', function() {
-            // تطبيق قاعدة try/catch الإلزامية لجميع الدوال
-            try {
-                const userDataString = localStorage.getItem('userData');
-                if (userDataString) {
-                    const userDataObject = JSON.parse(userDataString);
-                    document.getElementById('employeeNameDisplay').innerText = 'مرحباً، ' + userDataObject.name;
-                } else {
-                    window.location.href = '/login';
-                }
-            } catch (exception) {
-                console.error("خطأ في تهيئة الصفحة", exception);
-            }
-        });
-
-        // التنقل بين الأقسام وإظهار القسم المطلوب فقط بناءً على اختيار القائمة
+    // ---  قراءة بيانات الجلسة عند تحميل الصفحة لعرض اسم الموظف ---
+    document.addEventListener('DOMContentLoaded', function() {
         
-        function switchTab(sectionId, clickedLink) {
-            
-            try {
-                // 1. إخفاء كافة الأقسام النشطة في واجهة المستخدم
-                const allSections = document.querySelectorAll('.content-section');
-                allSections.forEach(section => section.classList.add('d-none'));
-
-                // 2. إظهار القسم المستهدف (Section) بناءً على المعرف الممرر
-                const targetSection = document.getElementById(sectionId);
-                if (targetSection) {
-                    targetSection.classList.remove('d-none');
-                }
-
-                // 3. إزالة فئة التفعيل (active) من كافة روابط القائمة الجانبية
-                const allLinks = document.querySelectorAll('.sidebar .nav-link');
-                allLinks.forEach(link => link.classList.remove('active'));
-
-                // 4. تفعيل الرابط الذي تم الضغط عليه وتحديث عنوان الصفحة العلوي
-                clickedLink.classList.add('active');
-                const titleDisplay = document.getElementById('pageTitleDisplay');
-                titleDisplay.innerText = clickedLink.innerText.trim();
-
-                // ---  فحص إذا كان القسم المختار هو قسم البيانات الشخصية ---
-                if (sectionId === 'profileTab') {
-                    //  استدعاء دالة تحميل البيانات الشخصية لتعبئة الحقول
-                    loadProfileData();
-                }
-
-            } catch (exception) {
-                // تسجيل الخطأ في حال حدوث خلل أثناء التبديل بين الأقسام
-                console.error("خطأ أثناء التبديل بين الأقسام", exception);
+        try {
+            const userDataString = localStorage.getItem('userData');
+            if (userDataString) {
+                const userDataObject = JSON.parse(userDataString);
+                // تحديث واجهة المستخدم باسم الموظف الميداني الفعلي
+                document.getElementById('employeeNameDisplay').innerText = 'مرحباً، ' + userDataObject.name;
+            } else {
+                // طرد المستخدم وإعادته لصفحة الدخول في حال عدم وجود جلسة نشطة
+                window.location.href = '/login';
             }
+        } catch (exception) {
+            console.error("خطأ في تهيئة الصفحة", exception);
         }
+    });
 
-        /**
-         * دالة مساعدة لجلب بيانات الموظف من الـ LocalStorage وتوزيعها على الحقول
-         */
-        function loadProfileData() {
-            try {
-                
-                const userDataString = localStorage.getItem('userData');
-                
-                if (userDataString) {
-                    const userData = JSON.parse(userDataString);
-                    
-                    // تعبئة حقول نموذج الملف الشخصي بالبيانات الحالية
-                    document.getElementById('profileNameDisplay').value = userData.name;
-                    document.getElementById('profilePhoneInput').value = userData.phone;
-                    
-                    // التحقق من وجود بيانات الملف الشخصي (Profile) وتعبئة الحساب المصرفي
-                    if (userData.profile && userData.profile.bank_account_number) {
-                        document.getElementById('profileBankInput').value = userData.profile.bank_account_number;
-                    }
+    // ---  التنقل بين الأقسام وإظهار القسم المطلوب فقط بناءً على اختيار القائمة ---
+    function switchTab(sectionId, clickedLink) {
+        try {
+            // إخفاء كافة الأقسام النشطة في منطقة المحتوى الرئيسي
+            const allSections = document.querySelectorAll('.content-section');
+            allSections.forEach(section => {
+                try {
+                    section.classList.add('d-none');
+                } catch (innerException) {
+                    console.error(innerException);
                 }
-            } catch (exception) {
-                console.error("خطأ أثناء تحميل بيانات الملف الشخصي", exception);
+            });
+
+            // إظهار القسم المستهدف (Section) بناءً على المعرف الممرر
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.classList.remove('d-none');
             }
+
+            // إزالة فئة التفعيل (active) بصرياً من كافة روابط القائمة الجانبية
+            const allLinks = document.querySelectorAll('.sidebar .nav-link');
+            allLinks.forEach(link => {
+                try {
+                    link.classList.remove('active');
+                } catch (innerException) {
+                    console.error(innerException);
+                }
+            });
+
+            // تفعيل الرابط الذي تم الضغط عليه وتحديث عنوان الصفحة العلوي
+            clickedLink.classList.add('active');
+            const titleDisplay = document.getElementById('pageTitleDisplay');
+            titleDisplay.innerText = clickedLink.innerText.trim();
+
+            // فحص إذا كان القسم المختار هو قسم البيانات الشخصية لتحميلها من الجلسة تلقائياً
+            if (sectionId === 'profileTab') {
+                loadProfileData();
+            }
+
+            // فحص إذا كان القسم المختار هو طلبات التحويل لتحديث القائمة من السيرفر مباشرة
+            if (sectionId === 'transferRequestsTab') {
+                loadPendingRequests();
+            }
+        } catch (exception) {
+            console.error("خطأ أثناء التبديل بين الأقسام", exception);
         }
+    }
 
-        //  دالة تسجيل الخروج ومسح الجلسة
-        function logoutEmployee() {
+    // ---  دالة مساعدة لجلب بيانات الموظف من الـ LocalStorage وتوزيعها على الحقول ---
+    function loadProfileData() {
+        try {
+            const userDataString = localStorage.getItem('userData');
+            if (userDataString) {
+                const userData = JSON.parse(userDataString);
+                
+                // تعبئة حقول نموذج الملف الشخصي بالبيانات الحالية
+                document.getElementById('profileNameDisplay').value = userData.name;
+                document.getElementById('profilePhoneInput').value = userData.phone || '';
+                
+                // التحقق من وجود بيانات الملف الشخصي (Profile) وتعبئة الحساب المصرفي
+                if (userData.profile && userData.profile.bank_account_number) {
+                    document.getElementById('profileBankInput').value = userData.profile.bank_account_number;
+                }
+            }
+        } catch (exception) {
+            console.error("خطأ أثناء تحميل بيانات الملف الشخصي", exception);
+        }
+    }
 
-            try {
-                Swal.fire({
-                    title: 'هل تريد تسجيل الخروج؟',
-                    text: "سيتم إنهاء جلستك الحالية في النظام",
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'نعم، تسجيل الخروج',
-                    cancelButtonText: 'إلغاء'
-                }).then((result) => {
+    // ---  دالة تسجيل الخروج ومسح الجلسة المحلية بالكامل ---
+    function logoutEmployee() {
+        try {
+            // إظهار نافذة منبثقة تفاعلية لتأكيد رغبة الموظف في المغادرة
+            Swal.fire({
+                title: 'هل تريد تسجيل الخروج؟',
+                text: "سيتم إنهاء جلستك الحالية في النظام",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'نعم، تسجيل الخروج',
+                cancelButtonText: 'إلغاء'
+            }).then((result) => {
+                try {
                     if (result.isConfirmed) {
+                        // مسح التخزين المحلي وإعادة التوجيه لبوابة تسجيل الدخول
                         localStorage.clear();
                         window.location.href = '/login';
                     }
-                });
-            } catch (exception) {
-                console.error("خطأ أثناء تسجيل الخروج", exception);
-            }
+                } catch (innerException) {
+                    console.error(innerException);
+                }
+            });
+        } catch (exception) {
+            console.error("خطأ أثناء تسجيل الخروج", exception);
         }
+    }
 
-        // --- معالجة إرسال نموذج إضافة مستخدم (سائق) ---
-        document.getElementById('createUserForm').addEventListener('submit', async function(event) {
+    // ---  معالجة إرسال نموذج إضافة مستخدم جديد (سائق) ---
+    document.getElementById('createUserForm').addEventListener('submit', async function(event) {
+        try {
+            // منع إعادة تحميل الصفحة الافتراضي
             event.preventDefault();
             
-            // تطبيق شروط التكويد: استخدام CamelCase لأسماء المتغيرات (إزالة متغير الباسوورد)
+            
             const userNameValue = document.getElementById('userNameInput').value;
             const userEmailValue = document.getElementById('userEmailInput').value;
             const userPhoneValue = document.getElementById('userPhoneInput').value;
             const userPlateValue = document.getElementById('userPlateInput').value;
             const submitButton = document.getElementById('createUserBtn');
 
+            // تعطيل زر الإرسال مؤقتاً لتجنب تكرار الطلبات
             submitButton.disabled = true;
 
             try {
-                // تعليق مضمن: إرسال البيانات بدون كلمة مرور ليقوم الخادم بتوليدها برمجياً
+                // إرسال البيانات بدون كلمة مرور ليقوم الخادم (Laravel) بتوليدها وتشفيرها برمجياً
                 const apiResponse = await fetch('/api/accounts/create', {
                     method: 'POST',
                     headers: {
@@ -404,7 +531,7 @@
                 const responseData = await apiResponse.json();
 
                 if (apiResponse.ok) {
-                    // إشعار نجاح يبلغ الموظف أن الرمز أرسل للسائق مباشرة
+                    // إشعار نجاح يبلغ الموظف أن الرمز السري أرسل لبريد السائق مباشرة
                     Swal.fire({
                         icon: 'success',
                         title: 'تم تسجيل السائق بنجاح',
@@ -416,8 +543,10 @@
                         `,
                         confirmButtonColor: '#2c3e50'
                     });
+                    // تصفير الحقول بالكامل لاستقبال تسجيل جديد
                     document.getElementById('createUserForm').reset();
                 } else {
+                    // التعامل مع أخطاء المدخلات مثل تكرار البريد الإلكتروني
                     Swal.fire({
                         icon: 'error',
                         title: 'خطأ في التسجيل',
@@ -426,6 +555,7 @@
                     });
                 }
             } catch (networkError) {
+                // عرض تنبيه في حال انقطاع الاتصال بالخادم
                 Swal.fire({
                     icon: 'error',
                     title: 'خطأ في الاتصال',
@@ -433,72 +563,35 @@
                     confirmButtonColor: '#d33'
                 });
             } finally {
+                // إعادة تفعيل الزر في جميع الأحوال
                 submitButton.disabled = false;
             }
-        });
+        } catch (exception) {
+            console.error(exception);
+        }
+    });
 
-        // --- معالجة نموذج التحقق الميداني من السيارات ---
-        document.getElementById('verifyVehicleForm').addEventListener('submit', async function(event) {
+    // ---  معالجة نموذج التحقق الميداني من السيارات ومطابقتها ---
+    document.getElementById('verifyVehicleForm').addEventListener('submit', async function(event) {
+        try {
             event.preventDefault();
             
             const verifyPlateValue = document.getElementById('verifyPlateInput').value;
             const alertContainer = document.getElementById('verifyVehicleAlert');
             alertContainer.classList.add('d-none');
 
-            try {
-                //  محاكاة فحص اللوحة بانتظار ربطها بوحدة الحجوزات
-                alertContainer.className = 'alert alert-info';
-                alertContainer.innerText = 'جاري التحقق من اللوحة (' + verifyPlateValue + ') ومطابقتها ميدانياً...';
-                alertContainer.classList.remove('d-none');
-            } catch (exception) {
-                console.error(exception);
-            }
-        });
-
-        // --- معالجة نموذج شحن المحافظ ---
-        document.getElementById('rechargeWalletForm').addEventListener('submit', async function(event) {
-            event.preventDefault();
-            
-            const targetUserValue = document.getElementById('targetUserIdInput').value;
-            const pointsValue = document.getElementById('pointsAmountInput').value;
-            const alertContainer = document.getElementById('rechargeWalletAlert');
-            alertContainer.classList.add('d-none');
-
-            try {
-                //  محاكاة أمر الشحن المباشر
-                alertContainer.className = 'alert alert-success';
-                alertContainer.innerText = 'تم تجهيز أمر شحن (' + pointsValue + ' نقاط) للمستخدم رقم (' + targetUserValue + ') بنجاح!';
-                alertContainer.classList.remove('d-none');
-            } catch (exception) {
-                console.error(exception);
-            }
-        });
-
-        // تعليق مضمن: دالة مساعدة لتعبئة حقل النقاط تلقائياً عند الضغط على الخيارات الجاهزة
-        function setRechargeAmount(selectedAmount) {
-            // الالتزام بقاعدة try/catch الإلزامية لجميع الدوال
-            try {
-                // استخدام متغيرات CamelCase
-                const pointsInputElement = document.getElementById('pointsAmountInput');
-                pointsInputElement.value = selectedAmount;
-
-                // إزالة التنسيق النشط من كافة الأزرار السريعة
-                const allFastButtons = document.querySelectorAll('.fast-amount-btn');
-                allFastButtons.forEach(button => {
-                    button.classList.remove('btn-secondary', 'text-white');
-                    button.classList.add('btn-outline-secondary');
-                });
-
-                // تمييز الزر المضغوط حالياً لإعطاء تغذية بصرية للموظف
-                const clickedButton = event.target;
-                clickedButton.classList.remove('btn-outline-secondary');
-                clickedButton.classList.add('btn-secondary', 'text-white');
-
-            } catch (exception) {
-                console.error("خطأ في تحديث قيمة الشحن السريع", exception);
-            }
+            // محاكاة الفحص الميداني بانتظار الربط بوحدة الحجوزات 
+            alertContainer.className = 'alert alert-info';
+            alertContainer.innerText = 'جاري التحقق من اللوحة (' + verifyPlateValue + ') ومطابقتها ميدانياً...';
+            alertContainer.classList.remove('d-none');
+        } catch (exception) {
+            console.error(exception);
         }
-        document.getElementById('profileForm').addEventListener('submit', async function(event) {
+    });
+
+    // ---  معالجة إرسال نموذج تحديث الملف الشخصي للموظف ---
+    document.getElementById('profileForm').addEventListener('submit', async function(event) {
+        try {
             event.preventDefault();
             
             const alertDiv = document.getElementById('profileAlert');
@@ -508,6 +601,7 @@
             updateBtn.disabled = true;
 
             try {
+                // إرسال طلب التحديث إلى المتحكم المنفصل (ProfileController)
                 const response = await fetch('/api/accounts/update-profile', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -522,15 +616,13 @@
                 const result = await response.json();
 
                 if (response.ok) {
-                    // إخفاء الـ alert العادي واستخدام SweetAlert بدلاً منه
-                    alertDiv.classList.add('d-none');
+                    if (alertDiv) alertDiv.classList.add('d-none');
                     
-                    // تحديث البيانات في LocalStorage
+                    // تحديث الجلسة المحلية (LocalStorage) لتعكس التغييرات فوراً في الواجهة
                     userData.phone = result.updatedData.phone;
-                    if(userData.profile) userData.profile.bank_account_number = result.updatedData.bankAccountNumber;
+                    if (userData.profile) userData.profile.bank_account_number = result.updatedData.bankAccountNumber;
                     localStorage.setItem('userData', JSON.stringify(userData));
 
-                    // إشعار نجاح منبثق
                     Swal.fire({
                         icon: 'success',
                         title: 'تم التحديث!',
@@ -541,66 +633,221 @@
                     throw new Error(result.message);
                 }
             } catch (error) {
-                alertDiv.classList.add('d-none');
+                if (alertDiv) alertDiv.classList.add('d-none');
                 Swal.fire({
                     icon: 'error',
                     title: 'فشل التحديث',
                     text: error.message,
                     confirmButtonColor: '#d33'
                 });
+            } finally {
+                updateBtn.disabled = false;
             }
-        });
-        async function loadPendingRequests() {
-            try {
-                const response = await fetch('/api/recharges/pending');
-                const result = await response.json();
-                const tableBody = document.getElementById('pendingRequestsTable');
-                tableBody.innerHTML = '';
-
-                result.data.forEach(req => {
-                    tableBody.innerHTML += `
-                        <tr>
-                            <td>${req.user_id}</td>
-                            <td>${req.user.name}</td>
-                            <td>${req.amount}</td>
-                            <td><a href="/storage/${req.receipt_path}" target="_blank">عرض الإيصال</a></td>
-                            <td>
-                                <button class="btn btn-sm btn-success" onclick="verifyRequest(${req.id}, 'approve')">اعتماد</button>
-                                <button class="btn btn-sm btn-danger" onclick="rejectRequest(${req.id})">رفض</button>
-                            </td>
-                        </tr>
-                    `;
-                });
-            } catch (e) { console.error(e); }
+        } catch (exception) {
+            console.error(exception);
         }
+    });
 
-        async function verifyRequest(requestId, action, reason = null) {
+    /*
+    دوال الشحن الفوري
+    */
+
+    // تحديث حقل الإدخال المخصص تلقائياً عند الضغط على إحدى الباقات السريعة الجاهزة
+    function updateCustomAmount(selectedPoints) {
+        try {
+            const customAmountInput = document.getElementById('pointsAmountInput');
+            customAmountInput.value = selectedPoints;
+        } catch (exception) {
+            console.error("خطأ في تحديث النقاط المقترحة", exception);
+        }
+    }
+
+    // إلغاء تحديد الأزرار التفاعلية السريعة إذا قام الموظف بالكتابة اليدوية المخصصة
+    function clearRadioSelection() {
+        try {
+            const allFastRadios = document.querySelectorAll('.fast-amount-radio');
+            allFastRadios.forEach(radioItem => {
+                try {
+                    radioItem.checked = false;
+                } catch (innerException) {
+                    console.error(innerException);
+                }
+            });
+        } catch (exception) {
+            console.error("خطأ في مسح التحديد النشط", exception);
+        }
+    }
+
+    // معالجة إرسال نموذج الشحن الفوري وربطه بـ RechargeController المنفصل
+    document.getElementById('rechargeWalletForm').addEventListener('submit', async function(event) {
+        try {
+            event.preventDefault();
+            
+            const targetUserIdValue = document.getElementById('targetUserIdInput').value;
+            const pointsAmountValue = document.getElementById('pointsAmountInput').value;
+            const submitRechargeBtn = document.getElementById('rechargeWalletBtn');
+
+            submitRechargeBtn.disabled = true;
+
             try {
+                // إظهار مؤشر تحميل تفاعلي من SweetAlert يمنع النقر العشوائي أثناء الاتصال
+                Swal.fire({
+                    title: 'جاري معالجة الشحن...',
+                    html: `إضافة <b>${pointsAmountValue}</b> نقاط للحساب رقم <b>${targetUserIdValue}</b>`,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        try {
+                            Swal.showLoading();
+                        } catch (innerException) {
+                            console.error(innerException);
+                        }
+                    }
+                });
+
+                // إرسال الطلب الفعلي إلى مسار الاعتماد المالي لإضافة الرصيد
                 const response = await fetch('/api/recharges/verify', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ requestId, action, rejectionReason: reason })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        requestId: targetUserIdValue, // تمرير المعرف المستهدف كطلب
+                        action: 'approve',
+                        amount: pointsAmountValue
+                    })
                 });
-                
-                if (response.ok) {
-                    Swal.fire('تم!', 'تمت معالجة الطلب بنجاح', 'success');
-                    loadPendingRequests();
-                }
-            } catch (e) { Swal.fire('خطأ', 'تعذر تنفيذ العملية', 'error'); }
-        }
 
-        function rejectRequest(requestId) {
+                const resultData = await response.json();
+
+                if (response.ok) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'تم الشحن بنجاح! 💳',
+                        html: `تمت إضافة <b>${pointsAmountValue}</b> نقاط إلى رصيد السائق (ID: ${targetUserIdValue}) فوراً.`,
+                        confirmButtonColor: '#2c3e50'
+                    });
+
+                    // إعادة تهيئة النموذج ومسح التحديدات البصرية بالكامل
+                    document.getElementById('rechargeWalletForm').reset();
+                    clearRadioSelection();
+                } else {
+                    throw new Error(resultData.message || 'فشل تنفيذ عملية الشحن.');
+                }
+
+            } catch (exception) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'خطأ في العملية',
+                    text: exception.message || 'حدث خطأ أثناء محاولة شحن الرصيد.',
+                    confirmButtonColor: '#d33'
+                });
+            } finally {
+                submitRechargeBtn.disabled = false;
+            }
+        } catch (exception) {
+            console.error(exception);
+        }
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | دوال إدارة طلبات التحويل البنكي (FR2)
+    |--------------------------------------------------------------------------
+    */
+
+    // جلب طلبات الشحن المعلقة المرفوعة من السائقين وعرضها ديناميكياً في الجدول
+    async function loadPendingRequests() {
+        try {
+            const response = await fetch('/api/recharges/pending');
+            const result = await response.json();
+            const tableBody = document.getElementById('pendingRequestsTable');
+            
+            if (tableBody) {
+                tableBody.innerHTML = '';
+                
+                if (result.data && result.data.length > 0) {
+                    result.data.forEach(req => {
+                        try {
+                            // توليد صفوف الجدول وتضمين روابط مراجعة إيصال التحويل
+                            tableBody.innerHTML += `
+                                <tr>
+                                    <td>${req.user_id}</td>
+                                    <td>${req.user ? req.user.name : 'سائق غير معروف'}</td>
+                                    <td><span class="badge bg-warning text-dark fs-6">${req.amount}</span></td>
+                                    <td><a href="/storage/${req.receipt_path}" class="btn btn-sm btn-outline-info" target="_blank">📄 عرض الإيصال</a></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-success me-1" onclick="verifyRequest(${req.id}, 'approve')">✅ اعتماد</button>
+                                        <button class="btn btn-sm btn-danger" onclick="rejectRequest(${req.id})">❌ رفض</button>
+                                    </td>
+                                </tr>
+                            `;
+                        } catch (innerException) {
+                            console.error(innerException);
+                        }
+                    });
+                } else {
+                    tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">لا توجد طلبات شحن معلقة حالياً.</td></tr>';
+                }
+            }
+        } catch (exception) { 
+            console.error("خطأ في جلب طلبات التحويل", exception); 
+        }
+    }
+
+    // إرسال قرار الموظف (اعتماد/رفض) لطلب التحويل وتحديث رصيد السائق في الباك إند
+    async function verifyRequest(requestId, action, reason = null) {
+        try {
+            const response = await fetch('/api/recharges/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ requestId, action, rejectionReason: reason })
+            });
+            
+            if (response.ok) {
+                Swal.fire('تم التنفيذ!', 'تمت معالجة طلب التحويل بنجاح وتحديث رصيد السائق.', 'success');
+                loadPendingRequests(); // إعادة تحميل الجدول لإخفاء الطلب المنجز
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.message);
+            }
+        } catch (exception) { 
+            Swal.fire('خطأ', exception.message || 'تعذر تنفيذ العملية', 'error'); 
+        }
+    }
+
+    // عرض نافذة منبثقة لأخذ سبب الرفض الإلزامي من الموظف لتضمينه في إشعار السائق
+    function rejectRequest(requestId) {
+        try {
             Swal.fire({
                 title: 'سبب الرفض',
                 input: 'text',
+                inputPlaceholder: 'أدخل سبب رفض إيصال التحويل...',
                 showCancelButton: true,
                 confirmButtonText: 'تأكيد الرفض',
+                cancelButtonText: 'إلغاء',
+                inputValidator: (value) => {
+                    try {
+                        if (!value) {
+                            return 'يجب كتابة سبب الرفض لإعلام السائق!';
+                        }
+                    } catch (innerException) {
+                        console.error(innerException);
+                    }
+                }
             }).then((result) => {
-                if (result.isConfirmed) {
-                    verifyRequest(requestId, 'reject', result.value);
+                try {
+                    if (result.isConfirmed) {
+                        verifyRequest(requestId, 'reject', result.value);
+                    }
+                } catch (innerException) {
+                    console.error(innerException);
                 }
             });
+        } catch (exception) {
+            console.error("خطأ في نافذة الرفض", exception);
         }
-    </script>
+    }
+</script>
 </body>
 </html>

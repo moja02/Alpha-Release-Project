@@ -37,3 +37,8 @@ Route::get('/employee-dashboard', function () {
 Route::fallback(function () {
     return redirect('/login');
 });
+
+// مسار فتح واجهة استعادة كلمة المرور عبر الـ OTP
+Route::get('/forgot-password', function () {
+    return view('auth.forgot-password');
+});
