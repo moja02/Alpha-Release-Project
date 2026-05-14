@@ -12,7 +12,6 @@
             font-family: system-ui, -apple-system, sans-serif; 
             overflow-x: hidden;
         }
-        /* تنسيق القائمة الجانبية اليمنى */
         .sidebar {
             height: 100vh;
             background-color: #2c3e50;
@@ -37,7 +36,6 @@
             background-color: #34495e;
             font-weight: bold;
         }
-        /* تنسيق منطقة المحتوى الرئيسي لتترك مساحة للقائمة الجانبية */
         .main-content {
             margin-right: 260px;
             padding: 25px;
@@ -703,7 +701,7 @@
                     }
                 });
 
-                // تعليق مضمن: توجيه الطلب إلى مسار الشحن الفوري المخصص
+                //  توجيه الطلب إلى مسار الشحن الفوري المخصص
                 const response = await fetch('/api/recharges/direct', {
                     method: 'POST',
                     headers: {

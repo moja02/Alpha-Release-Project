@@ -55,7 +55,6 @@
         document.getElementById('loginForm').addEventListener('submit', async function(event) {
             event.preventDefault();
 
-            // تطبيق معايير التكويد: استخدام CamelCase للمتغيرات
             const emailValue = document.getElementById('emailInput').value;
             const passwordValue = document.getElementById('passwordInput').value;
             const submitBtn = document.getElementById('submitButton');
@@ -64,7 +63,7 @@
             submitBtn.disabled = true;
             submitBtn.innerHTML = 'Verifying...';
 
-            // تطبيق قاعدة try/catch الإلزامية
+            
             try {
                 // تعليق مضمن: إرسال البيانات إلى مسار الـ API للتحقق من الهوية
                 const response = await fetch('/api/accounts/login', {
@@ -88,7 +87,7 @@
 
                     const userRole = responseData.accountData.role;
 
-                    // تعليق مضمن: إظهار إشعار SweetAlert تفاعلي عند النجاح مع مؤقت توجيه تلقائي
+                    //  إظهار إشعار SweetAlert تفاعلي عند النجاح مع مؤقت توجيه تلقائي
                     Swal.fire({
                         icon: 'success',
                         title: 'Welcome Back!',

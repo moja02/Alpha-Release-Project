@@ -52,7 +52,7 @@ class RechargeController extends Controller
 
             \Illuminate\Support\Facades\DB::beginTransaction();
 
-            // تعليق مضمن: البحث عن محفظة السائق، وإنشاؤها إن لم تكن موجودة
+            //  البحث عن محفظة السائق، وإنشاؤها إن لم تكن موجودة
             $userWallet = \Illuminate\Support\Facades\DB::table('wallets')->where('user_id', $targetUserId)->first();
 
             if (!$userWallet) {
@@ -97,47 +97,97 @@ class RechargeController extends Controller
     /**
      * معالجة واعتماد/رفض طلب الشحن
      */
-    public function verifyRechargeRequest(Request $request)
+    public function verifyRequest(Request $request)
     {
         try {
+            // التحقق من صحة المدخلات
             $request->validate([
                 'requestId' => 'required|exists:recharge_requests,id',
                 'action' => 'required|in:approve,reject',
-                'rejectionReason' => 'required_if:action,reject'
+                'rejectionReason' => 'nullable|string'
             ]);
 
-            $rechargeRequest = RechargeRequest::findOrFail($request->input('requestId'));
-            DB::beginTransaction();
+            $requestIdValue = $request->input('requestId');
+            $actionType = $request->input('action');
+            $rejectionReason = $request->input('rejectionReason');
 
-            if ($request->input('action') === 'approve') {
-                $rechargeRequest->status = 'approved';
-                
-                // تعليق مضمن: إضافة الرصيد للمحفظة
-                $userWallet = Wallet::firstOrCreate(
-                    ['user_id' => $rechargeRequest->user_id],
-                    ['balance' => 0]
-                );
-                $userWallet->balance += $rechargeRequest->amount;
-                $userWallet->save();
+            \Illuminate\Support\Facades\DB::beginTransaction();
 
-                Notification::create([
-                    'user_id' => $rechargeRequest->user_id,
-                    'message' => "تم اعتماد طلب الشحن وإضافة {$rechargeRequest->amount} نقطة لمحفظتك.",
-                    'type' => 'Recharge_Approved'
-                ]);
-            } else {
-                $rechargeRequest->status = 'rejected';
-                $rechargeRequest->rejection_reason = $request->input('rejectionReason');
+            // جلب بيانات الطلب مع تأمين السجل للقراءة
+            $rechargeRecord = \Illuminate\Support\Facades\DB::table('recharge_requests')
+                ->where('id', $requestIdValue)
+                ->lockForUpdate()
+                ->first();
+
+            // التأكد من أن الطلب لا يزال قيد المراجعة لمنع الاعتماد المزدوج
+            if ($rechargeRecord->status !== 'Pending') {
+                return response()->json(['status' => 'error', 'message' => 'هذا الطلب تمت معالجته مسبقاً.'], 400);
             }
 
-            $rechargeRequest->save();
-            DB::commit();
+            if ($actionType === 'approve') {
+                // 1. تحديث رصيد المحفظة الخاص بالمستخدم
+                $userWallet = \Illuminate\Support\Facades\DB::table('wallets')
+                    ->where('user_id', $rechargeRecord->user_id)
+                    ->first();
 
-            return response()->json(['status' => 'success', 'message' => 'تمت المعالجة بنجاح.']);
+                if (!$userWallet) {
+                    // إنشاء محفظة جديدة إذا لم تكن موجودة
+                    \Illuminate\Support\Facades\DB::table('wallets')->insert([
+                        'user_id' => $rechargeRecord->user_id,
+                        'balance' => $rechargeRecord->requested_points,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                } else {
+                    // زيادة الرصيد الحالي بمقدار النقاط المطلوبة في الطلب
+                    \Illuminate\Support\Facades\DB::table('wallets')
+                        ->where('user_id', $rechargeRecord->user_id)
+                        ->increment('balance', $rechargeRecord->requested_points);
+                }
+
+                // 2. تحديث حالة الطلب إلى مقبول
+                \Illuminate\Support\Facades\DB::table('recharge_requests')
+                    ->where('id', $requestIdValue)
+                    ->update([
+                        'status' => 'Approved',
+                        'updated_at' => now()
+                    ]);
+
+                // 3. إرسال إشعار بنجاح الشحن
+                \Illuminate\Support\Facades\DB::table('notifications')->insert([
+                    'user_id' => $rechargeRecord->user_id,
+                    'message' => "تهانينا! تم اعتماد إيصال التحويل الخاص بك وإضافة {$rechargeRecord->requested_points} نقطة لمحفظتك.",
+                    'type' => 'Recharge_Approved',
+                    'created_at' => now()
+                ]);
+
+            } else {
+                // في حالة الرفض: تحديث الحالة فقط مع ذكر السبب (اختياري)
+                \Illuminate\Support\Facades\DB::table('recharge_requests')
+                    ->where('id', $requestIdValue)
+                    ->update([
+                        'status' => 'Rejected',
+                        'updated_at' => now()
+                    ]);
+
+                \Illuminate\Support\Facades\DB::table('notifications')->insert([
+                    'user_id' => $rechargeRecord->user_id,
+                    'message' => "عذراً، تم رفض طلب الشحن الخاص بك. السبب: " . ($rejectionReason ?? 'البيانات غير واضحة'),
+                    'type' => 'Recharge_Rejected',
+                    'created_at' => now()
+                ]);
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'تمت معالجة الطلب وتحديث رصيد المحفظة بنجاح.'
+            ], 200);
 
         } catch (\Exception $exception) {
-            DB::rollBack();
-            Log::error('Error verifying recharge: ' . $exception->getMessage());
+            \Illuminate\Support\Facades\DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('Error verifying recharge: ' . $exception->getMessage());
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }

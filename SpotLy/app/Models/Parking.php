@@ -16,7 +16,7 @@ class Parking extends Model
         'employee_id' 
     ];
 
-    // تعليق مضمن: علاقة الساحة بالموظف المسؤول عنها
+    //  علاقة الساحة بالموظف المسؤول عنها
     public function employee()
     {
         return $this->belongsTo(Employee::class, 'employee_id');

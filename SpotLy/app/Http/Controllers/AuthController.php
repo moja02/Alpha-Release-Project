@@ -15,14 +15,12 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
-        // تطبيق قاعدة try/catch الإلزامية
         try {
             $request->validate([
                 'email' => 'required|string|email',
                 'password' => 'required|string',
             ]);
 
-            // استخدام متغيرات CamelCase
             $inputEmail = $request->input('email');
             $inputPassword = $request->input('password');
 
@@ -77,14 +75,12 @@ class AuthController extends Controller
      */
     public function sendOtp(Request $request)
     {
-        // تطبيق قاعدة try/catch الإلزامية
         try {
             // التحقق من أن البريد الإلكتروني مسجل فعلياً في جدول الحسابات
             $request->validate([
                 'email' => 'required|string|email|exists:accounts,email',
             ]);
 
-            // استخدام متغيرات camelCase
             $targetEmail = $request->input('email');
             $accountRecord = Account::where('email', $targetEmail)->first();
 

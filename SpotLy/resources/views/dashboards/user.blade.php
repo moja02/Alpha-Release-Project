@@ -48,7 +48,6 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.04);
             margin-bottom: 25px;
         }
-        /* تأثيرات حركية لبطاقات المواقف */
         .spot-card:hover {
             transform: translateY(-5px);
         }
@@ -275,9 +274,9 @@
     <script>
         let currentUserData = null;
 
-        // --- 1. تهيئة الصفحة وقراءة بيانات الجلسة ---
+        // ---  تهيئة الصفحة وقراءة بيانات الجلسة ---
         document.addEventListener('DOMContentLoaded', function() {
-            // تطبيق قاعدة try/catch الإلزامية المغلفة للحدث
+            
             try {
                 const userDataString = localStorage.getItem('userData');
                 if (userDataString) {
@@ -291,7 +290,7 @@
             }
         });
 
-        // --- 2. توزيع بيانات السائق على عناصر الواجهة ---
+        // ---  توزيع بيانات السائق على عناصر الواجهة ---
         function initializeDriverDashboard() {
             try {
                 document.getElementById('userNameDisplay').innerText = 'السائق: ' + currentUserData.name;
@@ -306,7 +305,7 @@
                     statusElem.className = statusVal === 'active' ? 'fs-5 fw-bold mb-0 text-success' : 'fs-5 fw-bold mb-0 text-danger';
                 }
 
-                // تعليق مضمن: جلب الرصيد وفحص الحجوزات فور الدخول للنظام
+                //  جلب الرصيد وفحص الحجوزات فور الدخول للنظام
                 fetchWalletBalance();
                 checkActiveBookingForOverview();
             } catch (exception) {
@@ -314,7 +313,7 @@
             }
         }
 
-        // --- 3. جلب رصيد المحفظة الرقمية ---
+        // ---  جلب رصيد المحفظة الرقمية ---
         async function fetchWalletBalance() {
             try {
                 // التأكد من وجود بيانات المستخدم وصلاحية المعرف
@@ -402,7 +401,7 @@
                     // تفريغ القائمة وتجهيزها للاختيار
                     selectElement.innerHTML = '<option value="" selected disabled>اختر الساحة التي حولت لرقم حسابها...</option>';
                     
-                    // تعليق مضمن: تكرار البيانات الواردة من الباك إند وتوليد خيارات القائمة
+                    //  تكرار البيانات الواردة من الباك إند وتوليد خيارات القائمة
                     resultData.data.forEach(parkingItem => {
                         try {
                             const optionElement = document.createElement('option');
@@ -435,7 +434,7 @@
                 console.error(exception);
             }
         }
-        // --- 4. التبديل الديناميكي بين التبويبات ---
+        // ---  التبديل الديناميكي بين التبويبات ---
         function switchTab(sectionIdValue, clickedLinkElement) {
             try {
                 const allSections = document.querySelectorAll('.content-section');
@@ -464,7 +463,7 @@
                 clickedLinkElement.classList.add('active');
                 document.getElementById('pageTitleDisplay').innerText = clickedLinkElement.innerText.trim();
 
-                // تعليق مضمن: تنفيذ تحديثات البيانات بناءً على القسم النشط
+                //  تنفيذ تحديثات البيانات بناءً على القسم النشط
                 if (sectionIdValue === 'overviewTab') {
                     fetchWalletBalance(); // تحديث الرصيد فور العودة للرئيسية
                     checkActiveBookingForOverview(); // فحص الحجوزات
@@ -505,7 +504,7 @@
                     // تعليق مضمن: بناء حزمة البيانات (FormData) لتشمل parkingId الإلزامي
                     const formDataPayload = new FormData();
                     formDataPayload.append('userId', currentUserData.accountId);
-                    formDataPayload.append('parkingId', parkingIdValue); // 👈 هذا هو الحقل الذي حل المشكلة
+                    formDataPayload.append('parkingId', parkingIdValue); 
                     formDataPayload.append('amount', amountInputValue);
                     formDataPayload.append('receipt', fileInputValue);
 
@@ -555,10 +554,10 @@
         |--------------------------------------------------------------------------
         */
 
-        // --- 5. فحص التذكرة النشطة وتحميل شبكة المواقف ---
+        // ---  فحص التذكرة النشطة وتحميل شبكة المواقف ---
         async function checkActiveTicketAndLoadGrid() {
             try {
-                // تعليق مضمن: التحقق من وجود حجز مؤكد
+                //  التحقق من وجود حجز مؤكد
                 const response = await fetch('/api/bookings/active?userId=' + currentUserData.accountId);
                 const resultData = await response.json();
 
@@ -586,7 +585,7 @@
             }
         }
 
-        // --- 6. رسم خريطة ساحات الوقوف التفاعلية بناءً على السعة ---
+        // ---  رسم خريطة ساحات الوقوف التفاعلية بناءً على السعة ---
         async function loadLiveSpotsGrid() {
             try {
                 const response = await fetch('/api/parkings/spots');
@@ -641,7 +640,7 @@
             }
         }
 
-        // --- 7. بدء إجراءات الحجز التفاعلي عبر SweetAlert2 ---
+        // ---  بدء إجراءات الحجز التفاعلي  ---
         function initiateSpotReservation(spotIdValue, spotNumberValue, spotStatusValue) {
             try {
                 // منع التفاعل إذا كان الموقف محجوزاً
@@ -655,7 +654,7 @@
                     return;
                 }
 
-                // تعليق مضمن: إظهار نافذة منبثقة لاختيار طريقة الدفع وتأكيد رغبة الحجز
+                //  إظهار نافذة منبثقة لاختيار طريقة الدفع وتأكيد رغبة الحجز
                 Swal.fire({
                     title: `تأكيد حجز الموقف (${spotNumberValue})`,
                     text: 'تكلفة حجز الموقف هي 10 نقاط. يرجى تحديد طريقة الدفع المفضلة:',
@@ -694,7 +693,7 @@
             }
         }
 
-        // --- 8. إرسال طلب الاعتماد النهائي وإصدار التذكرة ---
+        // ---  إرسال طلب الاعتماد النهائي وإصدار التذكرة ---
         async function executeBookingRequest(targetSpotIdValue, selectedMethodValue) {
             try {
                 Swal.fire({
@@ -710,7 +709,7 @@
                     }
                 });
 
-                // تعليق مضمن: إرسال الطلب الفعلي للباك إند لخصم الرصيد وتحديث الجداول
+                //  إرسال الطلب الفعلي للباك إند لخصم الرصيد وتحديث الجداول
                 const response = await fetch('/api/bookings/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
