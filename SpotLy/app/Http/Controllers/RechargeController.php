@@ -71,4 +71,67 @@ class RechargeController extends Controller
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }
+
+    public function getBalance(Request $request)
+    {
+        try {
+            $request->validate([
+                'userId' => 'required|integer'
+            ]);
+
+            $targetUserId = $request->input('userId');
+            
+            $walletData = \Illuminate\Support\Facades\DB::table('wallets')
+                ->where('user_id', $targetUserId)
+                ->first();
+            
+            return response()->json([
+                'status' => 'success',
+                'balance' => $walletData ? $walletData->balance : 0
+            ], 200);
+
+        } catch (\Exception $exception) {
+            \Illuminate\Support\Facades\Log::error('Error fetching balance: ' . $exception->getMessage());
+            return response()->json([
+                'status' => 'error', 
+                'message' => $exception->getMessage()
+            ], 500);
+        }
+    }
+
+    public function submitRequest(Request $request)
+    {
+        try {
+            $request->validate([
+                'userId' => 'required|integer',
+                'amount' => 'required|integer|min:5',
+                'receipt' => 'required|image|max:2048'
+            ]);
+
+            $inputUserId = $request->input('userId');
+            $inputAmount = $request->input('amount');
+            
+            $uploadedFilePath = $request->file('receipt')->store('receipts', 'public');
+
+            \Illuminate\Support\Facades\DB::table('recharge_requests')->insert([
+                'user_id' => $inputUserId,
+                'requested_points' => $inputAmount,
+                'receipt_file' => $uploadedFilePath,
+                'status' => 'Pending',
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            return response()->json([
+                'status' => 'success'
+            ], 201);
+
+        } catch (\Exception $exception) {
+            \Illuminate\Support\Facades\Log::error('Error submitting recharge request: ' . $exception->getMessage());
+            return response()->json([
+                'status' => 'error', 
+                'message' => $exception->getMessage()
+            ], 500);
+        }
+    }
 }
