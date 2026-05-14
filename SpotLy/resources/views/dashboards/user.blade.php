@@ -498,13 +498,15 @@
                 if (gridContainerElement && response.ok && resultData.status === 'success') {
                     gridContainerElement.innerHTML = '';
 
-                    // تعليق مضمن: توليد كروت الساحات بناءً على السعة المتاحة
                     resultData.data.forEach(parkingArea => {
                         try {
                             const isAreaAvailable = parkingArea.available_capacity > 0;
                             const areaBadgeClass = isAreaAvailable ? 'bg-success' : 'bg-danger';
                             const areaStatusLabel = isAreaAvailable ? 'متاح للحجز' : 'ممتلئ بالكامل';
                             const areaOpacityStyle = isAreaAvailable ? 'opacity: 1;' : 'opacity: 0.6; cursor: not-allowed;';
+                            
+                            // التأكد من وجود رقم حساب أو عرض رسالة تنبيه
+                            const bankAccountDisplay = parkingArea.employee_bank_account || 'غير متوفر حالياً';
 
                             gridContainerElement.innerHTML += `
                                 <div class="col-12 col-md-6 col-lg-4">
@@ -514,9 +516,14 @@
                                         <div class="card-body p-3">
                                             <span class="display-6 d-block mb-3">${isAreaAvailable ? '🅿️' : '⛔'}</span>
                                             <h4 class="fw-bold text-dark mb-1">${parkingArea.name}</h4>
-                                            <p class="text-muted small mb-2"><i class="me-1">📍</i> ${parkingArea.location_park}</p>
+                                            <p class="text-muted small mb-3"><i class="me-1">📍</i> ${parkingArea.location_park}</p>
                                             
-                                            <div class="d-flex justify-content-center align-items-center gap-2 mt-3">
+                                            <div class="alert alert-light border-0 py-2 mb-3 rounded-3" style="background-color: #f8fafc;">
+                                                <small class="text-muted d-block mb-1">الحساب المصرفي للتحويل:</small>
+                                                <span class="fw-bold text-primary" style="letter-spacing: 1px;">${bankAccountDisplay}</span>
+                                            </div>
+
+                                            <div class="d-flex justify-content-center align-items-center gap-2">
                                                 <span class="badge ${areaBadgeClass} rounded-pill px-3 py-2">${areaStatusLabel}</span>
                                                 <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">
                                                     السعة: ${parkingArea.available_capacity} / ${parkingArea.total_capacity}
