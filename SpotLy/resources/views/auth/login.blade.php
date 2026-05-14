@@ -40,6 +40,9 @@
                 <label for="passwordInput" class="form-label">Password</label>
                 <input type="password" class="form-control" id="passwordInput" required placeholder="••••••••">
             </div>
+            <div class="text-end mt-1 mb-3">
+                <a href="/forgot-password" class="text-decoration-none small text-primary fw-bold">نسيت كلمة المرور؟</a>
+            </div>
 
             <button type="submit" class="btn btn-primary w-100" id="submitButton">
                 <span>Login</span>
