@@ -134,4 +134,32 @@ class RechargeController extends Controller
             ], 500);
         }
     }
+
+    public function getUserRechargeRequests(Request $request)
+    {
+        try {
+            $request->validate([
+                'userId' => 'required|integer'
+            ]);
+
+            $targetUserId = $request->input('userId');
+
+            $userRequestsHistory = \Illuminate\Support\Facades\DB::table('recharge_requests')
+                ->where('user_id', $targetUserId)
+                ->orderBy('id', 'desc')
+                ->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $userRequestsHistory
+            ], 200);
+
+        } catch (\Exception $exception) {
+            \Illuminate\Support\Facades\Log::error($exception->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => $exception->getMessage()
+            ], 500);
+        }
+    }
 }

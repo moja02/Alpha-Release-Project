@@ -158,20 +158,19 @@
         </section>
 
         <section id="walletTab" class="content-section d-none">
-            <div class="row justify-content-center">
-                <div class="col-lg-8 col-xl-7">
-                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="row g-4">
+                <div class="col-lg-5">
+                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
                         <div class="card-header bg-gradient bg-warning text-dark p-4 border-0 d-flex align-items-center justify-content-between">
                             <div>
-                                <h5 class="fw-bold mb-1">📄 طلب شحن الرصيد بالتحويل البنكي</h5>
-                                <p class="fs-6 mb-0 text-dark text-opacity-75">رفع إيصال التحويل لإضافة نقاط لمحفظتك</p>
+                                <h5 class="fw-bold mb-1">📄 طلب شحن الرصيد</h5>
                             </div>
-                            <span class="fs-1">💳</span>
+                            <span class="fs-2">💳</span>
                         </div>
                         <div class="card-body p-4">
                             <form id="rechargeRequestForm">
                                 <div class="mb-4">
-                                    <label class="form-label fw-bold text-secondary">المبلغ المحول (عدد النقاط المطلوب)</label>
+                                    <label class="form-label fw-bold text-secondary">عدد النقاط المطلوب</label>
                                     <input type="number" class="form-control form-control-lg shadow-none" id="rechargeAmountInput" min="5" placeholder="الحد الأدنى 5 نقاط" required>
                                 </div>
                                 <div class="mb-4">
@@ -179,9 +178,36 @@
                                     <input type="file" class="form-control form-control-lg shadow-none" id="receiptFileInput" accept="image/*" required>
                                 </div>
                                 <button type="submit" class="btn btn-warning btn-lg w-100 fw-bold shadow-sm rounded-3 py-3" id="submitRechargeBtn">
-                                    إرسال الإيصال للمراجعة والاعتماد 🚀
+                                    إرسال الطلب للمراجعة 🚀
                                 </button>
                             </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-7">
+                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
+                        <div class="card-header bg-gradient bg-info text-white p-4 border-0 d-flex align-items-center justify-content-between">
+                            <h5 class="fw-bold mb-0">📜 سجل طلبات الشحن السابقة</h5>
+                            <button onclick="loadUserRechargeHistory()" class="btn btn-sm btn-light rounded-pill px-3">تحديث السجل</button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0 align-middle text-center">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>النقاط</th>
+                                            <th>تاريخ الطلب</th>
+                                            <th>الحالة</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="rechargeHistoryTableBody">
+                                        <tr>
+                                            <td colspan="3" class="text-muted py-5">جاري تحميل السجل...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -280,6 +306,53 @@
                 console.error("خطأ في جلب الرصيد", exception);
             }
         }
+        // دالة جلب السجل
+        async function loadUserRechargeHistory() {
+            try {
+                const response = await fetch('/api/recharges/user-requests?userId=' + currentUserData.accountId);
+                const resultData = await response.json();
+                const tableBodyElement = document.getElementById('rechargeHistoryTableBody');
+
+                if (tableBodyElement && response.ok && resultData.status === 'success') {
+                    tableBodyElement.innerHTML = '';
+
+                    if (resultData.data.length > 0) {
+                        resultData.data.forEach(requestItem => {
+                            try {
+                                let statusBadgeClass = 'bg-warning text-dark';
+                                let statusLabel = 'قيد المراجعة';
+
+                                if (requestItem.status === 'Approved') {
+                                    statusBadgeClass = 'bg-success text-white';
+                                    statusLabel = 'تم الاعتماد';
+                                } else if (requestItem.status === 'Rejected') {
+                                    statusBadgeClass = 'bg-danger text-white';
+                                    statusLabel = 'مرفوض';
+                                }
+
+                                const requestDateValue = new Date(requestItem.created_at).toLocaleDateString('ar-LY', {
+                                    year: 'numeric', month: 'short', day: 'numeric'
+                                });
+
+                                tableBodyElement.innerHTML += `
+                                    <tr>
+                                        <td class="fw-bold text-dark">${requestItem.requested_points}</td>
+                                        <td class="text-muted">${requestDateValue}</td>
+                                        <td><span class="badge ${statusBadgeClass} rounded-pill px-3 py-1">${statusLabel}</span></td>
+                                    </tr>
+                                `;
+                            } catch (innerException) {
+                                console.error(innerException);
+                            }
+                        });
+                    } else {
+                        tableBodyElement.innerHTML = '<tr><td colspan="3" class="text-muted py-5">لا توجد طلبات شحن سابقة في سجلك.</td></tr>';
+                    }
+                }
+            } catch (exception) {
+                console.error(exception);
+            }
+        }
 
         // --- 4. التبديل الديناميكي بين التبويبات ---
         function switchTab(sectionIdValue, clickedLinkElement) {
@@ -310,15 +383,73 @@
                 clickedLinkElement.classList.add('active');
                 document.getElementById('pageTitleDisplay').innerText = clickedLinkElement.innerText.trim();
 
-                // تعليق مضمن: تحميل البيانات المتخصصة بناءً على التبويب المختار
                 if (sectionIdValue === 'profileTab') loadProfileData();
                 if (sectionIdValue === 'overviewTab') fetchWalletBalance();
                 if (sectionIdValue === 'bookingTab') checkActiveTicketAndLoadGrid();
+                
+                if (sectionIdValue === 'walletTab') {
+                    loadUserRechargeHistory();
+                }
 
             } catch (exception) {
-                console.error("خطأ في التبديل بين الأقسام", exception);
+                console.error(exception);
             }
         }
+
+        document.getElementById('rechargeRequestForm').addEventListener('submit', async function(event) {
+            try {
+                event.preventDefault();
+                
+                const amountInputValue = document.getElementById('rechargeAmountInput').value;
+                const fileInputValue = document.getElementById('receiptFileInput').files[0];
+                const submitButtonElement = document.getElementById('submitRechargeBtn');
+
+                submitButtonElement.disabled = true;
+
+                try {
+                    const formDataPayload = new FormData();
+                    formDataPayload.append('userId', currentUserData.accountId);
+                    formDataPayload.append('amount', amountInputValue);
+                    formDataPayload.append('receipt', fileInputValue);
+
+                    Swal.fire({
+                        title: 'جاري رفع الإيصال...',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            try {
+                                Swal.showLoading();
+                            } catch (innerException) {
+                                console.error(innerException);
+                            }
+                        }
+                    });
+
+                    const response = await fetch('/api/recharges/request', {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json' },
+                        body: formDataPayload
+                    });
+
+                    const resultData = await response.json();
+
+                    if (response.ok) {
+                        Swal.fire('تم الإرسال بنجاح', 'تم رفع إيصال التحويل للمراجعة والاعتماد من قبل الموظف الميداني.', 'success');
+                        document.getElementById('rechargeRequestForm').reset();
+                        
+                        loadUserRechargeHistory();
+                        
+                    } else {
+                        throw new Error(resultData.message || 'فشل رفع الإيصال.');
+                    }
+                } catch (exception) {
+                    Swal.fire('خطأ', exception.message, 'error');
+                } finally {
+                    submitButtonElement.disabled = false;
+                }
+            } catch (exception) {
+                console.error(exception);
+            }
+        });
 
         /*
         |--------------------------------------------------------------------------

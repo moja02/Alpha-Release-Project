@@ -34,6 +34,7 @@ Route::post('/recharges/verify', [RechargeController::class, 'verifyRechargeRequ
 // مسارات المحفظة وطلبات التحويل الخاصة بالسائق
 Route::get('/wallet/balance', [RechargeController::class, 'getBalance']);
 Route::post('/recharges/request', [RechargeController::class, 'submitRequest']);
+Route::get('/recharges/user-requests', [RechargeController::class, 'getUserRechargeRequests']);
 
 // مسارات استعادة كلمة المرور عبر الـ OTP
 Route::post('/auth/forgot-password/send-otp', [AuthController::class, 'sendOtp']);
