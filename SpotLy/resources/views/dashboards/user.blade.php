@@ -88,9 +88,14 @@
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card p-3 text-center border-0 shadow-sm rounded-4 border-start border-warning border-4">
+                    <div class="card p-3 text-center border-0 shadow-sm rounded-4 border-start border-warning border-4 position-relative">
                         <h6 class="text-muted mb-1">رصيد المحفظة</h6>
-                        <p class="fs-5 fw-bold mb-0 text-warning"><span id="balanceDisplay">0</span> نقطة</p>
+                        <p class="fs-5 fw-bold mb-0 text-warning">
+                            <span id="balanceDisplay">0</span> نقطة
+                            <button onclick="fetchWalletBalance()" class="btn btn-sm btn-link text-warning p-0 ms-2" title="تحديث الرصيد">
+                                🔄
+                            </button>
+                        </p>
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -101,10 +106,20 @@
                 </div>
             </div>
 
+            <div id="quickActiveTicketAlert" class="alert alert-primary border-0 shadow-sm rounded-4 d-none mb-4">
+                <div class="d-flex align-items-center">
+                    <span class="fs-3 me-3">🎟️</span>
+                    <div>
+                        <h6 class="fw-bold mb-1">لديك حجز نشط حالياً!</h6>
+                        <p class="mb-0 small">يمكنك عرض تفاصيل التذكرة من تبويب "حجز موقف".</p>
+                    </div>
+                </div>
+            </div>
+
             <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                <div class="card-header bg-white py-3">🏷️ معلومات المركبة المسجلة</div>
+                <div class="card-header bg-white py-3 fw-bold">🏷️ معلومات المركبة المسجلة</div>
                 <div class="card-body">
-                    <p class="mb-0 fs-5">رقم اللوحة التشغيلية: <span id="plateDisplay" class="text-primary fw-bold ms-2"></span></p>
+                    <p class="mb-0 fs-5 text-dark">رقم اللوحة التشغيلية: <span id="plateDisplay" class="text-primary fw-bold ms-2">--</span></p>
                 </div>
             </div>
         </section>
@@ -169,6 +184,12 @@
                         </div>
                         <div class="card-body p-4">
                             <form id="rechargeRequestForm">
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-secondary">الساحة المستهدفة للشحن</label>
+                                    <select class="form-select form-select-lg shadow-none" id="targetParkingSelect" required>
+                                        <option value="" selected disabled>اختر الساحة التي حولت إليها...</option>
+                                        </select>
+                                </div>
                                 <div class="mb-4">
                                     <label class="form-label fw-bold text-secondary">عدد النقاط المطلوب</label>
                                     <input type="number" class="form-control form-control-lg shadow-none" id="rechargeAmountInput" min="5" placeholder="الحد الأدنى 5 نقاط" required>
@@ -273,37 +294,53 @@
         // --- 2. توزيع بيانات السائق على عناصر الواجهة ---
         function initializeDriverDashboard() {
             try {
-                // تعليق مضمن: عرض اسم السائق وتحديث مؤشرات النظرة العامة
                 document.getElementById('userNameDisplay').innerText = 'السائق: ' + currentUserData.name;
                 
                 if (currentUserData.profile) {
-                    const accountStatusValue = currentUserData.profile.status;
-                    const statusBadgeElement = document.getElementById('statusDisplay');
-                    
-                    statusBadgeElement.innerText = accountStatusValue === 'active' ? 'نشط' : 'محظور';
-                    statusBadgeElement.className = accountStatusValue === 'active' ? 'fs-5 fw-bold mb-0 text-success' : 'fs-5 fw-bold mb-0 text-danger';
-
                     document.getElementById('fakeBookingDisplay').innerText = currentUserData.profile.fake_booking_count || 0;
-                    document.getElementById('plateDisplay').innerText = currentUserData.profile.plate_number || 'غير محدد';
+                    document.getElementById('plateDisplay').innerText = currentUserData.profile.plate_number || '--';
+                    
+                    const statusVal = currentUserData.profile.status;
+                    const statusElem = document.getElementById('statusDisplay');
+                    statusElem.innerText = statusVal === 'active' ? 'نشط' : 'محظور';
+                    statusElem.className = statusVal === 'active' ? 'fs-5 fw-bold mb-0 text-success' : 'fs-5 fw-bold mb-0 text-danger';
                 }
 
-                // جلب رصيد المحفظة الفعلي من السيرفر
+                // تعليق مضمن: جلب الرصيد وفحص الحجوزات فور الدخول للنظام
                 fetchWalletBalance();
+                checkActiveBookingForOverview();
             } catch (exception) {
-                console.error("خطأ في توزيع البيانات", exception);
+                console.error(exception);
             }
         }
 
         // --- 3. جلب رصيد المحفظة الرقمية ---
         async function fetchWalletBalance() {
             try {
-                const response = await fetch('/api/wallet/balance?userId=' + currentUserData.accountId);
-                if (response.ok) {
-                    const resultData = await response.json();
-                    document.getElementById('balanceDisplay').innerText = resultData.balance;
+                // التأكد من وجود بيانات المستخدم وصلاحية المعرف
+                if (!currentUserData || !currentUserData.accountId) return;
+
+                //  طلب الرصيد من مسار API المحفظة لضمان جلب البيانات من جدول wallets
+                const apiResponse = await fetch('/api/wallet/balance?userId=' + currentUserData.accountId);
+                const resultData = await apiResponse.json();
+
+                if (apiResponse.ok && resultData.status === 'success') {
+                    const balanceElement = document.getElementById('balanceDisplay');
+                    
+                    // تأثير بصري بسيط عند تحديث الرقم
+                    balanceElement.style.opacity = '0.5';
+                    
+                    setTimeout(() => {
+                        try {
+                            balanceElement.innerText = resultData.balance;
+                            balanceElement.style.opacity = '1';
+                        } catch (innerException) {
+                            console.error(innerException);
+                        }
+                    }, 300);
                 }
             } catch (exception) {
-                console.error("خطأ في جلب الرصيد", exception);
+                console.error("خطأ أثناء تحديث رصيد المحفظة", exception);
             }
         }
         // دالة جلب السجل
@@ -353,7 +390,51 @@
                 console.error(exception);
             }
         }
+        // دالة جلب كافة المواقف وتعبئة قائمة الشحن المنسدلة ديناميكياً
+        async function loadParkingOptionsForRecharge() {
+            try {
+                // استدعاء واجهة البرمجيات لجلب الساحات المربوطة بالموظفين
+                const response = await fetch('/api/parkings/spots');
+                const resultData = await response.json();
+                const selectElement = document.getElementById('targetParkingSelect');
+                
+                if (selectElement && response.ok && resultData.status === 'success') {
+                    // تفريغ القائمة وتجهيزها للاختيار
+                    selectElement.innerHTML = '<option value="" selected disabled>اختر الساحة التي حولت لرقم حسابها...</option>';
+                    
+                    // تعليق مضمن: تكرار البيانات الواردة من الباك إند وتوليد خيارات القائمة
+                    resultData.data.forEach(parkingItem => {
+                        try {
+                            const optionElement = document.createElement('option');
+                            optionElement.value = parkingItem.id;
+                            // عرض اسم الساحة وموقعها لتسهيل التعرف عليها من قبل السائق
+                            optionElement.textContent = `${parkingItem.name} (${parkingItem.location_park})`;
+                            selectElement.appendChild(optionElement);
+                        } catch (innerException) {
+                            console.error(innerException);
+                        }
+                    });
+                }
+            } catch (exception) {
+                console.error("خطأ في تحميل قائمة الساحات للشحن", exception);
+            }
+        }
+        // --- دالة فحص التذكرة النشطة (لإظهار التنبيه في الصفحة الرئيسية) ---
+        async function checkActiveBookingForOverview() {
+            try {
+                const response = await fetch('/api/bookings/active?userId=' + currentUserData.accountId);
+                const result = await response.json();
+                const alertElement = document.getElementById('quickActiveTicketAlert');
 
+                if (response.ok && result.hasActiveBooking) {
+                    alertElement.classList.remove('d-none');
+                } else {
+                    alertElement.classList.add('d-none');
+                }
+            } catch (exception) {
+                console.error(exception);
+            }
+        }
         // --- 4. التبديل الديناميكي بين التبويبات ---
         function switchTab(sectionIdValue, clickedLinkElement) {
             try {
@@ -383,32 +464,48 @@
                 clickedLinkElement.classList.add('active');
                 document.getElementById('pageTitleDisplay').innerText = clickedLinkElement.innerText.trim();
 
-                if (sectionIdValue === 'profileTab') loadProfileData();
-                if (sectionIdValue === 'overviewTab') fetchWalletBalance();
-                if (sectionIdValue === 'bookingTab') checkActiveTicketAndLoadGrid();
-                
-                if (sectionIdValue === 'walletTab') {
+                // تعليق مضمن: تنفيذ تحديثات البيانات بناءً على القسم النشط
+                if (sectionIdValue === 'overviewTab') {
+                    fetchWalletBalance(); // تحديث الرصيد فور العودة للرئيسية
+                    checkActiveBookingForOverview(); // فحص الحجوزات
+                } else if (sectionIdValue === 'profileTab') {
+                    loadProfileData();
+                } else if (sectionIdValue === 'bookingTab') {
+                    checkActiveTicketAndLoadGrid();
+                } else if (sectionIdValue === 'walletTab') {
                     loadUserRechargeHistory();
+                    loadParkingOptionsForRecharge();
                 }
 
             } catch (exception) {
-                console.error(exception);
+                console.error("خطأ في التبديل وتحديث البيانات", exception);
             }
         }
 
+        // معالجة رفع إيصال التحويل البنكي للشحن مع تضمين معرف الساحة
         document.getElementById('rechargeRequestForm').addEventListener('submit', async function(event) {
             try {
                 event.preventDefault();
                 
+                // تعليق مضمن: قراءة معرف الساحة، المبلغ، والملف من الواجهة
+                const parkingIdValue = document.getElementById('targetParkingSelect').value;
                 const amountInputValue = document.getElementById('rechargeAmountInput').value;
                 const fileInputValue = document.getElementById('receiptFileInput').files[0];
                 const submitButtonElement = document.getElementById('submitRechargeBtn');
 
+                // تحقق إضافي لمنع الإرسال إذا نسي السائق اختيار الساحة
+                if (!parkingIdValue) {
+                    Swal.fire('تنبيه هام', 'يرجى اختيار الساحة المستهدفة من القائمة قبل الإرسال.', 'warning');
+                    return;
+                }
+
                 submitButtonElement.disabled = true;
 
                 try {
+                    // تعليق مضمن: بناء حزمة البيانات (FormData) لتشمل parkingId الإلزامي
                     const formDataPayload = new FormData();
                     formDataPayload.append('userId', currentUserData.accountId);
+                    formDataPayload.append('parkingId', parkingIdValue); // 👈 هذا هو الحقل الذي حل المشكلة
                     formDataPayload.append('amount', amountInputValue);
                     formDataPayload.append('receipt', fileInputValue);
 
@@ -424,6 +521,7 @@
                         }
                     });
 
+                    // إرسال الطلب إلى الخادم
                     const response = await fetch('/api/recharges/request', {
                         method: 'POST',
                         headers: { 'Accept': 'application/json' },
@@ -433,11 +531,11 @@
                     const resultData = await response.json();
 
                     if (response.ok) {
-                        Swal.fire('تم الإرسال بنجاح', 'تم رفع إيصال التحويل للمراجعة والاعتماد من قبل الموظف الميداني.', 'success');
+                        Swal.fire('تم الإرسال بنجاح', 'تم توجيه طلبك للموظف المسؤول عن الساحة.', 'success');
+                        
+                        // تصفير النموذج وتحديث جدول السجل فوراً
                         document.getElementById('rechargeRequestForm').reset();
-                        
                         loadUserRechargeHistory();
-                        
                     } else {
                         throw new Error(resultData.message || 'فشل رفع الإيصال.');
                     }
@@ -652,6 +750,48 @@
                 });
             }
         }
+
+        // دالة لجلب الساحات المتاحة وتعبئة القائمة المنسدلة
+        async function loadParkingOptions() {
+            try {
+                const response = await fetch('/api/parkings/spots');
+                const resultData = await response.json();
+                const selectElement = document.getElementById('targetParkingSelect');
+                
+                if (selectElement && response.ok) {
+                    selectElement.innerHTML = '<option value="" selected disabled>اختر الساحة التي حولت إليها...</option>';
+                    resultData.data.forEach(parking => {
+                        selectElement.innerHTML += `<option value="${parking.id}">${parking.name}</option>`;
+                    });
+                }
+            } catch (exception) { console.error(exception); }
+        }
+
+        // تحديث مستمع حدث الإرسال ليشمل parkingId
+        document.getElementById('rechargeRequestForm').addEventListener('submit', async function(event) {
+            try {
+                event.preventDefault();
+                const parkingIdValue = document.getElementById('targetParkingSelect').value;
+                const amountValue = document.getElementById('rechargeAmountInput').value;
+                const fileValue = document.getElementById('receiptFileInput').files[0];
+
+                const formData = new FormData();
+                formData.append('userId', currentUserData.accountId);
+                formData.append('parkingId', parkingIdValue);
+                formData.append('amount', amountValue);
+                formData.append('receipt', fileValue);
+
+                const response = await fetch('/api/recharges/request', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    Swal.fire('تم الإرسال', 'تم توجيه طلبك للموظف المسؤول عن الساحة.', 'success');
+                    loadUserRechargeHistory();
+                }
+            } catch (exception) { console.error(exception); }
+        });
 
         /*
         |--------------------------------------------------------------------------

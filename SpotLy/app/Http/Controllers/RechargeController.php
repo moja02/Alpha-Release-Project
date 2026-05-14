@@ -13,13 +13,24 @@ class RechargeController extends Controller
     /**
      * جلب طلبات الشحن المعلقة
      */
-    public function getPendingRecharges()
+    public function getPendingRecharges(Request $request)
     {
         try {
-            $pendingRequests = RechargeRequest::with('user')->where('status', 'pending')->get();
+            $request->validate(['employeeId' => 'required|integer']);
+            $inputEmployeeId = $request->input('employeeId');
+
+            // جلب الطلبات الموجهة فقط للساحة المرتبطة بهذا الموظف
+            $pendingRequests = \Illuminate\Support\Facades\DB::table('recharge_requests')
+                ->join('accounts', 'recharge_requests.user_id', '=', 'accounts.id')
+                ->join('parkings', 'recharge_requests.parking_id', '=', 'parkings.id')
+                ->where('parkings.employee_id', $inputEmployeeId)
+                ->where('recharge_requests.status', 'Pending')
+                ->select('recharge_requests.*', 'accounts.name as user_name', 'parkings.name as parking_name')
+                ->get();
+
             return response()->json(['status' => 'success', 'data' => $pendingRequests]);
+
         } catch (\Exception $exception) {
-            Log::error('Error getting recharges: ' . $exception->getMessage());
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }
@@ -99,22 +110,30 @@ class RechargeController extends Controller
         }
     }
 
+    /**
+     * إرسال طلب شحن موجه لساحة وقوف محددة
+     */
     public function submitRequest(Request $request)
     {
         try {
             $request->validate([
                 'userId' => 'required|integer',
+                'parkingId' => 'required|integer|exists:parkings,id',
                 'amount' => 'required|integer|min:5',
                 'receipt' => 'required|image|max:2048'
             ]);
 
             $inputUserId = $request->input('userId');
+            $inputParkingId = $request->input('parkingId');
             $inputAmount = $request->input('amount');
             
+            // تخزين صورة الإيصال في المجلد العام
             $uploadedFilePath = $request->file('receipt')->store('receipts', 'public');
 
+            // إدراج الطلب مع ربطه بالساحة المستهدفة
             \Illuminate\Support\Facades\DB::table('recharge_requests')->insert([
                 'user_id' => $inputUserId,
+                'parking_id' => $inputParkingId,
                 'requested_points' => $inputAmount,
                 'receipt_file' => $uploadedFilePath,
                 'status' => 'Pending',
@@ -122,16 +141,10 @@ class RechargeController extends Controller
                 'updated_at' => now()
             ]);
 
-            return response()->json([
-                'status' => 'success'
-            ], 201);
+            return response()->json(['status' => 'success'], 201);
 
         } catch (\Exception $exception) {
-            \Illuminate\Support\Facades\Log::error('Error submitting recharge request: ' . $exception->getMessage());
-            return response()->json([
-                'status' => 'error', 
-                'message' => $exception->getMessage()
-            ], 500);
+            return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }
 
