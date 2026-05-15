@@ -220,9 +220,7 @@ class BookingController extends Controller
         }
     }
 
-}
-
-/**
+    /**
      * FR3 - تنفيذ شروط الإلغاء واسترجاع النقاط
      */
     public function cancelBooking(Request $request)
@@ -358,3 +356,6 @@ class BookingController extends Controller
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }
+
+}
+
