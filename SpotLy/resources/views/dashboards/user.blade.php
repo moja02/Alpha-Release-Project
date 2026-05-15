@@ -802,7 +802,6 @@
             } catch (exception) { console.error(exception); }
         }
 
-        let activeBookingId = null;
 
         // وظيفة إلغاء الحجز الحالي مع شروط الوقت
         async function cancelCurrentBooking() {
