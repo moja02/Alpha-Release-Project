@@ -125,17 +125,7 @@
 
         <section id="bookingTab" class="content-section d-none">
             
-            <div id="activeTicketSection" class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 d-none">
-                <div class="card-body p-4 bg-white">
-                    <div class="row align-items-center text-center text-md-start g-3">
-                        </div>
-                    <hr class="my-4 border-light">
-                    <div class="d-flex flex-wrap gap-2 justify-content-center">
-                        <button onclick="requestChangeSpot()" class="btn btn-outline-primary rounded-pill px-4">🔄 تبديل الساحة</button>
-                        <button onclick="cancelCurrentBooking()" class="btn btn-outline-danger rounded-pill px-4">❌ إلغاء الحجز</button>
-                    </div>
-                </div>
-            </div>
+            <div id="activeTicketSection" class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 d-none" style="display: none;">
                 <div class="card-body p-4 bg-white">
                     <div class="row align-items-center text-center text-md-start g-3">
                         <div class="col-md-4 border-end-md">
@@ -150,6 +140,11 @@
                             <span class="text-muted d-block mb-2">حالة التذكرة</span>
                             <span class="badge bg-success rounded-pill px-4 py-2 fs-6 pb-1 animate-pulse">نشط وقيد الانتظار</span>
                         </div>
+                    </div>
+                    <hr class="my-4 border-light">
+                    <div class="d-flex flex-wrap gap-2 justify-content-center">
+                        <button onclick="requestChangeSpot()" class="btn btn-outline-primary rounded-pill px-4">🔄 تبديل الساحة</button>
+                        <button onclick="cancelCurrentBooking()" class="btn btn-outline-danger rounded-pill px-4">❌ إلغاء الحجز</button>
                     </div>
                 </div>
             </div>
@@ -561,38 +556,60 @@
 
         // ---  فحص التذكرة النشطة وتحميل شبكة المواقف ---
         async function checkActiveTicketAndLoadGrid() {
+            // 1. الإخفاء الاستباقي (Pre-emptive Hide): نغلق التذكرة فوراً قبل أي شيء
+            const activeTicketCard = document.getElementById('activeTicketSection');
+            const gridMapCard = document.getElementById('bookingSpotsGridSection');
+
+            if (activeTicketCard) {
+                activeTicketCard.classList.add('d-none');
+                activeTicketCard.style.setProperty('display', 'none', 'important');
+            }
+
             try {
-                // التحقق من وجود حجز مؤكد
+                // التأكد من وجود بيانات المستخدم لتجنب أخطاء توقف السكربت
+                if (!currentUserData || !currentUserData.accountId) {
+                    throw new Error("بيانات المستخدم غير مكتملة");
+                }
+
+                // 2. الاتصال بالباك إند
                 const response = await fetch('/api/bookings/active?userId=' + currentUserData.accountId);
                 const resultData = await response.json();
 
-                const activeTicketCard = document.getElementById('activeTicketSection');
-                const gridMapCard = document.getElementById('bookingSpotsGridSection');
-
+                // 3. اتخاذ القرار
                 if (response.ok && resultData.status === 'success' && resultData.hasActiveBooking) {
                     const bookingRecord = resultData.bookingData;
-                    
-                    //   تخزين رقم الحجز في المتغير العام
                     activeBookingId = bookingRecord.id;
                     
-                    // عرض اسم الساحة بدلاً من رقم الموقف الفردي
-                    document.getElementById('ticketSpotNumber').innerText = bookingRecord.parking_name;
-                    // عرض نوع الحجز
+                    document.getElementById('ticketSpotNumber').innerText = bookingRecord.parking_name || '--';
                     document.getElementById('ticketPaymentMethod').innerText = bookingRecord.type === 'initial' ? '⏱️ حجز مبدئي (مؤقت)' : '✅ حجز فعلي';
 
-                    if (activeTicketCard) activeTicketCard.classList.remove('d-none');
-                    if (gridMapCard) gridMapCard.classList.add('d-none');
+                    // إظهار التذكرة وإخفاء الخريطة لأن هناك حجز فعلي
+                    if (activeTicketCard) {
+                        activeTicketCard.classList.remove('d-none');
+                        activeTicketCard.style.setProperty('display', 'block', 'important');
+                    }
+                    if (gridMapCard) {
+                        gridMapCard.classList.add('d-none');
+                        gridMapCard.style.setProperty('display', 'none', 'important');
+                    }
                 } else {
-                    // تصفير المتغير في حال عدم وجود حجز نشط
+                    // لا يوجد حجز: نصفر المتغير ونظهر الخريطة (التذكرة مخفية مسبقاً في الخطوة 1)
                     activeBookingId = null;
 
-                    if (activeTicketCard) activeTicketCard.classList.add('d-none');
-                    if (gridMapCard) gridMapCard.classList.remove('d-none');
-                    
-                    loadLiveSpotsGrid();
+                    if (gridMapCard) {
+                        gridMapCard.classList.remove('d-none');
+                        gridMapCard.style.setProperty('display', 'block', 'important');
+                    }
+                    loadLiveSpotsGrid(); // تحميل بيانات المواقف المتاحة
                 }
             } catch (exception) {
-                console.error("خطأ في فحص التذكرة النشطة", exception);
+                console.error("خطأ في فحص التذكرة النشطة:", exception);
+                // في حالة حدوث أي خطأ برمجي، نعرض الخريطة كإجراء احتياطي (Fallback)
+                if (gridMapCard) {
+                    gridMapCard.classList.remove('d-none');
+                    gridMapCard.style.setProperty('display', 'block', 'important');
+                }
+                loadLiveSpotsGrid();
             }
         }
 
@@ -985,6 +1002,26 @@
                 console.error(exception);
             }
         });
+        // --- مشغل أوتوماتيكي صامت لتنظيف الحجوزات المنتهية (يعمل كل دقيقة) ---
+        setInterval(async () => {
+            try {
+                // نطلب من الباك إند فحص إذا كان هناك أي حجز انتهى وقته
+                const response = await fetch('/api/bookings/cleanup-expired', {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                const result = await response.json();
+                
+                // إذا تم اصطياد حجوزات منتهية، نقوم بتحديث واجهة السائق فوراً
+                if (response.ok && result.message.includes('معالجة') && !result.message.includes('0')) {
+                    // تحديث الخريطة والتذكرة في حال كان السائق فاتح الشاشة
+                    checkActiveTicketAndLoadGrid();
+                }
+            } catch (exception) {
+                // لن نطبع خطأ لكي لا نزعج الـ Console، هذه العملية تعمل بصمت
+            }
+        }, 60000); // 60000 ملي ثانية = 1 دقيقة
     </script>
 </body>
 </html>

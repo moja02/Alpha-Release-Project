@@ -238,7 +238,6 @@ class BookingController extends Controller
 
             \Illuminate\Support\Facades\DB::beginTransaction();
 
-            // جلب الحجز مع بيانات الساحة وتأمين السجل
             $bookingRecord = \Illuminate\Support\Facades\DB::table('bookings')
                 ->where('id', $targetBookingId)
                 ->lockForUpdate()
@@ -250,37 +249,42 @@ class BookingController extends Controller
 
             $currentTime = now();
             $bookingStartTime = \Carbon\Carbon::parse($bookingRecord->start_time);
+            $bookingEndTime = \Carbon\Carbon::parse($bookingRecord->end_time);
             
-            // 1. منع الإلغاء نهائياً عندما يحين موعد الحجز أو بعده
-            if ($currentTime->greaterThanOrEqualTo($bookingStartTime)) {
-                return response()->json([
-                    'status' => 'error', 
-                    'message' => 'عذراً، لا يمكن إلغاء الحجز بعد حلول موعد البداية.'
-                ], 403);
+            // 🔴 التحديث الجوهري: فصل منطق الوقت بناءً على نوع الحجز
+            if ($bookingRecord->type === 'actual') {
+                // للحجز الفعلي: نمنع الإلغاء إذا حل وقت البداية
+                if ($currentTime->greaterThanOrEqualTo($bookingStartTime)) {
+                    return response()->json([
+                        'status' => 'error', 
+                        'message' => 'عذراً، لا يمكن إلغاء الحجز الفعلي بعد حلول موعد البداية.'
+                    ], 403);
+                }
+            } else {
+                // للحجز المبدئي: نمنع الإلغاء إذا انتهت مهلة الـ 20 دقيقة (ستعالج كـ Fake Booking لاحقاً)
+                if ($currentTime->greaterThanOrEqualTo($bookingEndTime)) {
+                    return response()->json([
+                        'status' => 'error', 
+                        'message' => 'عذراً، انتهت مهلة الحجز المبدئي (20 دقيقة).'
+                    ], 403);
+                }
             }
 
-            // حساب التكلفة الأصلية (بافتراض أن الحجز الفعلي فقط هو من خصم نقاط)
-            // سنفترض أننا نريد حساب المبلغ المسترد بناءً على الفرق الزمني
-            $minutesToStart = $currentTime->diffInMinutes($bookingStartTime, false);
             $refundPercentage = 0;
             $refundAmount = 0;
 
-            // تحديد نسبة الاسترجاع
-            if ($minutesToStart > 30) {
-                // 2. استرجاع 100% إذا تم الإلغاء قبل الموعد بأكثر من 30 دقيقة
-                $refundPercentage = 100;
-            } else {
-                // 3. استرجاع 50% إذا كان الإلغاء خلال الـ 30 دقيقة السابقة للموعد
-                $refundPercentage = 50;
-            }
-
-            // إذا كان الحجز من النوع 'actual' (فعلي)، نقوم برد النقاط
+            // حساب الاسترجاع المالي للحجز الفعلي فقط (لأن المبدئي لم يخصم منه نقاط)
             if ($bookingRecord->type === 'actual') {
-                // ملاحظة: في كود الحجز الفعلي السابق حسبنا التكلفة بناءً على الساعات
-                // هنا سنقوم بجلب إجمالي ما خُصم فعلياً (نحتاج لحقل تكلفة في الجدول أو إعادة الحساب)
-                // للتبسيط، سنحسب التكلفة الافتراضية المستردة
+                $minutesToStart = $currentTime->diffInMinutes($bookingStartTime, false);
+                
+                if ($minutesToStart > 30) {
+                    $refundPercentage = 100;
+                } else {
+                    $refundPercentage = 50;
+                }
+
                 $totalHours = $bookingStartTime->diffInHours(\Carbon\Carbon::parse($bookingRecord->end_time)) ?: 1;
-                $originalCost = $totalHours * 2.5;
+                $originalCost = $totalHours * 2.5; // تسعيرة الساعة 2.5
                 $refundAmount = ($originalCost * $refundPercentage) / 100;
 
                 \Illuminate\Support\Facades\DB::table('wallets')
@@ -288,7 +292,7 @@ class BookingController extends Controller
                     ->increment('balance', $refundAmount);
             }
 
-            // 4. تحديث حالة الحجز وزيادة السعة المتاحة في الساحة
+            // تحديث حالة الحجز وزيادة السعة المتاحة في الساحة
             \Illuminate\Support\Facades\DB::table('bookings')
                 ->where('id', $targetBookingId)
                 ->update(['status' => 'cancelled', 'updated_at' => now()]);
@@ -298,9 +302,13 @@ class BookingController extends Controller
                 ->increment('available_capacity', 1);
 
             // إرسال إشعار للمستخدم
+            $notificationMsg = $bookingRecord->type === 'actual' 
+                ? "تم إلغاء الحجز بنجاح. تم استرجاع {$refundAmount} نقطة ({$refundPercentage}%) لمحفظتك."
+                : "تم إلغاء الحجز المبدئي بنجاح.";
+
             \Illuminate\Support\Facades\DB::table('notifications')->insert([
                 'user_id' => $bookingRecord->user_id,
-                'message' => "تم إلغاء الحجز بنجاح. تم استرجاع {$refundAmount} نقطة ({$refundPercentage}%) لمحفظتك.",
+                'message' => $notificationMsg,
                 'type' => 'Booking_Cancelled',
                 'created_at' => now()
             ]);
@@ -309,7 +317,7 @@ class BookingController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'تم إلغاء الحجز ومعالجة المحفظة بنجاح.'
+                'message' => $notificationMsg
             ], 200);
 
         } catch (\Exception $exception) {
@@ -334,19 +342,26 @@ class BookingController extends Controller
             \Illuminate\Support\Facades\DB::beginTransaction();
 
             $oldBooking = \Illuminate\Support\Facades\DB::table('bookings')->where('id', $bookingId)->lockForUpdate()->first();
+            $currentTime = now();
             
-            // منع التبديل إذا بدأ وقت الحجز
-            if (now()->greaterThanOrEqualTo(\Carbon\Carbon::parse($oldBooking->start_time))) {
-                return response()->json(['status' => 'error', 'message' => 'لا يمكن تغيير الموقف بعد بدء وقت الحجز.'], 403);
+            //  فصل منطق الوقت للتبديل أيضاً
+            if ($oldBooking->type === 'actual') {
+                if ($currentTime->greaterThanOrEqualTo(\Carbon\Carbon::parse($oldBooking->start_time))) {
+                    return response()->json(['status' => 'error', 'message' => 'لا يمكن تغيير الموقف بعد بدء وقت الحجز الفعلي.'], 403);
+                }
+            } else {
+                if ($currentTime->greaterThanOrEqualTo(\Carbon\Carbon::parse($oldBooking->end_time))) {
+                    return response()->json(['status' => 'error', 'message' => 'لا يمكن تغيير الموقف لأن مهلة الحجز المبدئي قد انتهت.'], 403);
+                }
             }
 
             // فحص سعة الموقف الجديد
             $newParking = \Illuminate\Support\Facades\DB::table('parkings')->where('id', $newParkingId)->lockForUpdate()->first();
             if ($newParking->available_capacity <= 0) {
-                return response()->json(['status' => 'error', 'message' => 'عذراً، الساحة الجديدة ممتلئة.'], 400);
+                return response()->json(['status' => 'error', 'message' => 'عذراً، الساحة الجديدة ممتلئة بالكامل.'], 400);
             }
 
-            // تنفيذ التبديل
+            // تنفيذ التبديل وإعادة السعات
             \Illuminate\Support\Facades\DB::table('parkings')->where('id', $oldBooking->parking_id)->increment('available_capacity', 1);
             \Illuminate\Support\Facades\DB::table('parkings')->where('id', $newParkingId)->decrement('available_capacity', 1);
 
