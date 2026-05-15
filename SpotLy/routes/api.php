@@ -19,6 +19,8 @@ Route::post('/accounts/login', [AuthController::class, 'login']);
 
 // مسار تسجيل الحجز الزائف موجه الآن لمتحكم الحجوزات
 Route::post('/accounts/record-fake-booking', [BookingController::class, 'recordFakeBooking']);
+// مسار تنظيف الحجوزات المنتهية وتسجيل المخالفات
+Route::post('/bookings/cleanup-expired', [BookingController::class, 'cleanupExpiredBookings']);
 
 // مسارات إدارة الكيانات الأساسية (Account Management)
 Route::post('/accounts/create', [AccountController::class, 'createAccount']);

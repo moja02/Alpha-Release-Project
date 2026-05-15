@@ -378,6 +378,83 @@ class BookingController extends Controller
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }
+    public function cleanupExpiredBookings()
+    {
+        try {
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            $currentTime = now();
+
+            // 1. جلب كل الحجوزات المبدئية المؤكدة التي انتهت مهلة الـ 20 دقيقة الخاصة بها
+            $expiredBookings = \Illuminate\Support\Facades\DB::table('bookings')
+                ->where('type', 'initial')
+                ->where('status', 'confirmed')
+                ->where('end_time', '<=', $currentTime)
+                ->lockForUpdate()
+                ->get();
+
+            $processedCount = 0;
+
+            foreach ($expiredBookings as $booking) {
+                // أ. تغيير حالة الحجز إلى "منتهي / مخالفة"
+                \Illuminate\Support\Facades\DB::table('bookings')
+                    ->where('id', $booking->id)
+                    ->update(['status' => 'expired', 'updated_at' => $currentTime]);
+
+                // ب. إرجاع السعة للساحة (لأن السائق لم يحضر)
+                \Illuminate\Support\Facades\DB::table('parkings')
+                    ->where('id', $booking->parking_id)
+                    ->increment('available_capacity', 1);
+
+                // ج. زيادة عداد المخالفات للسائق بمقدار 1
+                \Illuminate\Support\Facades\DB::table('users')
+                    ->where('account_id', $booking->user_id)
+                    ->increment('fake_booking_count', 1);
+
+                // د. جلب بيانات السائق لفحص هل وصل للحد الأقصى من المخالفات؟
+                $driver = \Illuminate\Support\Facades\DB::table('users')
+                    ->where('account_id', $booking->user_id)
+                    ->first();
+
+                if ($driver && $driver->fake_booking_count >= 3) {
+                    // حظر الحساب إذا وصل لـ 3 مخالفات
+                    \Illuminate\Support\Facades\DB::table('users')
+                        ->where('account_id', $booking->user_id)
+                        ->update(['status' => 'blocked']);
+
+                    // إشعار بالحظر
+                    \Illuminate\Support\Facades\DB::table('notifications')->insert([
+                        'user_id' => $booking->user_id,
+                        'message' => 'تم حظر حسابك لتجاوز الحد الأقصى للمخالفات (3 مرات حجز وهمي دون حضور).',
+                        'type' => 'Account_Blocked',
+                        'created_at' => $currentTime
+                    ]);
+                } else {
+                    // إشعار بتسجيل مخالفة عادية
+                    \Illuminate\Support\Facades\DB::table('notifications')->insert([
+                        'user_id' => $booking->user_id,
+                        'message' => 'انتهت مهلة الحجز المبدئي (20 دقيقة) دون حضورك. تم إلغاء الحجز وتسجيل مخالفة (Fake Booking) في سجلك.',
+                        'type' => 'Booking_Expired',
+                        'created_at' => $currentTime
+                    ]);
+                }
+
+                $processedCount++;
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "تمت معالجة {$processedCount} حجوزات منتهية وتطبيق المخالفات."
+            ], 200);
+
+        } catch (\Exception $exception) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('Error in cleanup function: ' . $exception->getMessage());
+            return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
+        }
+    }
 
 }
 
