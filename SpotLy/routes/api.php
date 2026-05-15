@@ -17,8 +17,9 @@ Route::get('/user', function (Request $request) {
 // مسارات المصادقة (Authentication)
 Route::post('/accounts/login', [AuthController::class, 'login']);
 
-// مسار تسجيل الحجز الزائف موجه الآن لمتحكم الحجوزات
-Route::post('/accounts/record-fake-booking', [BookingController::class, 'recordFakeBooking']);
+// مسار تنظيف الحجوزات المنتهية وتسجيل المخالفات
+Route::post('/bookings/cleanup-expired', [BookingController::class, 'cleanupExpiredBookings']);
+Route::get('/accounts/stats', [AccountController::class, 'getDriverStats']);
 
 // مسارات إدارة الكيانات الأساسية (Account Management)
 Route::post('/accounts/create', [AccountController::class, 'createAccount']);
@@ -46,3 +47,5 @@ Route::post('/auth/forgot-password/reset', [AuthController::class, 'verifyOtpAnd
 Route::get('/parkings/spots', [BookingController::class, 'getSpots']);
 Route::get('/bookings/active', [BookingController::class, 'getActiveBooking']);
 Route::post('/bookings/create', [BookingController::class, 'createBooking']);
+Route::post('/bookings/cancel', [BookingController::class, 'cancelBooking']);
+Route::post('/bookings/change-spot', [BookingController::class, 'changeSpot']);

@@ -125,14 +125,7 @@
 
         <section id="bookingTab" class="content-section d-none">
             
-            <div id="activeTicketSection" class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 d-none">
-                <div class="card-header bg-gradient bg-success text-white p-4 border-0 d-flex align-items-center justify-content-between">
-                    <div>
-                        <h5 class="fw-bold mb-1">🎟️ تذكرتك الإلكترونية النشطة</h5>
-                        <p class="fs-6 mb-0 text-white text-opacity-75">تم حجز الموقف بنجاح وبانتظار وصولك الميداني</p>
-                    </div>
-                    <span class="fs-1">⚡</span>
-                </div>
+            <div id="activeTicketSection" class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 d-none" style="display: none;">
                 <div class="card-body p-4 bg-white">
                     <div class="row align-items-center text-center text-md-start g-3">
                         <div class="col-md-4 border-end-md">
@@ -147,6 +140,11 @@
                             <span class="text-muted d-block mb-2">حالة التذكرة</span>
                             <span class="badge bg-success rounded-pill px-4 py-2 fs-6 pb-1 animate-pulse">نشط وقيد الانتظار</span>
                         </div>
+                    </div>
+                    <hr class="my-4 border-light">
+                    <div class="d-flex flex-wrap gap-2 justify-content-center">
+                        <button onclick="requestChangeSpot()" class="btn btn-outline-primary rounded-pill px-4">🔄 تبديل الساحة</button>
+                        <button onclick="cancelCurrentBooking()" class="btn btn-outline-danger rounded-pill px-4">❌ إلغاء الحجز</button>
                     </div>
                 </div>
             </div>
@@ -342,6 +340,58 @@
                 console.error("خطأ أثناء تحديث رصيد المحفظة", exception);
             }
         }
+
+        // --- دالة تحديث إحصائيات السائق (المخالفات وحالة الحساب) ---
+        async function refreshDriverStats() {
+            try {
+                if (!currentUserData || !currentUserData.accountId) return;
+
+                const response = await fetch('/api/accounts/stats?userId=' + currentUserData.accountId);
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    // 1. تحديث رقم المخالفات في الواجهة
+                    const fakeBookingElem = document.getElementById('fakeBookingDisplay');
+                    if (fakeBookingElem && fakeBookingElem.innerText != data.fake_booking_count) {
+                        fakeBookingElem.innerText = data.fake_booking_count;
+                        // تأثير بصري بسيط عند زيادة المخالفة
+                        fakeBookingElem.parentElement.classList.add('animate-pulse');
+                        setTimeout(() => fakeBookingElem.parentElement.classList.remove('animate-pulse'), 1000);
+                    }
+
+                    // 2. تحديث حالة الحساب (نشط / محظور)
+                    const statusElem = document.getElementById('statusDisplay');
+                    if (statusElem) {
+                        statusElem.innerText = data.account_status === 'active' ? 'نشط' : 'محظور';
+                        statusElem.className = data.account_status === 'active' ? 'fs-5 fw-bold mb-0 text-success' : 'fs-5 fw-bold mb-0 text-danger';
+                    }
+
+                    // 3. تحديث التخزين المحلي (localStorage) بيش تقعد البيانات متزامنة
+                    if(currentUserData.profile) {
+                        currentUserData.profile.fake_booking_count = data.fake_booking_count;
+                        currentUserData.profile.status = data.account_status;
+                        localStorage.setItem('userData', JSON.stringify(currentUserData));
+                    }
+
+                    // 4. طرد السائق فوراً إذا تم حظره!
+                    if (data.account_status === 'blocked') {
+                        Swal.fire({
+                            title: 'تم حظر الحساب!',
+                            text: 'لقد تجاوزت الحد الأقصى للمخالفات (3 مرات). سيتم تسجيل خروجك الآن.',
+                            icon: 'error',
+                            confirmButtonText: 'حسناً',
+                            allowOutsideClick: false
+                        }).then(() => {
+                            localStorage.clear();
+                            window.location.href = '/login';
+                        });
+                    }
+                }
+            } catch (exception) {
+                console.error("خطأ في تحديث إحصائيات السائق", exception);
+            }
+        }
+
         // دالة جلب السجل
         async function loadUserRechargeHistory() {
             try {
@@ -467,6 +517,7 @@
                 if (sectionIdValue === 'overviewTab') {
                     fetchWalletBalance(); // تحديث الرصيد فور العودة للرئيسية
                     checkActiveBookingForOverview(); // فحص الحجوزات
+                    refreshDriverStats(); // تحديث المخالفات عند العودة للرئيسية
                 } else if (sectionIdValue === 'profileTab') {
                     loadProfileData();
                 } else if (sectionIdValue === 'bookingTab') {
@@ -553,35 +604,65 @@
         | النواة التشغيلية: دوال إدارة الحجز والمواقف التفاعلية (FR3)
         |--------------------------------------------------------------------------
         */
+        // متغير عام لتخزين رقم الحجز النشط لكي نستخدمه في دوال الإلغاء والتبديل
+        let activeBookingId = null;
 
         // ---  فحص التذكرة النشطة وتحميل شبكة المواقف ---
         async function checkActiveTicketAndLoadGrid() {
+            // 1. الإخفاء الاستباقي (Pre-emptive Hide): نغلق التذكرة فوراً قبل أي شيء
+            const activeTicketCard = document.getElementById('activeTicketSection');
+            const gridMapCard = document.getElementById('bookingSpotsGridSection');
+
+            if (activeTicketCard) {
+                activeTicketCard.classList.add('d-none');
+                activeTicketCard.style.setProperty('display', 'none', 'important');
+            }
+
             try {
-                //  التحقق من وجود حجز مؤكد
+                // التأكد من وجود بيانات المستخدم لتجنب أخطاء توقف السكربت
+                if (!currentUserData || !currentUserData.accountId) {
+                    throw new Error("بيانات المستخدم غير مكتملة");
+                }
+
+                // 2. الاتصال بالباك إند
                 const response = await fetch('/api/bookings/active?userId=' + currentUserData.accountId);
                 const resultData = await response.json();
 
-                const activeTicketCard = document.getElementById('activeTicketSection');
-                const gridMapCard = document.getElementById('bookingSpotsGridSection');
-
+                // 3. اتخاذ القرار
                 if (response.ok && resultData.status === 'success' && resultData.hasActiveBooking) {
                     const bookingRecord = resultData.bookingData;
+                    activeBookingId = bookingRecord.id;
                     
-                    // عرض اسم الساحة بدلاً من رقم الموقف الفردي
-                    document.getElementById('ticketSpotNumber').innerText = bookingRecord.parking_name;
-                    // بما أن طريقة الدفع غير مخزنة في الداتا بيز، سنعرض نوع الحجز
+                    document.getElementById('ticketSpotNumber').innerText = bookingRecord.parking_name || '--';
                     document.getElementById('ticketPaymentMethod').innerText = bookingRecord.type === 'initial' ? '⏱️ حجز مبدئي (مؤقت)' : '✅ حجز فعلي';
 
-                    if (activeTicketCard) activeTicketCard.classList.remove('d-none');
-                    if (gridMapCard) gridMapCard.classList.add('d-none');
+                    // إظهار التذكرة وإخفاء الخريطة لأن هناك حجز فعلي
+                    if (activeTicketCard) {
+                        activeTicketCard.classList.remove('d-none');
+                        activeTicketCard.style.setProperty('display', 'block', 'important');
+                    }
+                    if (gridMapCard) {
+                        gridMapCard.classList.add('d-none');
+                        gridMapCard.style.setProperty('display', 'none', 'important');
+                    }
                 } else {
-                    if (activeTicketCard) activeTicketCard.classList.add('d-none');
-                    if (gridMapCard) gridMapCard.classList.remove('d-none');
-                    
-                    loadLiveSpotsGrid();
+                    // لا يوجد حجز: نصفر المتغير ونظهر الخريطة (التذكرة مخفية مسبقاً في الخطوة 1)
+                    activeBookingId = null;
+
+                    if (gridMapCard) {
+                        gridMapCard.classList.remove('d-none');
+                        gridMapCard.style.setProperty('display', 'block', 'important');
+                    }
+                    loadLiveSpotsGrid(); // تحميل بيانات المواقف المتاحة
                 }
             } catch (exception) {
-                console.error("خطأ في فحص التذكرة النشطة", exception);
+                console.error("خطأ في فحص التذكرة النشطة:", exception);
+                // في حالة حدوث أي خطأ برمجي، نعرض الخريطة كإجراء احتياطي (Fallback)
+                if (gridMapCard) {
+                    gridMapCard.classList.remove('d-none');
+                    gridMapCard.style.setProperty('display', 'block', 'important');
+                }
+                loadLiveSpotsGrid();
             }
         }
 
@@ -640,53 +721,88 @@
             }
         }
 
+        // دالة مساعدة لإظهار/إخفاء حقول الوقت بناءً على اختيار السائق
+        window.toggleTimeInputs = function(isActualSelected) {
+            const timeInputsDiv = document.getElementById('actualTimeInputs');
+            if (timeInputsDiv) {
+                isActualSelected ? timeInputsDiv.classList.remove('d-none') : timeInputsDiv.classList.add('d-none');
+            }
+        };
+
         // ---  بدء إجراءات الحجز التفاعلي  ---
-        function initiateSpotReservation(spotIdValue, spotNumberValue, spotStatusValue) {
+        async function initiateSpotReservation(spotIdValue, spotNameValue, availableCapacity) {
             try {
-                // منع التفاعل إذا كان الموقف محجوزاً
-                if (spotStatusValue !== 'available') {
+                // إصلاح المشكلة: الاعتماد على السعة الرقمية بدلاً من حالة نصية
+                if (availableCapacity <= 0) {
                     Swal.fire({
-                        icon: 'warning',
-                        title: 'الموقف غير متاح',
-                        text: 'عذراً، هذا الموقف محجوز مسبقاً أو غير متاح في الوقت الحالي.',
-                        confirmButtonColor: '#2c3e50'
+                        icon: 'warning', title: 'الموقف ممتلئ', text: 'عذراً، هذه الساحة لا تحتوي على أماكن شاغرة حالياً.', confirmButtonColor: '#2c3e50'
                     });
                     return;
                 }
 
-                //  إظهار نافذة منبثقة لاختيار طريقة الدفع وتأكيد رغبة الحجز
-                Swal.fire({
-                    title: `تأكيد حجز الموقف (${spotNumberValue})`,
-                    text: 'تكلفة حجز الموقف هي 10 نقاط. يرجى تحديد طريقة الدفع المفضلة:',
-                    icon: 'question',
-                    input: 'radio',
-                    inputOptions: {
-                        'wallet': '💳 خصم فوري من المحفظة الرقمية',
-                        'cash': '💵 الدفع نقداً للموظف عند الوصول'
-                    },
-                    inputValidator: (selectedValue) => {
+                // تعليق مضمن: عرض نافذة مخصصة تحتوي على خيارات الحجز المطلوبة في السيناريو
+                const { value: formValues } = await Swal.fire({
+                    title: `حجز موقف في (${spotNameValue})`,
+                    html: `
+                        <div class="text-start mt-3">
+                            <div class="form-check mb-3 p-3 bg-light rounded-3 border">
+                                <input class="form-check-input ms-2" type="radio" name="bookingType" id="typeInitial" value="initial" checked onchange="toggleTimeInputs(false)">
+                                <label class="form-check-label fw-bold text-primary" for="typeInitial">
+                                    ⏱️ حجز مبدئي (مهلة 20 دقيقة للوصول)
+                                </label>
+                                <small class="d-block text-muted mt-1">يضمن لك مكاناً مؤقتاً لحين وصولك للموقع.</small>
+                            </div>
+                            
+                            <div class="form-check mb-3 p-3 bg-light rounded-3 border">
+                                <input class="form-check-input ms-2" type="radio" name="bookingType" id="typeActual" value="actual" onchange="toggleTimeInputs(true)">
+                                <label class="form-check-label fw-bold text-success" for="typeActual">
+                                    ✅ حجز فعلي (يتم الخصم من المحفظة)
+                                </label>
+                                <small class="d-block text-muted mt-1">تحديد وقت الدخول والخروج مسبقاً وتأكيد الدفع.</small>
+                            </div>
+
+                            <div id="actualTimeInputs" class="d-none bg-white p-3 rounded-3 border shadow-sm mt-2">
+                                <label class="form-label small fw-bold text-secondary">وقت وتاريخ الدخول:</label>
+                                <input type="datetime-local" id="swalStartTime" class="form-control mb-3 shadow-none">
+                                <label class="form-label small fw-bold text-secondary">وقت وتاريخ الخروج:</label>
+                                <input type="datetime-local" id="swalEndTime" class="form-control shadow-none">
+                            </div>
+                        </div>
+                    `,
+                    focusConfirm: false,
+                    showCancelButton: true,
+                    confirmButtonText: 'تأكيد الحجز 🚀',
+                    cancelButtonText: 'تراجع',
+                    confirmButtonColor: '#2c3e50',
+                    cancelButtonColor: '#d33',
+                    preConfirm: () => {
                         try {
-                            if (!selectedValue) {
-                                return 'يرجى تحديد طريقة الدفع لإتمام إصدار التذكرة!';
+                            const typeSelected = document.querySelector('input[name="bookingType"]:checked').value;
+                            
+                            if (typeSelected === 'actual') {
+                                const startVal = document.getElementById('swalStartTime').value;
+                                const endVal = document.getElementById('swalEndTime').value;
+                                
+                                if (!startVal || !endVal) {
+                                    Swal.showValidationMessage('يرجى إدخال وقتي الدخول والخروج لإتمام الحجز الفعلي');
+                                    return false;
+                                }
+                                if (new Date(startVal) >= new Date(endVal)) {
+                                    Swal.showValidationMessage('وقت الخروج يجب أن يكون بعد وقت الدخول بشكل منطقي');
+                                    return false;
+                                }
+                                return { type: 'actual', startTime: startVal, endTime: endVal };
                             }
+                            return { type: 'initial' };
                         } catch (innerException) {
                             console.error(innerException);
                         }
-                    },
-                    showCancelButton: true,
-                    confirmButtonText: 'تأكيد وإصدار التذكرة 🚀',
-                    cancelButtonText: 'تراجع',
-                    confirmButtonColor: '#2c3e50',
-                    cancelButtonColor: '#d33'
-                }).then((modalResult) => {
-                    try {
-                        if (modalResult.isConfirmed) {
-                            executeBookingRequest(spotIdValue, modalResult.value);
-                        }
-                    } catch (innerException) {
-                        console.error(innerException);
                     }
                 });
+
+                if (formValues) {
+                    executeBookingRequest(spotIdValue, formValues);
+                }
 
             } catch (exception) {
                 console.error("خطأ في نافذة الحجز", exception);
@@ -694,30 +810,30 @@
         }
 
         // ---  إرسال طلب الاعتماد النهائي وإصدار التذكرة ---
-        async function executeBookingRequest(targetSpotIdValue, selectedMethodValue) {
+        async function executeBookingRequest(targetSpotIdValue, bookingDataValues) {
             try {
                 Swal.fire({
-                    title: 'جاري إصدار التذكرة...',
-                    text: 'يرجى الانتظار لحين تأكيد الموقف وتحديث الخريطة',
+                    title: 'جاري تسجيل الحجز...',
                     allowOutsideClick: false,
-                    didOpen: () => {
-                        try {
-                            Swal.showLoading();
-                        } catch (innerException) {
-                            console.error(innerException);
-                        }
-                    }
+                    didOpen: () => { Swal.showLoading(); }
                 });
 
-                //  إرسال الطلب الفعلي للباك إند لخصم الرصيد وتحديث الجداول
+                // تجهيز حزمة البيانات للإرسال
+                const payloadData = {
+                    userId: currentUserData.accountId,
+                    parkingId: targetSpotIdValue,
+                    bookingType: bookingDataValues.type
+                };
+
+                if (bookingDataValues.type === 'actual') {
+                    payloadData.startTime = bookingDataValues.startTime;
+                    payloadData.endTime = bookingDataValues.endTime;
+                }
+
                 const response = await fetch('/api/bookings/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({
-                        userId: currentUserData.accountId,
-                        parkingId: targetSpotIdValue,
-                        paymentMethod: selectedMethodValue
-                    })
+                    body: JSON.stringify(payloadData)
                 });
 
                 const responseData = await response.json();
@@ -726,27 +842,17 @@
                     Swal.fire({
                         icon: 'success',
                         title: 'تم الحجز بنجاح! 🎟️',
-                        text: 'تم إصدار تذكرتك الإلكترونية. يرجى التوجه للموقف وتأكيد حضورك.',
+                        text: bookingDataValues.type === 'initial' ? 'تم تأمين موقفك لـ 20 دقيقة القادمة.' : 'تم تأكيد حجزك الفعلي وخصم التكلفة.',
                         confirmButtonColor: '#2c3e50'
                     }).then(() => {
-                        try {
-                            // تحديث الرصيد وإعادة تحميل التبويب لعرض التذكرة النشطة فوراً
-                            fetchWalletBalance();
-                            checkActiveTicketAndLoadGrid();
-                        } catch (innerException) {
-                            console.error(innerException);
-                        }
+                        fetchWalletBalance();
+                        checkActiveTicketAndLoadGrid();
                     });
                 } else {
                     throw new Error(responseData.message || 'تعذر إتمام عملية الحجز.');
                 }
             } catch (exception) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'فشل الحجز',
-                    text: exception.message,
-                    confirmButtonColor: '#d33'
-                });
+                Swal.fire({ icon: 'error', title: 'فشل الحجز', text: exception.message, confirmButtonColor: '#d33' });
             }
         }
 
@@ -766,31 +872,109 @@
             } catch (exception) { console.error(exception); }
         }
 
-        // تحديث مستمع حدث الإرسال ليشمل parkingId
-        document.getElementById('rechargeRequestForm').addEventListener('submit', async function(event) {
+
+        // وظيفة إلغاء الحجز الحالي مع شروط الوقت
+        async function cancelCurrentBooking() {
             try {
-                event.preventDefault();
-                const parkingIdValue = document.getElementById('targetParkingSelect').value;
-                const amountValue = document.getElementById('rechargeAmountInput').value;
-                const fileValue = document.getElementById('receiptFileInput').files[0];
-
-                const formData = new FormData();
-                formData.append('userId', currentUserData.accountId);
-                formData.append('parkingId', parkingIdValue);
-                formData.append('amount', amountValue);
-                formData.append('receipt', fileValue);
-
-                const response = await fetch('/api/recharges/request', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                if (response.ok) {
-                    Swal.fire('تم الإرسال', 'تم توجيه طلبك للموظف المسؤول عن الساحة.', 'success');
-                    loadUserRechargeHistory();
+                // التأكد من وجود رقم الحجز قبل إرسال الطلب
+                if (!activeBookingId) {
+                    Swal.fire('خطأ', 'لم يتم التعرف على رقم الحجز النشط. يرجى تحديث الصفحة.', 'error');
+                    return;
                 }
-            } catch (exception) { console.error(exception); }
-        });
+
+                const { isConfirmed } = await Swal.fire({
+                    title: 'تأكيد الإلغاء',
+                    text: 'هل أنت متأكد من رغبتك في إلغاء الحجز؟ سيتم تطبيق سياسة الاسترجاع (100% قبل 30 دقيقة، 50% خلال الـ 30 دقيقة الأخيرة).',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'نعم، إلغاء الحجز',
+                    cancelButtonText: 'تراجع',
+                    confirmButtonColor: '#d33'
+                });
+
+                if (!isConfirmed) return;
+
+                // إظهار حالة التحميل
+                Swal.fire({
+                    title: 'جاري الإلغاء...',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                const response = await fetch('/api/bookings/cancel', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json' // ضروري لاستقبال أخطاء لارافيل بوضوح
+                    },
+                    body: JSON.stringify({ bookingId: activeBookingId })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.status === 'success') {
+                    // 1. إخفاء إجباري وفوري للتذكرة من الواجهة باستخدام CSS
+                    const ticketSection = document.getElementById('activeTicketSection');
+                    if (ticketSection) {
+                        ticketSection.style.setProperty('display', 'none', 'important');
+                        ticketSection.classList.add('d-none');
+                    }
+
+                    // 2. إظهار رسالة النجاح
+                    Swal.fire('تم الإلغاء', result.message, 'success');
+                    
+                    // 3. تصفير المتغير وتحديث البيانات
+                    activeBookingId = null;
+                    checkActiveTicketAndLoadGrid();
+                    fetchWalletBalance();
+                } else {
+                    Swal.fire('خطأ', result.message || 'حدث خطأ أثناء محاولة الإلغاء.', 'error');
+                }
+            } catch (exception) { 
+                console.error("خطأ في الإلغاء:", exception); 
+                Swal.fire('خطأ', 'تعذر الاتصال بالخادم.', 'error');
+            }
+        }
+
+        // وظيفة طلب تبديل الساحة
+        async function requestChangeSpot() {
+            try {
+                const response = await fetch('/api/parkings/spots');
+                const result = await response.json();
+                
+                let optionsHtml = '';
+                result.data.forEach(p => {
+                    if (p.available_capacity > 0) {
+                        optionsHtml += `<option value="${p.id}">${p.name} (متاح: ${p.available_capacity})</option>`;
+                    }
+                });
+
+                const { value: newParkingId } = await Swal.fire({
+                    title: 'اختر الساحة البديلة',
+                    html: `<select id="swalNewParking" class="form-select">${optionsHtml}</select>`,
+                    showCancelButton: true,
+                    confirmButtonText: 'تأكيد التبديل',
+                    preConfirm: () => document.getElementById('swalNewParking').value
+                });
+
+                if (newParkingId) {
+                    const res = await fetch('/api/bookings/change-spot', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ bookingId: activeBookingId, newParkingId: newParkingId })
+                    });
+
+                    if (res.ok) {
+                        Swal.fire('نجاح', 'تم تبديل الموقف بنجاح.', 'success');
+                        checkActiveTicketAndLoadGrid();
+                    } else {
+                        const err = await res.json();
+                        Swal.fire('خطأ', err.message, 'error');
+                    }
+                }
+            } catch (e) { console.error(e); }
+        }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -833,58 +1017,6 @@
             }
         }
 
-        // معالجة رفع إيصال التحويل البنكي للشحن
-        document.getElementById('rechargeRequestForm').addEventListener('submit', async function(event) {
-            try {
-                event.preventDefault();
-                
-                const amountInputValue = document.getElementById('rechargeAmountInput').value;
-                const fileInputValue = document.getElementById('receiptFileInput').files[0];
-                const submitButtonElement = document.getElementById('submitRechargeBtn');
-
-                submitButtonElement.disabled = true;
-
-                try {
-                    const formDataPayload = new FormData();
-                    formDataPayload.append('userId', currentUserData.accountId);
-                    formDataPayload.append('amount', amountInputValue);
-                    formDataPayload.append('receipt', fileInputValue);
-
-                    Swal.fire({
-                        title: 'جاري رفع الإيصال...',
-                        allowOutsideClick: false,
-                        didOpen: () => {
-                            try {
-                                Swal.showLoading();
-                            } catch (innerException) {
-                                console.error(innerException);
-                            }
-                        }
-                    });
-
-                    const response = await fetch('/api/recharges/request', {
-                        method: 'POST',
-                        headers: { 'Accept': 'application/json' },
-                        body: formDataPayload
-                    });
-
-                    const resultData = await response.json();
-
-                    if (response.ok) {
-                        Swal.fire('تم الإرسال بنجاح', 'تم رفع إيصال التحويل للمراجعة والاعتماد من قبل الموظف الميداني.', 'success');
-                        document.getElementById('rechargeRequestForm').reset();
-                    } else {
-                        throw new Error(resultData.message || 'فشل رفع الإيصال.');
-                    }
-                } catch (exception) {
-                    Swal.fire('خطأ', exception.message, 'error');
-                } finally {
-                    submitButtonElement.disabled = false;
-                }
-            } catch (exception) {
-                console.error(exception);
-            }
-        });
 
         // معالجة تحديث البيانات الشخصية للسائق
         document.getElementById('profileForm').addEventListener('submit', async function(event) {
@@ -923,6 +1055,25 @@
                 console.error(exception);
             }
         });
+        // --- مشغل أوتوماتيكي صامت لتنظيف الحجوزات المنتهية (يعمل كل دقيقة) ---
+        setInterval(async () => {
+            try {
+                // 1. تحديث الإحصائيات (المخالفات)
+                refreshDriverStats();
+
+                // 2. فحص الحجوزات المنتهية
+                const response = await fetch('/api/bookings/cleanup-expired', {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.message.includes('معالجة') && !result.message.includes('0')) {
+                    checkActiveTicketAndLoadGrid();
+                }
+            } catch (exception) {}
+        }, 60000);
     </script>
 </body>
 </html>

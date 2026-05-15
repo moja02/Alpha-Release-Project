@@ -14,93 +14,6 @@ use Illuminate\Support\Str; //توليد الرمز العشوائي
 class AccountController extends Controller
 {
     /**
-     * دالة إنشاء حساب جديد (مستخدم أو موظف)
-     */
-    public function createAccount(Request $request)
-    {
-        
-        try {
-            // التحقق من المدخلات (كلمة المرور أصبحت مطلوبة للموظف فقط، ومستثناة للسائق)
-            $request->validate([
-                'name' => 'required|string|max:191',
-                'email' => 'required|string|email|max:191|unique:accounts',
-                'phone' => 'required|string|max:20',
-                'role' => 'required|in:user,employee',
-                'password' => 'required_if:role,employee|string|min:6',
-                'plateNumber' => 'required_if:role,user|string|max:20', 
-                'bankAccountNumber' => 'required_if:role,employee|string|max:50', 
-            ]);
-
-            DB::beginTransaction();
-
-            
-            $accountRole = $request->input('role');
-            $plainPasswordCode = null;
-
-            // تعليق مضمن: فحص نوع الحساب لتوليد الرمز العشوائي للسائقين فقط
-            if ($accountRole === 'user') {
-                // توليد رمز عشوائي آمن مكون من 8 خانات (حروف وأرقام)
-                $plainPasswordCode = Str::random(8);
-            } else {
-                // الاعتماد على كلمة المرور المدخلة يدوياً للموظفين
-                $plainPasswordCode = $request->input('password');
-            }
-
-            // حفظ بيانات الحساب الأساسي وتشفير الرمز العشوائي قبل تخزينه في الداتا بيز
-            $newAccount = Account::create([
-                'name' => $request->input('name'),
-                'email' => $request->input('email'),
-                'phone' => $request->input('phone'),
-                'password' => Hash::make($plainPasswordCode),
-                'role' => $accountRole,
-            ]);
-
-            // تخصيص الكلاس الفرعي وتخزين البيانات المرتبطة
-            if ($accountRole === 'user') {
-                User::create([
-                    'account_id' => $newAccount->id,
-                    'plate_number' => $request->input('plateNumber'),
-                    'status' => 'active',
-                    'fake_booking_count' => 0,
-                ]);
-
-                // تعليق مضمن: صياغة رسالة البريد الإلكتروني متضمنة الرمز العشوائي المولد
-                $welcomeEmailContent = "مرحباً بك في نظام SpotLy. تم إنشاء حسابك بنجاح. رمز الدخول العشوائي الخاص بك هو: " . $plainPasswordCode;
-
-                // تخزين الرسالة في الداتا بيز (محاكاة إرسال البريد حسب متطلبات FR1)
-                Notification::create([
-                    'user_id' => $newAccount->id,
-                    'message' => $welcomeEmailContent,
-                    'type' => 'Welcome_Email',
-                ]);
-
-            } elseif ($accountRole === 'employee') {
-                Employee::create([
-                    'account_id' => $newAccount->id,
-                    'bank_account_number' => $request->input('bankAccountNumber'),
-                ]);
-            }
-
-            DB::commit();
-
-            // إرجاع الرمز المولد في الاستجابة لتسهيل نسخه واختباره من قبل الموظف أو الدكتور
-            return response::json([
-                'status' => 'success',
-                'message' => 'Account created successfully. Access code sent to user email.',
-                'accountId' => $newAccount->id
-            ], 201);
-
-        } catch (\Exception $exception) {
-            DB::rollBack();
-            Log::error('Error in createAccount: ' . $exception->getMessage());
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to create account: ' . $exception->getMessage()
-            ], 500);
-        }
-    }
-    /**
      * دالة تسجيل الدخول للنظام (تطبيق متطلب FR1)
      * تتحقق من الهوية وتوجه المستخدمين والموظفين حسب صلاحياتهم
      */
@@ -176,6 +89,81 @@ class AccountController extends Controller
             ], 500);
         }
     }
+
+    public function createAccount(Request $request)
+    {
+        try {
+            $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|unique:accounts,email',
+                'phone' => 'required|string|max:20',
+                'role' => 'required|in:user,employee,admin',
+                'plateNumber' => 'required_if:role,user|string'
+            ]);
+
+            $inputName = $request->input('name');
+            $inputEmail = $request->input('email');
+            $inputPhone = $request->input('phone');
+            $inputRole = $request->input('role');
+            $inputPlateNumber = $request->input('plateNumber');
+
+            $generatedPassword = \Illuminate\Support\Str::random(8);
+
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            $insertedAccountId = \Illuminate\Support\Facades\DB::table('accounts')->insertGetId([
+                'name' => $inputName,
+                'email' => $inputEmail,
+                'phone' => $inputPhone,
+                'password' => \Illuminate\Support\Facades\Hash::make($generatedPassword),
+                'role' => $inputRole,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            if ($inputRole === 'user') {
+                \Illuminate\Support\Facades\DB::table('users')->insert([
+                    'account_id' => $insertedAccountId,
+                    'plate_number' => $inputPlateNumber,
+                    'status' => 'active',
+                    'fake_booking_count' => 0,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+
+                \Illuminate\Support\Facades\DB::table('wallets')->insert([
+                    'user_id' => $insertedAccountId,
+                    'balance' => 0,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            }
+
+            \Illuminate\Support\Facades\DB::table('notifications')->insert([
+                'user_id' => $insertedAccountId,
+                'message' => "مرحباً بك في SpotLy! تم إنشاء حسابك. كلمة المرور الخاصة بك هي: {$generatedPassword}",
+                'type' => 'Account_Created',
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'accountId' => $insertedAccountId
+            ], 201);
+
+        } catch (\Exception $exception) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            \Illuminate\Support\Facades\Log::error($exception->getMessage());
+            
+            return response()->json([
+                'status' => 'error',
+                'message' => $exception->getMessage()
+            ], 500);
+        }
+    }
     /**
      * دالة تحديث البيانات الشخصية (FR1)
      * تسمح للموظف بتعديل رقم الهاتف، كلمة المرور، والحساب المصرفي
@@ -228,6 +216,29 @@ class AccountController extends Controller
         } catch (\Exception $exception) {
             DB::rollBack();
             Log::error('Error updating profile: ' . $exception->getMessage());
+            return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
+        }
+    }
+
+    /**
+     * جلب الإحصائيات الحية للسائق (عدد المخالفات وحالة الحساب)
+     */
+    public function getDriverStats(Request $request)
+    {
+        try {
+            $userId = $request->input('userId');
+            $driver = \Illuminate\Support\Facades\DB::table('users')->where('account_id', $userId)->first();
+            
+            if ($driver) {
+                return response()->json([
+                    'status' => 'success', 
+                    'fake_booking_count' => $driver->fake_booking_count,
+                    'account_status' => $driver->status
+                ], 200);
+            }
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+            
+        } catch (\Exception $exception) {
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }

@@ -78,9 +78,9 @@
             <a class="nav-link" onclick="switchTab('createUserTab', this)">
                  إضافة مستخدم (سائق)
             </a>
-            <a class="nav-link" onclick="switchTab('verifyVehicleTab', this)">
+            <!-- <a class="nav-link" onclick="switchTab('verifyVehicleTab', this)"> يتم العمل عليها لاحقا لانها ليست جزء من المتطلبات ال4 الحالية
                  التحقق من السيارات
-            </a>
+            </a> -->
             <a class="nav-link" onclick="switchTab('rechargeWalletTab', this)">
                  شحن المحافظ
             </a>
@@ -248,7 +248,7 @@
             </div>
         </section>
 
-        <section id="verifyVehicleTab" class="content-section d-none">
+        <!-- <section id="verifyVehicleTab" class="content-section d-none"> يتم العمل عليها لاحقا لانها ليست جزء من المتطلبات ال4 الحالية
             <div class="card" style="max-width: 500px;">
                 <div class="card-header text-success">
                     🚘 التحقق من السيارات عند المَدخل
@@ -264,7 +264,7 @@
                     </form>
                 </div>
             </div>
-        </section>
+        </section> -->
 
         <section id="rechargeWalletTab" class="content-section d-none">
             <div class="row justify-content-center">
@@ -751,56 +751,143 @@
     |--------------------------------------------------------------------------
     */
 
-    // جلب طلبات الشحن المعلقة المرفوعة من السائقين وعرضها ديناميكياً في الجدول
-    async function loadPendingRequests() {
+    // دالة جلب الطلبات المعلقة وتعبئة الجدول
+        async function loadPendingRequests() {
             try {
-                // جلب معرف الموظف من بيانات الملف الشخصي في localStorage
-                const userData = JSON.parse(localStorage.getItem('userData'));
-                const employeeIdValue = userData.profile.id; 
+                const userDataString = localStorage.getItem('userData');
+                if (!userDataString) return;
+                
+                const userDataObj = JSON.parse(userDataString);
+                const employeeIdValue = userDataObj.profile.id; 
 
                 const response = await fetch('/api/recharges/pending?employeeId=' + employeeIdValue);
-                const result = await response.json();
-                const tableBody = document.getElementById('pendingRequestsTable');
+                const resultData = await response.json();
+                const tableBodyElement = document.getElementById('pendingRequestsTable');
                 
-                if (tableBody && response.ok) {
-                    tableBody.innerHTML = '';
-                    result.data.forEach(req => {
-                        tableBody.innerHTML += `
-                            <tr>
-                                <td>${req.user_id}</td>
-                                <td>${req.user_name}</td>
-                                <td><span class="badge bg-warning text-dark">${req.requested_points}</span></td>
-                                <td><a href="/storage/${req.receipt_file}" target="_blank">📄 الإيصال</a></td>
-                                <td>
-                                    <button class="btn btn-sm btn-success" onclick="verifyRequest(${req.id}, 'approve')">اعتماد</button>
-                                </td>
-                            </tr>
-                        `;
+                if (tableBodyElement && response.ok && resultData.status === 'success') {
+                    tableBodyElement.innerHTML = '';
+                    
+                    if (resultData.data.length === 0) {
+                        tableBodyElement.innerHTML = '<tr><td colspan="5" class="text-muted py-4">لا توجد طلبات شحن معلقة حالياً.</td></tr>';
+                        return;
+                    }
+
+                    resultData.data.forEach(reqItem => {
+                        try {
+                            tableBodyElement.innerHTML += `
+                                <tr>
+                                    <td class="fw-bold">${reqItem.user_id}</td>
+                                    <td>${reqItem.user_name}</td>
+                                    <td><span class="badge bg-warning text-dark fs-6">${reqItem.requested_points}</span></td>
+                                    <td><a href="/storage/${reqItem.receipt_file}" target="_blank" class="btn btn-sm btn-outline-info rounded-pill px-3">📄 عرض الإيصال</a></td>
+                                    <td>
+                                        <div class="d-flex gap-2 justify-content-center">
+                                            <button class="btn btn-sm btn-success px-3 rounded-pill fw-bold" onclick="verifyRechargeRequest(${reqItem.id}, 'approve')">✅ اعتماد</button>
+                                            <button class="btn btn-sm btn-danger px-3 rounded-pill fw-bold" onclick="verifyRechargeRequest(${reqItem.id}, 'reject')">❌ رفض</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        } catch (innerException) {
+                            console.error(innerException);
+                        }
                     });
                 }
-            } catch (exception) { console.error(exception); }
+            } catch (exception) { 
+                console.error("خطأ في تحميل الطلبات", exception); 
+            }
         }
 
-    // إرسال قرار الموظف (اعتماد/رفض) لطلب التحويل وتحديث رصيد السائق في الباك إند
-    async function verifyRequest(requestId, action, reason = null) {
-        try {
-            const response = await fetch('/api/recharges/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ requestId, action, rejectionReason: reason })
-            });
-            
-            if (response.ok) {
-                Swal.fire('تم التنفيذ!', 'تمت معالجة طلب التحويل بنجاح وتحديث رصيد السائق.', 'success');
-                loadPendingRequests(); // إعادة تحميل الجدول لإخفاء الطلب المنجز
-            } else {
-                const errorData = await response.json();
-                throw new Error(errorData.message);
+    // دالة معالجة قرار الموظف (اعتماد أو رفض الطلب)
+        async function verifyRechargeRequest(requestIdValue, actionType) {
+            try {
+                let rejectionReasonValue = '';
+
+                // تعليق مضمن: إذا كان الإجراء هو الرفض، نطلب من الموظف إدخال السبب
+                if (actionType === 'reject') {
+                    const { value: textValue, isConfirmed: isRejectConfirmed } = await Swal.fire({
+                        title: 'رفض طلب الشحن',
+                        input: 'textarea',
+                        inputLabel: 'سبب الرفض (سيتم إرساله للسائق كإشعار)',
+                        inputPlaceholder: 'أدخل سبب الرفض هنا (مثال: الصورة غير واضحة، المبلغ غير صحيح)...',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'تأكيد الرفض',
+                        cancelButtonText: 'إلغاء',
+                        inputValidator: (inputValue) => {
+                            try {
+                                if (!inputValue || inputValue.trim() === '') {
+                                    return 'يجب إدخال سبب الرفض لإشعار السائق!';
+                                }
+                            } catch (innerException) {
+                                console.error(innerException);
+                            }
+                        }
+                    });
+
+                    if (!isRejectConfirmed) return; // خروج إذا ضغط الموظف على إلغاء
+                    rejectionReasonValue = textValue;
+                } else {
+                    // نافذة تأكيد الاعتماد
+                    const { isConfirmed: isApproveConfirmed } = await Swal.fire({
+                        title: 'اعتماد الشحن',
+                        text: 'هل أنت متأكد من صحة الإيصال وإضافة النقاط لمحفظة السائق؟',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#28a745',
+                        cancelButtonColor: '#d33',
+                        confirmButtonText: 'نعم، اعتماد وإضافة النقاط',
+                        cancelButtonText: 'تراجع'
+                    });
+                    
+                    if (!isApproveConfirmed) return;
+                }
+
+                // عرض نافذة التحميل
+                Swal.fire({
+                    title: 'جاري المعالجة...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        try {
+                            Swal.showLoading();
+                        } catch (innerException) {
+                            console.error(innerException);
+                        }
+                    }
+                });
+
+                // إرسال القرار للباك إند
+                const response = await fetch('/api/recharges/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({
+                        requestId: requestIdValue,
+                        action: actionType,
+                        rejectionReason: rejectionReasonValue
+                    })
+                });
+
+                const resultData = await response.json();
+
+                if (response.ok && resultData.status === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'تمت العملية',
+                        text: actionType === 'approve' ? 'تم اعتماد الشحن وإضافة النقاط بنجاح.' : 'تم رفض الطلب وإرسال الإشعار للسائق.',
+                        confirmButtonColor: '#2c3e50'
+                    });
+                    
+                    loadPendingRequests(); // إعادة تحميل الجدول لإخفاء الطلب المعالج
+                } else {
+                    throw new Error(resultData.message || 'حدث خطأ أثناء معالجة الطلب.');
+                }
+
+            } catch (exception) {
+                Swal.fire('خطأ', exception.message, 'error');
+                console.error(exception);
             }
-        } catch (exception) { 
-            Swal.fire('خطأ', exception.message || 'تعذر تنفيذ العملية', 'error'); 
         }
-    }
 
     // عرض نافذة منبثقة لأخذ سبب الرفض الإلزامي من الموظف لتضمينه في إشعار السائق
     function rejectRequest(requestId) {
