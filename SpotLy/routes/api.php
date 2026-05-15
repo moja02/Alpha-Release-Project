@@ -17,8 +17,6 @@ Route::get('/user', function (Request $request) {
 // مسارات المصادقة (Authentication)
 Route::post('/accounts/login', [AuthController::class, 'login']);
 
-// مسار تسجيل الحجز الزائف موجه الآن لمتحكم الحجوزات
-Route::post('/accounts/record-fake-booking', [BookingController::class, 'recordFakeBooking']);
 // مسار تنظيف الحجوزات المنتهية وتسجيل المخالفات
 Route::post('/bookings/cleanup-expired', [BookingController::class, 'cleanupExpiredBookings']);
 
