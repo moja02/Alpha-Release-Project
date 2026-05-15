@@ -9,6 +9,8 @@ use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\SpotlyNotificationMail;
 
 class BookingController extends Controller
 {
@@ -348,24 +350,27 @@ class BookingController extends Controller
                     ->where('id', $booking->id)
                     ->update(['status' => 'cancelled', 'updated_at' => $currentTime]);
 
-                // ب. إرجاع السعة للساحة (لأن السائق لم يحضر)
+                // ب. إرجاع السعة للساحة
                 \Illuminate\Support\Facades\DB::table('parkings')
                     ->where('id', $booking->parking_id)
                     ->increment('available_capacity', 1);
 
-                // ج. التحقق من وجود حقل fake_booking_count في جدول users وزيادته
+                // ج. زيادة عداد المخالفات للسائق
                 \Illuminate\Support\Facades\DB::table('users')
                     ->where('account_id', $booking->user_id)
                     ->increment('fake_booking_count', 1);
 
-                // د. جلب بيانات السائق لفحص هل وصل للحد الأقصى من المخالفات؟
+                // د. جلب بيانات السائق والحساب (للحصول على البريد الإلكتروني)
                 $driver = \Illuminate\Support\Facades\DB::table('users')
                     ->where('account_id', $booking->user_id)
                     ->first();
 
-                // التحقق من وصوله لـ 3 مخالفات (سنستخدم الحظر عبر حقل status)
+                $account = \Illuminate\Support\Facades\DB::table('accounts')
+                    ->where('id', $booking->user_id)
+                    ->first();
+
+                // هـ. التحقق من حالة الحظر وإرسال الإشعارات
                 if ($driver && $driver->fake_booking_count >= 3) {
-                    // ملاحظة: تأكد أن حقل status في users يقبل قيمة 'blocked'
                     \Illuminate\Support\Facades\DB::table('users')
                         ->where('account_id', $booking->user_id)
                         ->update(['status' => 'blocked']);
@@ -376,13 +381,31 @@ class BookingController extends Controller
                         'type' => 'Account_Blocked',
                         'created_at' => $currentTime
                     ]);
+
+                    // إرسال بريد إلكتروني رسمي بالحظر
+                    if ($account && $account->email) {
+                        $mailData = [
+                            'title' => 'تنبيه إداري: تم حظر حسابك 🚫',
+                            'body' => 'نعلمك بأنه تم حظر حسابك في نظام SpotLy لتجاوزك الحد الأقصى من المخالفات (3 مرات حجز مبدئي دون الحضور). يرجى مراجعة إدارة المواقف.'
+                        ];
+                        \Illuminate\Support\Facades\Mail::to($account->email)->send(new \App\Mail\SpotlyNotificationMail($mailData));
+                    }
                 } else {
                     \Illuminate\Support\Facades\DB::table('notifications')->insert([
                         'user_id' => $booking->user_id,
-                        'message' => 'انتهت مهلة الحجز المبدئي (20 دقيقة) دون حضورك. تم إلغاء الحجز وتسجيل مخالفة (Fake Booking) في سجلك.',
+                        'message' => 'انتهت مهلة الحجز المبدئي (20 دقيقة) دون حضورك. تم إلغاء الحجز وتسجيل مخالفة في سجلك.',
                         'type' => 'Booking_Expired',
                         'created_at' => $currentTime
                     ]);
+
+                    // إرسال بريد إلكتروني رسمي بالمخالفة
+                    if ($account && $account->email) {
+                        $mailData = [
+                            'title' => 'إشعار تسجيل مخالفة حجز وهمي ⚠️',
+                            'body' => "لقد انتهت مهلة الحجز المبدئي الخاصة بك دون تأكيد حضورك. تم تسجيل مخالفة في سجلك. نذكرك بأنه عند الوصول لـ 3 مخالفات سيتم حظر الحساب تلقائياً."
+                        ];
+                        \Illuminate\Support\Facades\Mail::to($account->email)->send(new \App\Mail\SpotlyNotificationMail($mailData));
+                    }
                 }
 
                 $processedCount++;
@@ -392,7 +415,7 @@ class BookingController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => "تمت معالجة {$processedCount} حجوزات منتهية."
+                'message' => "تمت معالجة {$processedCount} حجوزات منتهية وإرسال الإشعارات."
             ], 200);
 
         } catch (\Exception $exception) {
