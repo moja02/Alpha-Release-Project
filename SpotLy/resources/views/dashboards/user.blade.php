@@ -121,6 +121,18 @@
                     <p class="mb-0 fs-5 text-dark">رقم اللوحة التشغيلية: <span id="plateDisplay" class="text-primary fw-bold ms-2">--</span></p>
                 </div>
             </div>
+
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mt-4">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">🔔 سجل الإشعارات والتنبيهات الأخير</span>
+                    <button onclick="loadDashboardNotifications()" class="btn btn-sm btn-link text-decoration-none p-0">تحديث السجل 🔄</button>
+                </div>
+                <div class="card-body p-0">
+                    <div id="dashboardNotificationLog" class="list-group list-group-flush" style="max-height: 350px; overflow-y: auto;">
+                        <div class="text-center py-5 text-muted">جاري جلب آخر التنبيهات...</div>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <section id="bookingTab" class="content-section d-none">
@@ -306,6 +318,7 @@
                 //  جلب الرصيد وفحص الحجوزات فور الدخول للنظام
                 fetchWalletBalance();
                 checkActiveBookingForOverview();
+                loadDashboardNotifications(); // FR4: عرض السجل فور الدخول
             } catch (exception) {
                 console.error(exception);
             }
@@ -518,6 +531,8 @@
                     fetchWalletBalance(); // تحديث الرصيد فور العودة للرئيسية
                     checkActiveBookingForOverview(); // فحص الحجوزات
                     refreshDriverStats(); // تحديث المخالفات عند العودة للرئيسية
+                    loadDashboardNotifications(); // تحديث السجل عند العودة للرئيسية
+                    
                 } else if (sectionIdValue === 'profileTab') {
                     loadProfileData();
                 } else if (sectionIdValue === 'bookingTab') {
@@ -1055,6 +1070,63 @@
                 console.error(exception);
             }
         });
+
+        // --- FR4: دالة جلب وعرض سجل الإشعارات في لوحة التحكم ---
+        async function loadDashboardNotifications() {
+            try {
+                if (!currentUserData || !currentUserData.accountId) return;
+
+                const response = await fetch('/api/notifications?userId=' + currentUserData.accountId);
+                const resultData = await response.json();
+                const logContainer = document.getElementById('dashboardNotificationLog');
+
+                if (logContainer && response.ok && resultData.status === 'success') {
+                    logContainer.innerHTML = '';
+
+                    if (resultData.data.length === 0) {
+                        logContainer.innerHTML = '<div class="text-center py-5 text-muted small">لا توجد تنبيهات مسجلة في حسابك حالياً.</div>';
+                        return;
+                    }
+
+                    // عرض آخر 10 إشعارات فقط في اللوحة الرئيسية لضمان نظافة الواجهة
+                    resultData.data.slice(0, 10).forEach(item => {
+                        try {
+                            let icon = '📩';
+                            let borderClass = 'border-start border-4 border-info';
+                            
+                            // تخصيص الشكل حسب نوع التنبيه (مخالفة، شحن، حجز)
+                            if (item.type.includes('Rejected') || item.type.includes('Expired')) {
+                                icon = '⚠️';
+                                borderClass = 'border-start border-4 border-danger';
+                            } else if (item.type.includes('Approved') || item.type.includes('Confirmed')) {
+                                icon = '✅';
+                                borderClass = 'border-start border-4 border-success';
+                            }
+
+                            const timeAgo = new Date(item.created_at).toLocaleString('ar-LY', {
+                                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                            });
+
+                            logContainer.innerHTML += `
+                                <div class="list-group-item list-group-item-action p-3 ${borderClass} bg-white">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="d-flex align-items-center">
+                                            <span class="fs-5 me-3">${icon}</span>
+                                            <div>
+                                                <p class="mb-0 fw-bold small text-dark">${item.message}</p>
+                                                <small class="text-muted" style="font-size: 0.75rem;">${timeAgo}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        } catch (e) { console.error(e); }
+                    });
+                }
+            } catch (exception) {
+                console.error("خطأ في جلب سجل التنبيهات", exception);
+            }
+        }
         // --- مشغل أوتوماتيكي صامت لتنظيف الحجوزات المنتهية (يعمل كل دقيقة) ---
         setInterval(async () => {
             try {
