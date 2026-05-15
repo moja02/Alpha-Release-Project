@@ -806,6 +806,12 @@
         // وظيفة إلغاء الحجز الحالي مع شروط الوقت
         async function cancelCurrentBooking() {
             try {
+                // التأكد من وجود رقم الحجز قبل إرسال الطلب
+                if (!activeBookingId) {
+                    Swal.fire('خطأ', 'لم يتم التعرف على رقم الحجز النشط. يرجى تحديث الصفحة.', 'error');
+                    return;
+                }
+
                 const { isConfirmed } = await Swal.fire({
                     title: 'تأكيد الإلغاء',
                     text: 'هل أنت متأكد من رغبتك في إلغاء الحجز؟ سيتم تطبيق سياسة الاسترجاع (100% قبل 30 دقيقة، 50% خلال الـ 30 دقيقة الأخيرة).',
@@ -818,22 +824,46 @@
 
                 if (!isConfirmed) return;
 
+                // إظهار حالة التحميل
+                Swal.fire({
+                    title: 'جاري الإلغاء...',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
                 const response = await fetch('/api/bookings/cancel', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json' // ضروري لاستقبال أخطاء لارافيل بوضوح
+                    },
                     body: JSON.stringify({ bookingId: activeBookingId })
                 });
 
                 const result = await response.json();
 
-                if (response.ok) {
+                if (response.ok && result.status === 'success') {
+                    // 1. إخفاء إجباري وفوري للتذكرة من الواجهة باستخدام CSS
+                    const ticketSection = document.getElementById('activeTicketSection');
+                    if (ticketSection) {
+                        ticketSection.style.setProperty('display', 'none', 'important');
+                        ticketSection.classList.add('d-none');
+                    }
+
+                    // 2. إظهار رسالة النجاح
                     Swal.fire('تم الإلغاء', result.message, 'success');
-                    checkActiveTicketAndLoadGrid(); // تحديث الواجهة
-                    fetchWalletBalance(); // تحديث الرصيد
+                    
+                    // 3. تصفير المتغير وتحديث البيانات
+                    activeBookingId = null;
+                    checkActiveTicketAndLoadGrid();
+                    fetchWalletBalance();
                 } else {
-                    Swal.fire('خطأ', result.message, 'error');
+                    Swal.fire('خطأ', result.message || 'حدث خطأ أثناء محاولة الإلغاء.', 'error');
                 }
-            } catch (e) { console.error(e); }
+            } catch (exception) { 
+                console.error("خطأ في الإلغاء:", exception); 
+                Swal.fire('خطأ', 'تعذر الاتصال بالخادم.', 'error');
+            }
         }
 
         // وظيفة طلب تبديل الساحة
