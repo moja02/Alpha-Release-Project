@@ -122,20 +122,21 @@ class BookingController extends Controller
     public function createBooking(Request $request)
     {
         try {
+            // 1. التحقق من صحة البيانات القادمة من واجهة المستخدم
             $request->validate([
-                'userId' => 'required|integer',
-                'parkingId' => 'required|integer',
-                'paymentMethod' => 'required|in:wallet,cash'
+                'userId' => 'required|integer|exists:users,account_id',
+                'parkingId' => 'required|integer|exists:parkings,id',
+                'paymentMethod' => 'required|in:wallet,cash' // رغم عدم وجوده في الجدول، نحتاجه لمعالجة الخصم
             ]);
 
             $inputUserId = $request->input('userId');
             $inputParkingId = $request->input('parkingId');
             $selectedPaymentMethod = $request->input('paymentMethod');
 
-            DB::beginTransaction();
+            \Illuminate\Support\Facades\DB::beginTransaction();
 
-            //  فحص وجود حجز مسبق لتجنب الحجوزات المزدوجة
-            $hasExistingBooking = DB::table('bookings')
+            // 2. التحقق من عدم وجود حجز مبدئي أو فعلي مسبق للسائق
+            $hasExistingBooking = \Illuminate\Support\Facades\DB::table('bookings')
                 ->where('user_id', $inputUserId)
                 ->where('status', 'confirmed')
                 ->sharedLock()
@@ -144,78 +145,73 @@ class BookingController extends Controller
             if ($hasExistingBooking) {
                 return response()->json([
                     'status' => 'error', 
-                    'message' => 'لديك حجز نشط بالفعل.'
+                    'message' => 'عذراً، لديك حجز نشط بالفعل. لا يمكنك حجز موقف جديد حتى يكتمل أو يُلغى الحجز الحالي.'
                 ], 400);
             }
 
-            // فحص السعة المتاحة في الساحة المستهدفة (تطابقاً مع حقل available_capacity)
-            $targetParkingArea = DB::table('parkings')->where('id', $inputParkingId)->lockForUpdate()->first();
+            // 3. التحقق الحرفي من وجود سعة متاحة في الساحة المختارة
+            $targetParkingArea = \Illuminate\Support\Facades\DB::table('parkings')
+                ->where('id', $inputParkingId)
+                ->lockForUpdate() // تأمين السجل لمنع تعارض الحجوزات في نفس اللحظة
+                ->first();
 
             if (!$targetParkingArea || $targetParkingArea->available_capacity <= 0) {
                 return response()->json([
                     'status' => 'error', 
-                    'message' => 'عذراً، هذه الساحة ممتلئة بالكامل حالياً.'
+                    'message' => 'عذراً، هذه الساحة ممتلئة بالكامل حالياً، يرجى اختيار ساحة أخرى.'
                 ], 400);
             }
 
-            // جلب رقم اللوحة من جدول المستخدمين المرتبط بالحساب
-            $driverProfile = DB::table('users')->where('account_id', $inputUserId)->first();
+            // 4. جلب رقم اللوحة الخاص بالسائق (مطلوب كحقل إلزامي في جدول bookings)
+            $driverProfile = \Illuminate\Support\Facades\DB::table('users')->where('account_id', $inputUserId)->first();
             $driverPlateNumber = $driverProfile ? $driverProfile->plate_number : 'غير محدد';
 
-            //  معالجة الدفع عبر المحفظة (خصم 10 نقاط كأجرة حجز)
+            // 5. معالجة الدفع المسبق (إذا اختار المحفظة)
             $bookingCostAmount = 10;
             if ($selectedPaymentMethod === 'wallet') {
-                $userWallet = DB::table('wallets')->where('user_id', $inputUserId)->lockForUpdate()->first();
+                $userWallet = \Illuminate\Support\Facades\DB::table('wallets')->where('user_id', $inputUserId)->lockForUpdate()->first();
                 
                 if (!$userWallet || $userWallet->balance < $bookingCostAmount) {
                     return response()->json([
                         'status' => 'error', 
-                        'message' => 'رصيد محفظتك الرقمية غير كافٍ لإتمام الحجز.'
+                        'message' =>'رصيد المحفظة غير كافٍ. يرجى الشحن.'
                     ], 400);
                 }
                 
-                DB::table('wallets')->where('user_id', $inputUserId)->decrement('balance', $bookingCostAmount);
+                // خصم الرصيد
+                \Illuminate\Support\Facades\DB::table('wallets')->where('user_id', $inputUserId)->decrement('balance', $bookingCostAmount);
             }
 
-            // إنقاص السعة المتاحة بمقدار 1 للساحة المحددة
-            DB::table('parkings')->where('id', $inputParkingId)->decrement('available_capacity', 1);
+            // 6. إنقاص السعة المتاحة في الساحة بمقدار 1
+            \Illuminate\Support\Facades\DB::table('parkings')->where('id', $inputParkingId)->decrement('available_capacity', 1);
 
-            //  إدراج الحجز مع تحديد المهلة الزمنية (15 دقيقة للحجز المبدئي)
+            // 7. إنشاء الحجز العادي (المبدئي) مع تحديد مهلة 15 دقيقة
             $startTime = now();
             $endTime = now()->addMinutes(15);
 
-            $insertedBookingId = DB::table('bookings')->insertGetId([
+            $insertedBookingId = \Illuminate\Support\Facades\DB::table('bookings')->insertGetId([
                 'user_id' => $inputUserId,
                 'parking_id' => $inputParkingId,
                 'plate_number' => $driverPlateNumber,
                 'start_time' => $startTime,
                 'end_time' => $endTime,
-                'type' => 'initial',
-                'status' => 'confirmed',
+                'type' => 'initial', // نوع الحجز مبدئي حسب الجداول
+                'status' => 'confirmed', // حالة الحجز مؤكدة مبدئياً
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
 
-            // إرسال إشعار ترحيبي
-            DB::table('notifications')->insert([
-                'user_id' => $inputUserId,
-                'message' => "تم تأكيد حجزك في ({$targetParkingArea->name}). المهلة المتاحة للوصول تنتهي في " . $endTime->format('H:i') . ".",
-                'type' => 'Booking_Confirmed',
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
-
-            DB::commit();
+            \Illuminate\Support\Facades\DB::commit();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'تم تأكيد الحجز بنجاح.',
+                'message' => 'تم إنشاء الحجز بنجاح.',
                 'bookingId' => $insertedBookingId
             ], 201);
 
         } catch (\Exception $exception) {
-            DB::rollBack();
-            Log::error('Error processing booking: ' . $exception->getMessage());
+            \Illuminate\Support\Facades\DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('Error creating regular booking: ' . $exception->getMessage());
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }
