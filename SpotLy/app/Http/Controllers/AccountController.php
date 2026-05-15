@@ -242,4 +242,24 @@ class AccountController extends Controller
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }
+
+    public function getUserNotifications(Request $request)
+    {
+        try {
+            $targetUserId = $request->input('userId');
+
+            $userNotifications = \Illuminate\Support\Facades\DB::table('notifications')
+                ->where('user_id', $targetUserId)
+                ->orderBy('id', 'desc')
+                ->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $userNotifications
+            ], 200);
+
+        } catch (\Exception $exception) {
+            return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
+        }
+    }
 }

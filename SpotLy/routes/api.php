@@ -49,3 +49,5 @@ Route::get('/bookings/active', [BookingController::class, 'getActiveBooking']);
 Route::post('/bookings/create', [BookingController::class, 'createBooking']);
 Route::post('/bookings/cancel', [BookingController::class, 'cancelBooking']);
 Route::post('/bookings/change-spot', [BookingController::class, 'changeSpot']);
+
+Route::get('/notifications', [App\Http\Controllers\AccountController::class, 'getUserNotifications']);

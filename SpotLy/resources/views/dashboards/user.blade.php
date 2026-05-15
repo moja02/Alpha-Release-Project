@@ -532,7 +532,7 @@
                     checkActiveBookingForOverview(); // فحص الحجوزات
                     refreshDriverStats(); // تحديث المخالفات عند العودة للرئيسية
                     loadDashboardNotifications(); // تحديث السجل عند العودة للرئيسية
-                    
+
                 } else if (sectionIdValue === 'profileTab') {
                     loadProfileData();
                 } else if (sectionIdValue === 'bookingTab') {
@@ -1076,7 +1076,11 @@
             try {
                 if (!currentUserData || !currentUserData.accountId) return;
 
-                const response = await fetch('/api/notifications?userId=' + currentUserData.accountId);
+                const response = await fetch('/api/notifications?userId=' + currentUserData.accountId, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' } // 👈 هذا السطر يمنع ظهور خطأ HTML نهائياً
+                });
+                
                 const resultData = await response.json();
                 const logContainer = document.getElementById('dashboardNotificationLog');
 
@@ -1088,14 +1092,12 @@
                         return;
                     }
 
-                    // عرض آخر 10 إشعارات فقط في اللوحة الرئيسية لضمان نظافة الواجهة
                     resultData.data.slice(0, 10).forEach(item => {
                         try {
                             let icon = '📩';
                             let borderClass = 'border-start border-4 border-info';
                             
-                            // تخصيص الشكل حسب نوع التنبيه (مخالفة، شحن، حجز)
-                            if (item.type.includes('Rejected') || item.type.includes('Expired')) {
+                            if (item.type.includes('Rejected') || item.type.includes('Expired') || item.type.includes('Blocked')) {
                                 icon = '⚠️';
                                 borderClass = 'border-start border-4 border-danger';
                             } else if (item.type.includes('Approved') || item.type.includes('Confirmed')) {
@@ -1108,13 +1110,13 @@
                             });
 
                             logContainer.innerHTML += `
-                                <div class="list-group-item list-group-item-action p-3 ${borderClass} bg-white">
+                                <div class="list-group-item list-group-item-action p-3 ${borderClass} bg-white shadow-sm mb-2 rounded-3">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="d-flex align-items-center">
-                                            <span class="fs-5 me-3">${icon}</span>
+                                            <span class="fs-4 me-3">${icon}</span>
                                             <div>
-                                                <p class="mb-0 fw-bold small text-dark">${item.message}</p>
-                                                <small class="text-muted" style="font-size: 0.75rem;">${timeAgo}</small>
+                                                <p class="mb-1 fw-bold text-dark" style="font-size: 0.95rem;">${item.message}</p>
+                                                <small class="text-muted" style="font-size: 0.8rem;">${timeAgo}</small>
                                             </div>
                                         </div>
                                     </div>
@@ -1122,6 +1124,8 @@
                             `;
                         } catch (e) { console.error(e); }
                     });
+                } else {
+                    console.error("الباك إند أرجع خطأ:", resultData.message);
                 }
             } catch (exception) {
                 console.error("خطأ في جلب سجل التنبيهات", exception);
