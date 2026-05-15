@@ -78,9 +78,9 @@
             <a class="nav-link" onclick="switchTab('createUserTab', this)">
                  إضافة مستخدم (سائق)
             </a>
-            <a class="nav-link" onclick="switchTab('verifyVehicleTab', this)">
+            <!-- <a class="nav-link" onclick="switchTab('verifyVehicleTab', this)"> يتم العمل عليها لاحقا لانها ليست جزء من المتطلبات ال4 الحالية
                  التحقق من السيارات
-            </a>
+            </a> -->
             <a class="nav-link" onclick="switchTab('rechargeWalletTab', this)">
                  شحن المحافظ
             </a>
@@ -248,7 +248,7 @@
             </div>
         </section>
 
-        <section id="verifyVehicleTab" class="content-section d-none">
+        <!-- <section id="verifyVehicleTab" class="content-section d-none"> يتم العمل عليها لاحقا لانها ليست جزء من المتطلبات ال4 الحالية
             <div class="card" style="max-width: 500px;">
                 <div class="card-header text-success">
                     🚘 التحقق من السيارات عند المَدخل
@@ -264,7 +264,7 @@
                     </form>
                 </div>
             </div>
-        </section>
+        </section> -->
 
         <section id="rechargeWalletTab" class="content-section d-none">
             <div class="row justify-content-center">
