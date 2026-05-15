@@ -378,6 +378,7 @@ class BookingController extends Controller
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }
+
     public function cleanupExpiredBookings()
     {
         try {
@@ -396,17 +397,17 @@ class BookingController extends Controller
             $processedCount = 0;
 
             foreach ($expiredBookings as $booking) {
-                // أ. تغيير حالة الحجز إلى "منتهي / مخالفة"
+                // أ. تغيير حالة الحجز إلى 'cancelled'
                 \Illuminate\Support\Facades\DB::table('bookings')
                     ->where('id', $booking->id)
-                    ->update(['status' => 'expired', 'updated_at' => $currentTime]);
+                    ->update(['status' => 'cancelled', 'updated_at' => $currentTime]);
 
                 // ب. إرجاع السعة للساحة (لأن السائق لم يحضر)
                 \Illuminate\Support\Facades\DB::table('parkings')
                     ->where('id', $booking->parking_id)
                     ->increment('available_capacity', 1);
 
-                // ج. زيادة عداد المخالفات للسائق بمقدار 1
+                // ج. التحقق من وجود حقل fake_booking_count في جدول users وزيادته
                 \Illuminate\Support\Facades\DB::table('users')
                     ->where('account_id', $booking->user_id)
                     ->increment('fake_booking_count', 1);
@@ -416,13 +417,13 @@ class BookingController extends Controller
                     ->where('account_id', $booking->user_id)
                     ->first();
 
+                // التحقق من وصوله لـ 3 مخالفات (سنستخدم الحظر عبر حقل status)
                 if ($driver && $driver->fake_booking_count >= 3) {
-                    // حظر الحساب إذا وصل لـ 3 مخالفات
+                    // ملاحظة: تأكد أن حقل status في users يقبل قيمة 'blocked'
                     \Illuminate\Support\Facades\DB::table('users')
                         ->where('account_id', $booking->user_id)
                         ->update(['status' => 'blocked']);
 
-                    // إشعار بالحظر
                     \Illuminate\Support\Facades\DB::table('notifications')->insert([
                         'user_id' => $booking->user_id,
                         'message' => 'تم حظر حسابك لتجاوز الحد الأقصى للمخالفات (3 مرات حجز وهمي دون حضور).',
@@ -430,7 +431,6 @@ class BookingController extends Controller
                         'created_at' => $currentTime
                     ]);
                 } else {
-                    // إشعار بتسجيل مخالفة عادية
                     \Illuminate\Support\Facades\DB::table('notifications')->insert([
                         'user_id' => $booking->user_id,
                         'message' => 'انتهت مهلة الحجز المبدئي (20 دقيقة) دون حضورك. تم إلغاء الحجز وتسجيل مخالفة (Fake Booking) في سجلك.',
@@ -446,7 +446,7 @@ class BookingController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => "تمت معالجة {$processedCount} حجوزات منتهية وتطبيق المخالفات."
+                'message' => "تمت معالجة {$processedCount} حجوزات منتهية."
             ], 200);
 
         } catch (\Exception $exception) {
