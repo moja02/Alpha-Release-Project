@@ -94,24 +94,31 @@ class BookingController extends Controller
     public function getActiveBooking(Request $request)
     {
         try {
-            $request->validate(['userId' => 'required|integer']);
-            $targetUserId = $request->input('userId');
+            $userId = $request->input('userId');
 
-            //  البحث عن حجز مؤكد مرتبط بحساب السائق وربطه بساحة الوقوف
-            $activeBookingRecord = DB::table('bookings')
+            //  جلب الحجز "المؤكد" فقط
+            $activeBooking = \Illuminate\Support\Facades\DB::table('bookings')
                 ->join('parkings', 'bookings.parking_id', '=', 'parkings.id')
-                ->where('bookings.user_id', $targetUserId)
-                ->where('bookings.status', 'confirmed') // مطابقة حالة قاعدة البيانات
-                ->select('bookings.*', 'parkings.name as parking_name', 'parkings.location_park')
+                ->where('bookings.user_id', $userId)
+                ->where('bookings.status', 'confirmed') 
+                ->select('bookings.*', 'parkings.name as parking_name')
+                ->orderBy('bookings.id', 'desc')
                 ->first();
 
-            return response()->json([
-                'status' => 'success',
-                'hasActiveBooking' => !is_null($activeBookingRecord),
-                'bookingData' => $activeBookingRecord
-            ], 200);
+            if ($activeBooking) {
+                return response()->json([
+                    'status' => 'success',
+                    'hasActiveBooking' => true,
+                    'bookingData' => $activeBooking
+                ], 200);
+            } else {
+                return response()->json([
+                    'status' => 'success',
+                    'hasActiveBooking' => false // إذا كان ملغياً أو غير موجود، سيرجع false
+                ], 200);
+            }
+
         } catch (\Exception $exception) {
-            Log::error('Error fetching active booking: ' . $exception->getMessage());
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }
