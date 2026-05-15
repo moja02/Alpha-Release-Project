@@ -171,10 +171,10 @@ class BookingController extends Controller
                 $startTime = \Carbon\Carbon::parse($request->input('startTime'));
                 $endTime = \Carbon\Carbon::parse($request->input('endTime'));
                 
-                // حساب عدد الساعات (نفترض أن تكلفة الساعة 10 نقاط)
+                // حساب عدد الساعات ( تكلفة الساعة 2.5 نقاط)
                 $hoursDifference = $startTime->diffInHours($endTime);
                 $totalHours = $hoursDifference > 0 ? $hoursDifference : 1; // كحد أدنى ساعة واحدة
-                $bookingCost = $totalHours * 10;
+                $bookingCost = $totalHours * 2.5;
 
                 // التحقق من الرصيد والخصم
                 $userWallet = \Illuminate\Support\Facades\DB::table('wallets')->where('user_id', $inputUserId)->lockForUpdate()->first();
