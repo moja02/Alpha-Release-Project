@@ -640,53 +640,88 @@
             }
         }
 
+        // دالة مساعدة لإظهار/إخفاء حقول الوقت بناءً على اختيار السائق
+        window.toggleTimeInputs = function(isActualSelected) {
+            const timeInputsDiv = document.getElementById('actualTimeInputs');
+            if (timeInputsDiv) {
+                isActualSelected ? timeInputsDiv.classList.remove('d-none') : timeInputsDiv.classList.add('d-none');
+            }
+        };
+
         // ---  بدء إجراءات الحجز التفاعلي  ---
-        function initiateSpotReservation(spotIdValue, spotNumberValue, spotStatusValue) {
+        async function initiateSpotReservation(spotIdValue, spotNameValue, availableCapacity) {
             try {
-                // منع التفاعل إذا كان الموقف محجوزاً
-                if (spotStatusValue !== 'available') {
+                // إصلاح المشكلة: الاعتماد على السعة الرقمية بدلاً من حالة نصية
+                if (availableCapacity <= 0) {
                     Swal.fire({
-                        icon: 'warning',
-                        title: 'الموقف غير متاح',
-                        text: 'عذراً، هذا الموقف محجوز مسبقاً أو غير متاح في الوقت الحالي.',
-                        confirmButtonColor: '#2c3e50'
+                        icon: 'warning', title: 'الموقف ممتلئ', text: 'عذراً، هذه الساحة لا تحتوي على أماكن شاغرة حالياً.', confirmButtonColor: '#2c3e50'
                     });
                     return;
                 }
 
-                //  إظهار نافذة منبثقة لاختيار طريقة الدفع وتأكيد رغبة الحجز
-                Swal.fire({
-                    title: `تأكيد حجز الموقف (${spotNumberValue})`,
-                    text: 'تكلفة حجز الموقف هي 10 نقاط. يرجى تحديد طريقة الدفع المفضلة:',
-                    icon: 'question',
-                    input: 'radio',
-                    inputOptions: {
-                        'wallet': '💳 خصم فوري من المحفظة الرقمية',
-                        'cash': '💵 الدفع نقداً للموظف عند الوصول'
-                    },
-                    inputValidator: (selectedValue) => {
+                // تعليق مضمن: عرض نافذة مخصصة تحتوي على خيارات الحجز المطلوبة في السيناريو
+                const { value: formValues } = await Swal.fire({
+                    title: `حجز موقف في (${spotNameValue})`,
+                    html: `
+                        <div class="text-start mt-3">
+                            <div class="form-check mb-3 p-3 bg-light rounded-3 border">
+                                <input class="form-check-input ms-2" type="radio" name="bookingType" id="typeInitial" value="initial" checked onchange="toggleTimeInputs(false)">
+                                <label class="form-check-label fw-bold text-primary" for="typeInitial">
+                                    ⏱️ حجز مبدئي (مهلة 20 دقيقة للوصول)
+                                </label>
+                                <small class="d-block text-muted mt-1">يضمن لك مكاناً مؤقتاً لحين وصولك للموقع.</small>
+                            </div>
+                            
+                            <div class="form-check mb-3 p-3 bg-light rounded-3 border">
+                                <input class="form-check-input ms-2" type="radio" name="bookingType" id="typeActual" value="actual" onchange="toggleTimeInputs(true)">
+                                <label class="form-check-label fw-bold text-success" for="typeActual">
+                                    ✅ حجز فعلي (يتم الخصم من المحفظة)
+                                </label>
+                                <small class="d-block text-muted mt-1">تحديد وقت الدخول والخروج مسبقاً وتأكيد الدفع.</small>
+                            </div>
+
+                            <div id="actualTimeInputs" class="d-none bg-white p-3 rounded-3 border shadow-sm mt-2">
+                                <label class="form-label small fw-bold text-secondary">وقت وتاريخ الدخول:</label>
+                                <input type="datetime-local" id="swalStartTime" class="form-control mb-3 shadow-none">
+                                <label class="form-label small fw-bold text-secondary">وقت وتاريخ الخروج:</label>
+                                <input type="datetime-local" id="swalEndTime" class="form-control shadow-none">
+                            </div>
+                        </div>
+                    `,
+                    focusConfirm: false,
+                    showCancelButton: true,
+                    confirmButtonText: 'تأكيد الحجز 🚀',
+                    cancelButtonText: 'تراجع',
+                    confirmButtonColor: '#2c3e50',
+                    cancelButtonColor: '#d33',
+                    preConfirm: () => {
                         try {
-                            if (!selectedValue) {
-                                return 'يرجى تحديد طريقة الدفع لإتمام إصدار التذكرة!';
+                            const typeSelected = document.querySelector('input[name="bookingType"]:checked').value;
+                            
+                            if (typeSelected === 'actual') {
+                                const startVal = document.getElementById('swalStartTime').value;
+                                const endVal = document.getElementById('swalEndTime').value;
+                                
+                                if (!startVal || !endVal) {
+                                    Swal.showValidationMessage('يرجى إدخال وقتي الدخول والخروج لإتمام الحجز الفعلي');
+                                    return false;
+                                }
+                                if (new Date(startVal) >= new Date(endVal)) {
+                                    Swal.showValidationMessage('وقت الخروج يجب أن يكون بعد وقت الدخول بشكل منطقي');
+                                    return false;
+                                }
+                                return { type: 'actual', startTime: startVal, endTime: endVal };
                             }
+                            return { type: 'initial' };
                         } catch (innerException) {
                             console.error(innerException);
                         }
-                    },
-                    showCancelButton: true,
-                    confirmButtonText: 'تأكيد وإصدار التذكرة 🚀',
-                    cancelButtonText: 'تراجع',
-                    confirmButtonColor: '#2c3e50',
-                    cancelButtonColor: '#d33'
-                }).then((modalResult) => {
-                    try {
-                        if (modalResult.isConfirmed) {
-                            executeBookingRequest(spotIdValue, modalResult.value);
-                        }
-                    } catch (innerException) {
-                        console.error(innerException);
                     }
                 });
+
+                if (formValues) {
+                    executeBookingRequest(spotIdValue, formValues);
+                }
 
             } catch (exception) {
                 console.error("خطأ في نافذة الحجز", exception);
@@ -694,30 +729,30 @@
         }
 
         // ---  إرسال طلب الاعتماد النهائي وإصدار التذكرة ---
-        async function executeBookingRequest(targetSpotIdValue, selectedMethodValue) {
+        async function executeBookingRequest(targetSpotIdValue, bookingDataValues) {
             try {
                 Swal.fire({
-                    title: 'جاري إصدار التذكرة...',
-                    text: 'يرجى الانتظار لحين تأكيد الموقف وتحديث الخريطة',
+                    title: 'جاري تسجيل الحجز...',
                     allowOutsideClick: false,
-                    didOpen: () => {
-                        try {
-                            Swal.showLoading();
-                        } catch (innerException) {
-                            console.error(innerException);
-                        }
-                    }
+                    didOpen: () => { Swal.showLoading(); }
                 });
 
-                //  إرسال الطلب الفعلي للباك إند لخصم الرصيد وتحديث الجداول
+                // تجهيز حزمة البيانات للإرسال
+                const payloadData = {
+                    userId: currentUserData.accountId,
+                    parkingId: targetSpotIdValue,
+                    bookingType: bookingDataValues.type
+                };
+
+                if (bookingDataValues.type === 'actual') {
+                    payloadData.startTime = bookingDataValues.startTime;
+                    payloadData.endTime = bookingDataValues.endTime;
+                }
+
                 const response = await fetch('/api/bookings/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({
-                        userId: currentUserData.accountId,
-                        parkingId: targetSpotIdValue,
-                        paymentMethod: selectedMethodValue
-                    })
+                    body: JSON.stringify(payloadData)
                 });
 
                 const responseData = await response.json();
@@ -726,27 +761,17 @@
                     Swal.fire({
                         icon: 'success',
                         title: 'تم الحجز بنجاح! 🎟️',
-                        text: 'تم إصدار تذكرتك الإلكترونية. يرجى التوجه للموقف وتأكيد حضورك.',
+                        text: bookingDataValues.type === 'initial' ? 'تم تأمين موقفك لـ 20 دقيقة القادمة.' : 'تم تأكيد حجزك الفعلي وخصم التكلفة.',
                         confirmButtonColor: '#2c3e50'
                     }).then(() => {
-                        try {
-                            // تحديث الرصيد وإعادة تحميل التبويب لعرض التذكرة النشطة فوراً
-                            fetchWalletBalance();
-                            checkActiveTicketAndLoadGrid();
-                        } catch (innerException) {
-                            console.error(innerException);
-                        }
+                        fetchWalletBalance();
+                        checkActiveTicketAndLoadGrid();
                     });
                 } else {
                     throw new Error(responseData.message || 'تعذر إتمام عملية الحجز.');
                 }
             } catch (exception) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'فشل الحجز',
-                    text: exception.message,
-                    confirmButtonColor: '#d33'
-                });
+                Swal.fire({ icon: 'error', title: 'فشل الحجز', text: exception.message, confirmButtonColor: '#d33' });
             }
         }
 

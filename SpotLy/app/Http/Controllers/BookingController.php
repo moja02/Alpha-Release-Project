@@ -122,20 +122,22 @@ class BookingController extends Controller
     public function createBooking(Request $request)
     {
         try {
-            // 1. التحقق من صحة البيانات القادمة من واجهة المستخدم
+            // 1. التحقق من المدخلات الجديدة بناءً على نوع الحجز
             $request->validate([
-                'userId' => 'required|integer|exists:users,account_id',
-                'parkingId' => 'required|integer|exists:parkings,id',
-                'paymentMethod' => 'required|in:wallet,cash' // رغم عدم وجوده في الجدول، نحتاجه لمعالجة الخصم
+                'userId' => 'required|integer',
+                'parkingId' => 'required|integer',
+                'bookingType' => 'required|in:initial,actual',
+                'startTime' => 'required_if:bookingType,actual|date',
+                'endTime' => 'required_if:bookingType,actual|date|after:startTime',
             ]);
 
             $inputUserId = $request->input('userId');
             $inputParkingId = $request->input('parkingId');
-            $selectedPaymentMethod = $request->input('paymentMethod');
+            $inputType = $request->input('bookingType');
 
             \Illuminate\Support\Facades\DB::beginTransaction();
 
-            // 2. التحقق من عدم وجود حجز مبدئي أو فعلي مسبق للسائق
+            // 2. منع الحجز المزدوج
             $hasExistingBooking = \Illuminate\Support\Facades\DB::table('bookings')
                 ->where('user_id', $inputUserId)
                 ->where('status', 'confirmed')
@@ -143,75 +145,77 @@ class BookingController extends Controller
                 ->exists();
 
             if ($hasExistingBooking) {
-                return response()->json([
-                    'status' => 'error', 
-                    'message' => 'عذراً، لديك حجز نشط بالفعل. لا يمكنك حجز موقف جديد حتى يكتمل أو يُلغى الحجز الحالي.'
-                ], 400);
+                return response()->json(['status' => 'error', 'message' => 'لديك حجز نشط بالفعل.'], 400);
             }
 
-            // 3. التحقق الحرفي من وجود سعة متاحة في الساحة المختارة
+            // 3. التحقق من السعة المتاحة (يجب أن تكون أكبر من 0)
             $targetParkingArea = \Illuminate\Support\Facades\DB::table('parkings')
-                ->where('id', $inputParkingId)
-                ->lockForUpdate() // تأمين السجل لمنع تعارض الحجوزات في نفس اللحظة
-                ->first();
+                ->where('id', $inputParkingId)->lockForUpdate()->first();
 
             if (!$targetParkingArea || $targetParkingArea->available_capacity <= 0) {
-                return response()->json([
-                    'status' => 'error', 
-                    'message' => 'عذراً، هذه الساحة ممتلئة بالكامل حالياً، يرجى اختيار ساحة أخرى.'
-                ], 400);
+                return response()->json(['status' => 'error', 'message' => 'عذراً، هذه الساحة ممتلئة بالكامل.'], 400);
             }
 
-            // 4. جلب رقم اللوحة الخاص بالسائق (مطلوب كحقل إلزامي في جدول bookings)
+            // جلب رقم اللوحة
             $driverProfile = \Illuminate\Support\Facades\DB::table('users')->where('account_id', $inputUserId)->first();
             $driverPlateNumber = $driverProfile ? $driverProfile->plate_number : 'غير محدد';
 
-            // 5. معالجة الدفع المسبق (إذا اختار المحفظة)
-            $bookingCostAmount = 10;
-            if ($selectedPaymentMethod === 'wallet') {
-                $userWallet = \Illuminate\Support\Facades\DB::table('wallets')->where('user_id', $inputUserId)->lockForUpdate()->first();
+            // 4. معالجة الأوقات والخصم المالي بناءً على السيناريو الخاص بك
+            if ($inputType === 'initial') {
+                // الحجز المبدئي: يبدأ الآن وينتهي بعد 20 دقيقة (المهلة)
+                $startTime = now();
+                $endTime = now()->addMinutes(20);
+                $notificationMsg = "تم إنشاء حجز مبدئي. أمامك 20 دقيقة للوصول للموقف.";
+            } else {
+                // الحجز الفعلي: الاعتماد على الأوقات المدخلة من السائق
+                $startTime = \Carbon\Carbon::parse($request->input('startTime'));
+                $endTime = \Carbon\Carbon::parse($request->input('endTime'));
                 
-                if (!$userWallet || $userWallet->balance < $bookingCostAmount) {
-                    return response()->json([
-                        'status' => 'error', 
-                        'message' =>'رصيد المحفظة غير كافٍ. يرجى الشحن.'
-                    ], 400);
+                // حساب عدد الساعات (نفترض أن تكلفة الساعة 10 نقاط)
+                $hoursDifference = $startTime->diffInHours($endTime);
+                $totalHours = $hoursDifference > 0 ? $hoursDifference : 1; // كحد أدنى ساعة واحدة
+                $bookingCost = $totalHours * 10;
+
+                // التحقق من الرصيد والخصم
+                $userWallet = \Illuminate\Support\Facades\DB::table('wallets')->where('user_id', $inputUserId)->lockForUpdate()->first();
+                if (!$userWallet || $userWallet->balance < $bookingCost) {
+                    return response()->json(['status' => 'error', 'message' => "رصيدك غير كافٍ. تكلفة الحجز {$bookingCost} نقطة."], 400);
                 }
                 
-                // خصم الرصيد
-                \Illuminate\Support\Facades\DB::table('wallets')->where('user_id', $inputUserId)->decrement('balance', $bookingCostAmount);
+                \Illuminate\Support\Facades\DB::table('wallets')->where('user_id', $inputUserId)->decrement('balance', $bookingCost);
+                $notificationMsg = "تم تأكيد حجزك الفعلي وخصم {$bookingCost} نقطة من محفظتك.";
             }
 
-            // 6. إنقاص السعة المتاحة في الساحة بمقدار 1
+            // 5. إنقاص مكان واحد من الساحة المشغولة
             \Illuminate\Support\Facades\DB::table('parkings')->where('id', $inputParkingId)->decrement('available_capacity', 1);
 
-            // 7. إنشاء الحجز العادي (المبدئي) مع تحديد مهلة 15 دقيقة
-            $startTime = now();
-            $endTime = now()->addMinutes(15);
-
+            // 6. إدراج الحجز في قاعدة البيانات
             $insertedBookingId = \Illuminate\Support\Facades\DB::table('bookings')->insertGetId([
                 'user_id' => $inputUserId,
                 'parking_id' => $inputParkingId,
                 'plate_number' => $driverPlateNumber,
                 'start_time' => $startTime,
                 'end_time' => $endTime,
-                'type' => 'initial', // نوع الحجز مبدئي حسب الجداول
-                'status' => 'confirmed', // حالة الحجز مؤكدة مبدئياً
+                'type' => $inputType,
+                'status' => 'confirmed',
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
 
+            // إرسال الإشعار
+            \Illuminate\Support\Facades\DB::table('notifications')->insert([
+                'user_id' => $inputUserId,
+                'message' => $notificationMsg,
+                'type' => 'Booking_Confirmed',
+                'created_at' => now()
+            ]);
+
             \Illuminate\Support\Facades\DB::commit();
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'تم إنشاء الحجز بنجاح.',
-                'bookingId' => $insertedBookingId
-            ], 201);
+            return response()->json(['status' => 'success', 'bookingId' => $insertedBookingId], 201);
 
         } catch (\Exception $exception) {
             \Illuminate\Support\Facades\DB::rollBack();
-            \Illuminate\Support\Facades\Log::error('Error creating regular booking: ' . $exception->getMessage());
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }
