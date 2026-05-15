@@ -126,13 +126,16 @@
         <section id="bookingTab" class="content-section d-none">
             
             <div id="activeTicketSection" class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 d-none">
-                <div class="card-header bg-gradient bg-success text-white p-4 border-0 d-flex align-items-center justify-content-between">
-                    <div>
-                        <h5 class="fw-bold mb-1">🎟️ تذكرتك الإلكترونية النشطة</h5>
-                        <p class="fs-6 mb-0 text-white text-opacity-75">تم حجز الموقف بنجاح وبانتظار وصولك الميداني</p>
+                <div class="card-body p-4 bg-white">
+                    <div class="row align-items-center text-center text-md-start g-3">
+                        </div>
+                    <hr class="my-4 border-light">
+                    <div class="d-flex flex-wrap gap-2 justify-content-center">
+                        <button onclick="requestChangeSpot()" class="btn btn-outline-primary rounded-pill px-4">🔄 تبديل الساحة</button>
+                        <button onclick="cancelCurrentBooking()" class="btn btn-outline-danger rounded-pill px-4">❌ إلغاء الحجز</button>
                     </div>
-                    <span class="fs-1">⚡</span>
                 </div>
+            </div>
                 <div class="card-body p-4 bg-white">
                     <div class="row align-items-center text-center text-md-start g-3">
                         <div class="col-md-4 border-end-md">
@@ -553,11 +556,13 @@
         | النواة التشغيلية: دوال إدارة الحجز والمواقف التفاعلية (FR3)
         |--------------------------------------------------------------------------
         */
+        // متغير عام لتخزين رقم الحجز النشط لكي نستخدمه في دوال الإلغاء والتبديل
+        let activeBookingId = null;
 
         // ---  فحص التذكرة النشطة وتحميل شبكة المواقف ---
         async function checkActiveTicketAndLoadGrid() {
             try {
-                //  التحقق من وجود حجز مؤكد
+                // التحقق من وجود حجز مؤكد
                 const response = await fetch('/api/bookings/active?userId=' + currentUserData.accountId);
                 const resultData = await response.json();
 
@@ -567,14 +572,20 @@
                 if (response.ok && resultData.status === 'success' && resultData.hasActiveBooking) {
                     const bookingRecord = resultData.bookingData;
                     
+                    //   تخزين رقم الحجز في المتغير العام
+                    activeBookingId = bookingRecord.id;
+                    
                     // عرض اسم الساحة بدلاً من رقم الموقف الفردي
                     document.getElementById('ticketSpotNumber').innerText = bookingRecord.parking_name;
-                    // بما أن طريقة الدفع غير مخزنة في الداتا بيز، سنعرض نوع الحجز
+                    // عرض نوع الحجز
                     document.getElementById('ticketPaymentMethod').innerText = bookingRecord.type === 'initial' ? '⏱️ حجز مبدئي (مؤقت)' : '✅ حجز فعلي';
 
                     if (activeTicketCard) activeTicketCard.classList.remove('d-none');
                     if (gridMapCard) gridMapCard.classList.add('d-none');
                 } else {
+                    // تصفير المتغير في حال عدم وجود حجز نشط
+                    activeBookingId = null;
+
                     if (activeTicketCard) activeTicketCard.classList.add('d-none');
                     if (gridMapCard) gridMapCard.classList.remove('d-none');
                     
@@ -790,6 +801,81 @@
                 }
             } catch (exception) { console.error(exception); }
         }
+
+        let activeBookingId = null;
+
+        // وظيفة إلغاء الحجز الحالي مع شروط الوقت
+        async function cancelCurrentBooking() {
+            try {
+                const { isConfirmed } = await Swal.fire({
+                    title: 'تأكيد الإلغاء',
+                    text: 'هل أنت متأكد من رغبتك في إلغاء الحجز؟ سيتم تطبيق سياسة الاسترجاع (100% قبل 30 دقيقة، 50% خلال الـ 30 دقيقة الأخيرة).',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'نعم، إلغاء الحجز',
+                    cancelButtonText: 'تراجع',
+                    confirmButtonColor: '#d33'
+                });
+
+                if (!isConfirmed) return;
+
+                const response = await fetch('/api/bookings/cancel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bookingId: activeBookingId })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    Swal.fire('تم الإلغاء', result.message, 'success');
+                    checkActiveTicketAndLoadGrid(); // تحديث الواجهة
+                    fetchWalletBalance(); // تحديث الرصيد
+                } else {
+                    Swal.fire('خطأ', result.message, 'error');
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        // وظيفة طلب تبديل الساحة
+        async function requestChangeSpot() {
+            try {
+                const response = await fetch('/api/parkings/spots');
+                const result = await response.json();
+                
+                let optionsHtml = '';
+                result.data.forEach(p => {
+                    if (p.available_capacity > 0) {
+                        optionsHtml += `<option value="${p.id}">${p.name} (متاح: ${p.available_capacity})</option>`;
+                    }
+                });
+
+                const { value: newParkingId } = await Swal.fire({
+                    title: 'اختر الساحة البديلة',
+                    html: `<select id="swalNewParking" class="form-select">${optionsHtml}</select>`,
+                    showCancelButton: true,
+                    confirmButtonText: 'تأكيد التبديل',
+                    preConfirm: () => document.getElementById('swalNewParking').value
+                });
+
+                if (newParkingId) {
+                    const res = await fetch('/api/bookings/change-spot', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ bookingId: activeBookingId, newParkingId: newParkingId })
+                    });
+
+                    if (res.ok) {
+                        Swal.fire('نجاح', 'تم تبديل الموقف بنجاح.', 'success');
+                        checkActiveTicketAndLoadGrid();
+                    } else {
+                        const err = await res.json();
+                        Swal.fire('خطأ', err.message, 'error');
+                    }
+                }
+            } catch (e) { console.error(e); }
+        }
+
 
         /*
         |--------------------------------------------------------------------------

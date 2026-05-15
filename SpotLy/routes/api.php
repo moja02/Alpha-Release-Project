@@ -46,3 +46,5 @@ Route::post('/auth/forgot-password/reset', [AuthController::class, 'verifyOtpAnd
 Route::get('/parkings/spots', [BookingController::class, 'getSpots']);
 Route::get('/bookings/active', [BookingController::class, 'getActiveBooking']);
 Route::post('/bookings/create', [BookingController::class, 'createBooking']);
+Route::post('/bookings/cancel', [BookingController::class, 'cancelBooking']);
+Route::post('/bookings/change-spot', [BookingController::class, 'changeSpot']);
