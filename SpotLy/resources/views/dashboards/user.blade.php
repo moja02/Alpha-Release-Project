@@ -340,6 +340,58 @@
                 console.error("خطأ أثناء تحديث رصيد المحفظة", exception);
             }
         }
+
+        // --- دالة تحديث إحصائيات السائق (المخالفات وحالة الحساب) ---
+        async function refreshDriverStats() {
+            try {
+                if (!currentUserData || !currentUserData.accountId) return;
+
+                const response = await fetch('/api/accounts/stats?userId=' + currentUserData.accountId);
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    // 1. تحديث رقم المخالفات في الواجهة
+                    const fakeBookingElem = document.getElementById('fakeBookingDisplay');
+                    if (fakeBookingElem && fakeBookingElem.innerText != data.fake_booking_count) {
+                        fakeBookingElem.innerText = data.fake_booking_count;
+                        // تأثير بصري بسيط عند زيادة المخالفة
+                        fakeBookingElem.parentElement.classList.add('animate-pulse');
+                        setTimeout(() => fakeBookingElem.parentElement.classList.remove('animate-pulse'), 1000);
+                    }
+
+                    // 2. تحديث حالة الحساب (نشط / محظور)
+                    const statusElem = document.getElementById('statusDisplay');
+                    if (statusElem) {
+                        statusElem.innerText = data.account_status === 'active' ? 'نشط' : 'محظور';
+                        statusElem.className = data.account_status === 'active' ? 'fs-5 fw-bold mb-0 text-success' : 'fs-5 fw-bold mb-0 text-danger';
+                    }
+
+                    // 3. تحديث التخزين المحلي (localStorage) بيش تقعد البيانات متزامنة
+                    if(currentUserData.profile) {
+                        currentUserData.profile.fake_booking_count = data.fake_booking_count;
+                        currentUserData.profile.status = data.account_status;
+                        localStorage.setItem('userData', JSON.stringify(currentUserData));
+                    }
+
+                    // 4. طرد السائق فوراً إذا تم حظره!
+                    if (data.account_status === 'blocked') {
+                        Swal.fire({
+                            title: 'تم حظر الحساب!',
+                            text: 'لقد تجاوزت الحد الأقصى للمخالفات (3 مرات). سيتم تسجيل خروجك الآن.',
+                            icon: 'error',
+                            confirmButtonText: 'حسناً',
+                            allowOutsideClick: false
+                        }).then(() => {
+                            localStorage.clear();
+                            window.location.href = '/login';
+                        });
+                    }
+                }
+            } catch (exception) {
+                console.error("خطأ في تحديث إحصائيات السائق", exception);
+            }
+        }
+
         // دالة جلب السجل
         async function loadUserRechargeHistory() {
             try {
@@ -465,6 +517,7 @@
                 if (sectionIdValue === 'overviewTab') {
                     fetchWalletBalance(); // تحديث الرصيد فور العودة للرئيسية
                     checkActiveBookingForOverview(); // فحص الحجوزات
+                    refreshDriverStats(); // تحديث المخالفات عند العودة للرئيسية
                 } else if (sectionIdValue === 'profileTab') {
                     loadProfileData();
                 } else if (sectionIdValue === 'bookingTab') {
@@ -1005,7 +1058,10 @@
         // --- مشغل أوتوماتيكي صامت لتنظيف الحجوزات المنتهية (يعمل كل دقيقة) ---
         setInterval(async () => {
             try {
-                // نطلب من الباك إند فحص إذا كان هناك أي حجز انتهى وقته
+                // 1. تحديث الإحصائيات (المخالفات)
+                refreshDriverStats();
+
+                // 2. فحص الحجوزات المنتهية
                 const response = await fetch('/api/bookings/cleanup-expired', {
                     method: 'POST',
                     headers: { 'Accept': 'application/json' }
@@ -1013,15 +1069,11 @@
                 
                 const result = await response.json();
                 
-                // إذا تم اصطياد حجوزات منتهية، نقوم بتحديث واجهة السائق فوراً
                 if (response.ok && result.message.includes('معالجة') && !result.message.includes('0')) {
-                    // تحديث الخريطة والتذكرة في حال كان السائق فاتح الشاشة
                     checkActiveTicketAndLoadGrid();
                 }
-            } catch (exception) {
-                // لن نطبع خطأ لكي لا نزعج الـ Console، هذه العملية تعمل بصمت
-            }
-        }, 60000); // 60000 ملي ثانية = 1 دقيقة
+            } catch (exception) {}
+        }, 60000);
     </script>
 </body>
 </html>

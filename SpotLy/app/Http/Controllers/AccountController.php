@@ -219,4 +219,27 @@ class AccountController extends Controller
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }
+
+    /**
+     * جلب الإحصائيات الحية للسائق (عدد المخالفات وحالة الحساب)
+     */
+    public function getDriverStats(Request $request)
+    {
+        try {
+            $userId = $request->input('userId');
+            $driver = \Illuminate\Support\Facades\DB::table('users')->where('account_id', $userId)->first();
+            
+            if ($driver) {
+                return response()->json([
+                    'status' => 'success', 
+                    'fake_booking_count' => $driver->fake_booking_count,
+                    'account_status' => $driver->status
+                ], 200);
+            }
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+            
+        } catch (\Exception $exception) {
+            return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
+        }
+    }
 }

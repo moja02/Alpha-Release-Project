@@ -19,6 +19,7 @@ Route::post('/accounts/login', [AuthController::class, 'login']);
 
 // مسار تنظيف الحجوزات المنتهية وتسجيل المخالفات
 Route::post('/bookings/cleanup-expired', [BookingController::class, 'cleanupExpiredBookings']);
+Route::get('/accounts/stats', [AccountController::class, 'getDriverStats']);
 
 // مسارات إدارة الكيانات الأساسية (Account Management)
 Route::post('/accounts/create', [AccountController::class, 'createAccount']);
