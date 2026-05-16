@@ -803,7 +803,7 @@
             try {
                 let rejectionReasonValue = '';
 
-                // تعليق مضمن: إذا كان الإجراء هو الرفض، نطلب من الموظف إدخال السبب
+                //  إذا كان الإجراء هو الرفض، نطلب من الموظف إدخال السبب
                 if (actionType === 'reject') {
                     const { value: textValue, isConfirmed: isRejectConfirmed } = await Swal.fire({
                         title: 'رفض طلب الشحن',

@@ -552,7 +552,7 @@
             try {
                 event.preventDefault();
                 
-                // تعليق مضمن: قراءة معرف الساحة، المبلغ، والملف من الواجهة
+                //  قراءة معرف الساحة، المبلغ، والملف من الواجهة
                 const parkingIdValue = document.getElementById('targetParkingSelect').value;
                 const amountInputValue = document.getElementById('rechargeAmountInput').value;
                 const fileInputValue = document.getElementById('receiptFileInput').files[0];
@@ -567,7 +567,7 @@
                 submitButtonElement.disabled = true;
 
                 try {
-                    // تعليق مضمن: بناء حزمة البيانات (FormData) لتشمل parkingId الإلزامي
+                    //  بناء حزمة البيانات (FormData) لتشمل parkingId الإلزامي
                     const formDataPayload = new FormData();
                     formDataPayload.append('userId', currentUserData.accountId);
                     formDataPayload.append('parkingId', parkingIdValue); 
@@ -614,11 +614,6 @@
             }
         });
 
-        /*
-        |--------------------------------------------------------------------------
-        | النواة التشغيلية: دوال إدارة الحجز والمواقف التفاعلية (FR3)
-        |--------------------------------------------------------------------------
-        */
         // متغير عام لتخزين رقم الحجز النشط لكي نستخدمه في دوال الإلغاء والتبديل
         let activeBookingId = null;
 
@@ -755,7 +750,7 @@
                     return;
                 }
 
-                // تعليق مضمن: عرض نافذة مخصصة تحتوي على خيارات الحجز المطلوبة في السيناريو
+                // عرض نافذة مخصصة تحتوي على خيارات الحجز المطلوبة في السيناريو
                 const { value: formValues } = await Swal.fire({
                     title: `حجز موقف في (${spotNameValue})`,
                     html: `
@@ -1078,7 +1073,7 @@
 
                 const response = await fetch('/api/notifications?userId=' + currentUserData.accountId, {
                     method: 'GET',
-                    headers: { 'Accept': 'application/json' } // 👈 هذا السطر يمنع ظهور خطأ HTML نهائياً
+                    headers: { 'Accept': 'application/json' } 
                 });
                 
                 const resultData = await response.json();

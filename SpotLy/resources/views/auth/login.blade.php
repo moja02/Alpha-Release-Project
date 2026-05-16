@@ -65,7 +65,7 @@
 
             
             try {
-                // تعليق مضمن: إرسال البيانات إلى مسار الـ API للتحقق من الهوية
+                //  إرسال البيانات إلى مسار الـ API للتحقق من الهوية
                 const response = await fetch('/api/accounts/login', {
                     method: 'POST',
                     headers: {

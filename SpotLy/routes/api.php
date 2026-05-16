@@ -41,7 +41,7 @@ Route::get('/recharges/user-requests', [RechargeController::class, 'getUserRecha
 Route::post('/auth/forgot-password/send-otp', [App\Http\Controllers\AuthController::class, 'sendOtp']);
 Route::post('/auth/forgot-password/reset', [App\Http\Controllers\AuthController::class, 'verifyOtpAndResetPassword']);
 
-// مسارات المواقف والحجوزات الخاصة بالسائق (FR3)
+// مسارات المواقف والحجوزات الخاصة بالسائق 
 Route::get('/parkings/spots', [BookingController::class, 'getSpots']);
 Route::get('/bookings/active', [BookingController::class, 'getActiveBooking']);
 Route::post('/bookings/create', [BookingController::class, 'createBooking']);

@@ -199,7 +199,7 @@ class BookingController extends Controller
             $bookingStartTime = \Carbon\Carbon::parse($bookingRecord->start_time);
             $bookingEndTime = \Carbon\Carbon::parse($bookingRecord->end_time);
             
-            // 🔴 التحديث الجوهري: فصل منطق الوقت بناءً على نوع الحجز
+            //   فصل منطق الوقت بناءً على نوع الحجز
             if ($bookingRecord->type === 'actual') {
                 // للحجز الفعلي: نمنع الإلغاء إذا حل وقت البداية
                 if ($currentTime->greaterThanOrEqualTo($bookingStartTime)) {
