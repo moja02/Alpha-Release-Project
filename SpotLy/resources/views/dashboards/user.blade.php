@@ -121,6 +121,18 @@
                     <p class="mb-0 fs-5 text-dark">رقم اللوحة التشغيلية: <span id="plateDisplay" class="text-primary fw-bold ms-2">--</span></p>
                 </div>
             </div>
+
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mt-4">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">🔔 سجل الإشعارات والتنبيهات الأخير</span>
+                    <button onclick="loadDashboardNotifications()" class="btn btn-sm btn-link text-decoration-none p-0">تحديث السجل 🔄</button>
+                </div>
+                <div class="card-body p-0">
+                    <div id="dashboardNotificationLog" class="list-group list-group-flush" style="max-height: 350px; overflow-y: auto;">
+                        <div class="text-center py-5 text-muted">جاري جلب آخر التنبيهات...</div>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <section id="bookingTab" class="content-section d-none">
@@ -306,6 +318,7 @@
                 //  جلب الرصيد وفحص الحجوزات فور الدخول للنظام
                 fetchWalletBalance();
                 checkActiveBookingForOverview();
+                loadDashboardNotifications(); // FR4: عرض السجل فور الدخول
             } catch (exception) {
                 console.error(exception);
             }
@@ -518,6 +531,8 @@
                     fetchWalletBalance(); // تحديث الرصيد فور العودة للرئيسية
                     checkActiveBookingForOverview(); // فحص الحجوزات
                     refreshDriverStats(); // تحديث المخالفات عند العودة للرئيسية
+                    loadDashboardNotifications(); // تحديث السجل عند العودة للرئيسية
+
                 } else if (sectionIdValue === 'profileTab') {
                     loadProfileData();
                 } else if (sectionIdValue === 'bookingTab') {
@@ -537,7 +552,7 @@
             try {
                 event.preventDefault();
                 
-                // تعليق مضمن: قراءة معرف الساحة، المبلغ، والملف من الواجهة
+                //  قراءة معرف الساحة، المبلغ، والملف من الواجهة
                 const parkingIdValue = document.getElementById('targetParkingSelect').value;
                 const amountInputValue = document.getElementById('rechargeAmountInput').value;
                 const fileInputValue = document.getElementById('receiptFileInput').files[0];
@@ -552,7 +567,7 @@
                 submitButtonElement.disabled = true;
 
                 try {
-                    // تعليق مضمن: بناء حزمة البيانات (FormData) لتشمل parkingId الإلزامي
+                    //  بناء حزمة البيانات (FormData) لتشمل parkingId الإلزامي
                     const formDataPayload = new FormData();
                     formDataPayload.append('userId', currentUserData.accountId);
                     formDataPayload.append('parkingId', parkingIdValue); 
@@ -599,11 +614,6 @@
             }
         });
 
-        /*
-        |--------------------------------------------------------------------------
-        | النواة التشغيلية: دوال إدارة الحجز والمواقف التفاعلية (FR3)
-        |--------------------------------------------------------------------------
-        */
         // متغير عام لتخزين رقم الحجز النشط لكي نستخدمه في دوال الإلغاء والتبديل
         let activeBookingId = null;
 
@@ -740,7 +750,7 @@
                     return;
                 }
 
-                // تعليق مضمن: عرض نافذة مخصصة تحتوي على خيارات الحجز المطلوبة في السيناريو
+                // عرض نافذة مخصصة تحتوي على خيارات الحجز المطلوبة في السيناريو
                 const { value: formValues } = await Swal.fire({
                     title: `حجز موقف في (${spotNameValue})`,
                     html: `
@@ -1055,6 +1065,67 @@
                 console.error(exception);
             }
         });
+
+        // --- FR4: دالة جلب وعرض سجل الإشعارات في لوحة التحكم ---
+        async function loadDashboardNotifications() {
+            try {
+                if (!currentUserData || !currentUserData.accountId) return;
+
+                const response = await fetch('/api/notifications?userId=' + currentUserData.accountId, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' } 
+                });
+                
+                const resultData = await response.json();
+                const logContainer = document.getElementById('dashboardNotificationLog');
+
+                if (logContainer && response.ok && resultData.status === 'success') {
+                    logContainer.innerHTML = '';
+
+                    if (resultData.data.length === 0) {
+                        logContainer.innerHTML = '<div class="text-center py-5 text-muted small">لا توجد تنبيهات مسجلة في حسابك حالياً.</div>';
+                        return;
+                    }
+
+                    resultData.data.slice(0, 10).forEach(item => {
+                        try {
+                            let icon = '📩';
+                            let borderClass = 'border-start border-4 border-info';
+                            
+                            if (item.type.includes('Rejected') || item.type.includes('Expired') || item.type.includes('Blocked')) {
+                                icon = '⚠️';
+                                borderClass = 'border-start border-4 border-danger';
+                            } else if (item.type.includes('Approved') || item.type.includes('Confirmed')) {
+                                icon = '✅';
+                                borderClass = 'border-start border-4 border-success';
+                            }
+
+                            const timeAgo = new Date(item.created_at).toLocaleString('ar-LY', {
+                                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                            });
+
+                            logContainer.innerHTML += `
+                                <div class="list-group-item list-group-item-action p-3 ${borderClass} bg-white shadow-sm mb-2 rounded-3">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="d-flex align-items-center">
+                                            <span class="fs-4 me-3">${icon}</span>
+                                            <div>
+                                                <p class="mb-1 fw-bold text-dark" style="font-size: 0.95rem;">${item.message}</p>
+                                                <small class="text-muted" style="font-size: 0.8rem;">${timeAgo}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        } catch (e) { console.error(e); }
+                    });
+                } else {
+                    console.error("الباك إند أرجع خطأ:", resultData.message);
+                }
+            } catch (exception) {
+                console.error("خطأ في جلب سجل التنبيهات", exception);
+            }
+        }
         // --- مشغل أوتوماتيكي صامت لتنظيف الحجوزات المنتهية (يعمل كل دقيقة) ---
         setInterval(async () => {
             try {

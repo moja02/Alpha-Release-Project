@@ -10,85 +10,10 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB; // لاستخدام المعاملات (Transactions) لضمان سلامة الإدخال
 use Illuminate\Support\Str; //توليد الرمز العشوائي
+use Illuminate\Support\Facades\Mail;
 
 class AccountController extends Controller
 {
-    /**
-     * دالة تسجيل الدخول للنظام (تطبيق متطلب FR1)
-     * تتحقق من الهوية وتوجه المستخدمين والموظفين حسب صلاحياتهم
-     */
-    public function login(Request $request)
-    {
-        
-        try {
-            // التحقق من صحة البيانات المرسلة من واجهة تسجيل الدخول
-            $request->validate([
-                'email' => 'required|string|email',
-                'password' => 'required|string',
-            ]);
-
-            
-            $inputEmail = $request->input('email');
-            $inputPassword = $request->input('password');
-
-            //  البحث عن الحساب الأساسي في قاعدة البيانات بواسطة البريد الإلكتروني
-            $account = Account::where('email', $inputEmail)->first();
-
-            // التحقق من وجود الحساب ومطابقة كلمة المرور المشفرة
-            if (!$account || !Hash::check($inputPassword, $account->password)) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Invalid email or password.'
-                ], 401);
-            }
-
-            //  جلب تفاصيل الملف الشخصي بناءً على الصلاحيات لتوجيهه للوحة التحكم المناسبة
-            $profileDetails = null;
-
-            if ($account->role === 'user') {
-                $profileDetails = User::where('account_id', $account->id)->first();
-                
-                // فحص أمني: منع المستخدم من الدخول إذا كان حسابه معطلاً أو محظوراً
-                if ($profileDetails && $profileDetails->status === 'blocked') {
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => 'Access Denied: Your account has been blocked due to exceeding 3 fake bookings.'
-                    ], 403);
-                }
-            } elseif ($account->role === 'employee') {
-                $profileDetails = Employee::where('account_id', $account->id)->first();
-            }
-
-            //  توليد رمز مصادقة (Token) إذا تم تفعيل Laravel Sanctum للـ API
-            $authToken = method_exists($account, 'createToken') 
-                ? $account->createToken('ApiAuthToken')->plainTextToken 
-                : 'stateless_session_active';
-
-            // إرجاع استجابة JSON تحتوي على بيانات الهوية والصلاحية لتسهيل عرض لوحة التحكم
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Logged in successfully.',
-                'token' => $authToken,
-                'accountData' => [
-                    'accountId' => $account->id,
-                    'name' => $account->name,
-                    'email' => $account->email,
-                    'phone' => $account->phone,
-                    'role' => $account->role,
-                    'profile' => $profileDetails
-                ]
-            ], 200);
-
-        } catch (\Exception $exception) {
-            // تسجيل الخطأ الفني في السجل لضمان سهولة الصيانة
-            Log::error('Error in login method: ' . $exception->getMessage());
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'An error occurred during login: ' . $exception->getMessage()
-            ], 500);
-        }
-    }
 
     public function createAccount(Request $request)
     {
@@ -107,10 +32,12 @@ class AccountController extends Controller
             $inputRole = $request->input('role');
             $inputPlateNumber = $request->input('plateNumber');
 
+            // توليد كلمة مرور عشوائية من 8 أحرف
             $generatedPassword = \Illuminate\Support\Str::random(8);
 
             \Illuminate\Support\Facades\DB::beginTransaction();
 
+            // 1. إنشاء الحساب الأساسي
             $insertedAccountId = \Illuminate\Support\Facades\DB::table('accounts')->insertGetId([
                 'name' => $inputName,
                 'email' => $inputEmail,
@@ -121,6 +48,7 @@ class AccountController extends Controller
                 'updated_at' => now()
             ]);
 
+            // 2. إعداد جداول السائق (إذا كان الدور user)
             if ($inputRole === 'user') {
                 \Illuminate\Support\Facades\DB::table('users')->insert([
                     'account_id' => $insertedAccountId,
@@ -139,13 +67,28 @@ class AccountController extends Controller
                 ]);
             }
 
+            // 3. إدخال الإشعار في قاعدة البيانات (بدون كلمة المرور لأسباب أمنية)
             \Illuminate\Support\Facades\DB::table('notifications')->insert([
                 'user_id' => $insertedAccountId,
-                'message' => "مرحباً بك في SpotLy! تم إنشاء حسابك. كلمة المرور الخاصة بك هي: {$generatedPassword}",
+                'message' => "مرحباً بك في SpotLy! تم إنشاء حسابك بنجاح. يرجى مراجعة بريدك الإلكتروني للحصول على بيانات الدخول.",
                 'type' => 'Account_Created',
+                'sent_to_email' => $inputEmail, // توثيق الإيميل الذي أرسلنا له
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
+
+            // 4. إرسال البريد الإلكتروني الفعلي بكلمة المرور للسائق
+            if ($inputEmail) {
+                $mailData = [
+                    'title' => 'مرحباً بك في نظام SpotLy 🚗',
+                    'body' => "أهلاً بك {$inputName}، لقد تم إنشاء حسابك بنجاح في نظام المواقف الذكية من قبل الإدارة.\n\n" .
+                              "بيانات الدخول الخاصة بك هي:\n" .
+                              "البريد الإلكتروني: {$inputEmail}\n" .
+                              "كلمة المرور: {$generatedPassword}\n\n" .
+                              "ملاحظة: نرجو منك الحفاظ على سرية بياناتك، ويمكنك تغيير كلمة المرور من إعدادات حسابك."
+                ];
+                \Illuminate\Support\Facades\Mail::to($inputEmail)->send(new \App\Mail\SpotlyNotificationMail($mailData));
+            }
 
             \Illuminate\Support\Facades\DB::commit();
 
@@ -164,80 +107,22 @@ class AccountController extends Controller
             ], 500);
         }
     }
-    /**
-     * دالة تحديث البيانات الشخصية (FR1)
-     * تسمح للموظف بتعديل رقم الهاتف، كلمة المرور، والحساب المصرفي
-     */
-    public function updateProfile(Request $request)
+
+    public function getUserNotifications(Request $request)
     {
         try {
-            // التحقق من صحة المدخلات
-            $request->validate([
-                'accountId' => 'required|integer|exists:accounts,id',
-                'phone' => 'required|string|max:20',
-                'password' => 'nullable|string|min:6', // اختياري: فقط إذا أراد التغيير
-                'bankAccountNumber' => 'nullable|string|max:50',
-            ]);
+            $targetUserId = $request->input('userId');
 
-            $targetId = $request->input('accountId');
-            
-            DB::beginTransaction();
-
-            // 1. تحديث بيانات الحساب الأساسي (Account)
-            $account = Account::findOrFail($targetId);
-            $account->phone = $request->input('phone');
-            
-            // إذا قام المستخدم بكتابة كلمة مرور جديدة، يتم تشفيرها وحفظها
-            if ($request->filled('password')) {
-                $account->password = Hash::make($request->input('password'));
-            }
-            $account->save();
-
-            // 2. تحديث بيانات الموظف (Employee) إن وجدت
-            if ($account->role === 'employee') {
-                $employee = Employee::where('account_id', $targetId)->first();
-                if ($employee) {
-                    $employee->bank_account_number = $request->input('bankAccountNumber');
-                    $employee->save();
-                }
-            }
-
-            DB::commit();
+            $userNotifications = \Illuminate\Support\Facades\DB::table('notifications')
+                ->where('user_id', $targetUserId)
+                ->orderBy('id', 'desc')
+                ->get();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Profile updated successfully.',
-                'updatedData' => [
-                    'phone' => $account->phone,
-                    'bankAccountNumber' => $account->role === 'employee' ? $employee->bank_account_number : null
-                ]
+                'data' => $userNotifications
             ], 200);
 
-        } catch (\Exception $exception) {
-            DB::rollBack();
-            Log::error('Error updating profile: ' . $exception->getMessage());
-            return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
-        }
-    }
-
-    /**
-     * جلب الإحصائيات الحية للسائق (عدد المخالفات وحالة الحساب)
-     */
-    public function getDriverStats(Request $request)
-    {
-        try {
-            $userId = $request->input('userId');
-            $driver = \Illuminate\Support\Facades\DB::table('users')->where('account_id', $userId)->first();
-            
-            if ($driver) {
-                return response()->json([
-                    'status' => 'success', 
-                    'fake_booking_count' => $driver->fake_booking_count,
-                    'account_status' => $driver->status
-                ], 200);
-            }
-            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
-            
         } catch (\Exception $exception) {
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }

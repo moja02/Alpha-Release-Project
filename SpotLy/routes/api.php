@@ -23,8 +23,6 @@ Route::get('/accounts/stats', [AccountController::class, 'getDriverStats']);
 
 // مسارات إدارة الكيانات الأساسية (Account Management)
 Route::post('/accounts/create', [AccountController::class, 'createAccount']);
-Route::post('/accounts/record-fake-booking', [AccountController::class, 'recordFakeBooking']);
-
 // مسارات الملف الشخصي (Profile Management)
 Route::post('/accounts/update-profile', [ProfileController::class, 'updateProfile']);
 
@@ -40,12 +38,14 @@ Route::post('/recharges/request', [RechargeController::class, 'submitRequest']);
 Route::get('/recharges/user-requests', [RechargeController::class, 'getUserRechargeRequests']);
 
 // مسارات استعادة كلمة المرور عبر الـ OTP
-Route::post('/auth/forgot-password/send-otp', [AuthController::class, 'sendOtp']);
-Route::post('/auth/forgot-password/reset', [AuthController::class, 'verifyOtpAndResetPassword']);
+Route::post('/auth/forgot-password/send-otp', [App\Http\Controllers\AuthController::class, 'sendOtp']);
+Route::post('/auth/forgot-password/reset', [App\Http\Controllers\AuthController::class, 'verifyOtpAndResetPassword']);
 
-// مسارات المواقف والحجوزات الخاصة بالسائق (FR3)
+// مسارات المواقف والحجوزات الخاصة بالسائق 
 Route::get('/parkings/spots', [BookingController::class, 'getSpots']);
 Route::get('/bookings/active', [BookingController::class, 'getActiveBooking']);
 Route::post('/bookings/create', [BookingController::class, 'createBooking']);
 Route::post('/bookings/cancel', [BookingController::class, 'cancelBooking']);
 Route::post('/bookings/change-spot', [BookingController::class, 'changeSpot']);
+
+Route::get('/notifications', [App\Http\Controllers\AccountController::class, 'getUserNotifications']);
