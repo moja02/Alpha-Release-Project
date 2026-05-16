@@ -369,42 +369,50 @@ class BookingController extends Controller
                     ->where('id', $booking->user_id)
                     ->first();
 
+                // تجهيز الإيميل (إذا كان موجوداً)
+                $targetEmail = ($account && isset($account->email)) ? $account->email : null;
+
                 // هـ. التحقق من حالة الحظر وإرسال الإشعارات
                 if ($driver && $driver->fake_booking_count >= 3) {
+                    // تحديث حالة السائق إلى محظور
                     \Illuminate\Support\Facades\DB::table('users')
                         ->where('account_id', $booking->user_id)
                         ->update(['status' => 'blocked']);
 
+                    // إدخال الإشعار في قاعدة البيانات مع حفظ الإيميل
                     \Illuminate\Support\Facades\DB::table('notifications')->insert([
                         'user_id' => $booking->user_id,
                         'message' => 'تم حظر حسابك لتجاوز الحد الأقصى للمخالفات (3 مرات حجز وهمي دون حضور).',
                         'type' => 'Account_Blocked',
+                        'sent_to_email' => $targetEmail, 
                         'created_at' => $currentTime
                     ]);
 
-                    // إرسال بريد إلكتروني رسمي بالحظر
-                    if ($account && $account->email) {
+                    // إرسال الإيميل الفوري
+                    if ($targetEmail) {
                         $mailData = [
                             'title' => 'تنبيه إداري: تم حظر حسابك 🚫',
                             'body' => 'نعلمك بأنه تم حظر حسابك في نظام SpotLy لتجاوزك الحد الأقصى من المخالفات (3 مرات حجز مبدئي دون الحضور). يرجى مراجعة إدارة المواقف.'
                         ];
-                        \Illuminate\Support\Facades\Mail::to($account->email)->send(new \App\Mail\SpotlyNotificationMail($mailData));
+                        \Illuminate\Support\Facades\Mail::to($targetEmail)->send(new \App\Mail\SpotlyNotificationMail($mailData));
                     }
                 } else {
+                    // إدخال الإشعار العادي في قاعدة البيانات مع حفظ الإيميل
                     \Illuminate\Support\Facades\DB::table('notifications')->insert([
                         'user_id' => $booking->user_id,
                         'message' => 'انتهت مهلة الحجز المبدئي (20 دقيقة) دون حضورك. تم إلغاء الحجز وتسجيل مخالفة في سجلك.',
                         'type' => 'Booking_Expired',
+                        'sent_to_email' => $targetEmail, 
                         'created_at' => $currentTime
                     ]);
 
-                    // إرسال بريد إلكتروني رسمي بالمخالفة
-                    if ($account && $account->email) {
+                    // إرسال الإيميل الفوري
+                    if ($targetEmail) {
                         $mailData = [
                             'title' => 'إشعار تسجيل مخالفة حجز وهمي ⚠️',
                             'body' => "لقد انتهت مهلة الحجز المبدئي الخاصة بك دون تأكيد حضورك. تم تسجيل مخالفة في سجلك. نذكرك بأنه عند الوصول لـ 3 مخالفات سيتم حظر الحساب تلقائياً."
                         ];
-                        \Illuminate\Support\Facades\Mail::to($account->email)->send(new \App\Mail\SpotlyNotificationMail($mailData));
+                        \Illuminate\Support\Facades\Mail::to($targetEmail)->send(new \App\Mail\SpotlyNotificationMail($mailData));
                     }
                 }
 
