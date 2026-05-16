@@ -7,6 +7,8 @@ use App\Models\Employee;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\SpotlyNotificationMail;
 
 class AuthController extends Controller
 {
@@ -71,12 +73,11 @@ class AuthController extends Controller
         }
     }
     /**
-     * دالة إرسال رمز التحقق OTP لاستعادة كلمة المرور
+     * دالة إرسال رمز التحقق OTP لاستعادة كلمة المرور (محدثة للإرسال الفعلي)
      */
     public function sendOtp(Request $request)
     {
         try {
-            // التحقق من أن البريد الإلكتروني مسجل فعلياً في جدول الحسابات
             $request->validate([
                 'email' => 'required|string|email|exists:accounts,email',
             ]);
@@ -89,24 +90,23 @@ class AuthController extends Controller
             $expirationTime = now()->addMinutes(15);
 
             // مسح أي رموز سابقة لنفس البريد الإلكتروني لتجنب التضارب
-            \App\Models\OtpCode::where('email', $targetEmail)->delete();
+            \Illuminate\Support\Facades\DB::table('otp_codes')->where('email', $targetEmail)->delete();
 
             // تخزين الرمز في قاعدة البيانات مشفراً لضمان أقصى درجات الأمان
-            \App\Models\OtpCode::create([
+            \Illuminate\Support\Facades\DB::table('otp_codes')->insert([
                 'email' => $targetEmail,
                 'otp_code' => Hash::make($generatedOtpCode),
                 'expires_at' => $expirationTime,
             ]);
 
-            // صياغة محتوى الرسالة متضمنة الرمز الصريح ليتمكن المستخدم من قراءته
-            $emailMessageContent = "طلب استعادة كلمة المرور. رمز الـ OTP الخاص بك هو: " . $generatedOtpCode . " (صالح لمدة 15 دقيقة).";
-
-            // محاكاة إرسال البريد الإلكتروني عبر تخزينه في جدول الإشعارات
-            \App\Models\Notification::create([
-                'user_id' => $accountRecord->id,
-                'message' => $emailMessageContent,
-                'type' => 'Password_Reset_OTP',
-            ]);
+            // إرسال الرمز "غير المشفر" إلى إيميل المستخدم الحقيقي!
+            $mailData = [
+                'title' => '🔑 رمز إعادة تعيين كلمة السر - SpotLy',
+                'body' => "مرحباً، لقد طلبت استعادة كلمة المرور لحسابك.\n\n" .
+                          "رمز الـ OTP الخاص بك هو: [ {$generatedOtpCode} ]\n\n" .
+                          "هذا الرمز صالح لمدة 15 دقيقة فقط."
+            ];
+            Mail::to($targetEmail)->send(new SpotlyNotificationMail($mailData));
 
             return response()->json([
                 'status' => 'success',
@@ -114,7 +114,7 @@ class AuthController extends Controller
             ], 200);
 
         } catch (\Exception $exception) {
-            \Illuminate\Support\Facades\Log::error('Error sending OTP: ' . $exception->getMessage());
+            Log::error('Error sending OTP: ' . $exception->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => 'حدث خطأ أثناء إرسال الرمز: ' . $exception->getMessage()
@@ -138,23 +138,20 @@ class AuthController extends Controller
             $inputOtpCode = $request->input('otpCode');
             $newPasswordInput = $request->input('newPassword');
 
-            // جلب أحدث رمز OTP تم تدوينه للبريد المستهدف
-            $otpRecord = \App\Models\OtpCode::where('email', $inputEmail)->latest()->first();
+            // جلب أحدث رمز OTP تم تدوينه للبريد المستهدف من جدول otp_codes
+            $otpRecord = \Illuminate\Support\Facades\DB::table('otp_codes')
+                ->where('email', $inputEmail)
+                ->orderBy('id', 'desc')
+                ->first();
 
             // التحقق من وجود الرمز وصلاحيته الزمنية
             if (!$otpRecord || !now()->lessThanOrEqualTo($otpRecord->expires_at)) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'رمز التحقق غير صحيح أو منتهي الصلاحية.'
-                ], 400);
+                return response()->json(['status' => 'error', 'message' => 'رمز التحقق غير صحيح أو منتهي الصلاحية.'], 400);
             }
 
             // مطابقة الرمز المدخل مع الرمز المشفر في قاعدة البيانات
             if (!Hash::check($inputOtpCode, $otpRecord->otp_code)) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'رمز التحقق المدخل لا يطابق الرمز المرسل.'
-                ], 400);
+                return response()->json(['status' => 'error', 'message' => 'رمز التحقق المدخل لا يطابق الرمز المرسل.'], 400);
             }
 
             \Illuminate\Support\Facades\DB::beginTransaction();
@@ -164,15 +161,15 @@ class AuthController extends Controller
             $targetAccount->password = Hash::make($newPasswordInput);
             $targetAccount->save();
 
-            // مسح رمز التحقق نهائياً بعد استخدامه بنجاح لمنع إعادة الاستخدام
-            \App\Models\OtpCode::where('email', $inputEmail)->delete();
+            // مسح رمز التحقق نهائياً بعد استخدامه بنجاح
+            \Illuminate\Support\Facades\DB::table('otp_codes')->where('email', $inputEmail)->delete();
 
-            // إرسال إشعار تأكيدي بنجاح العملية
-            \App\Models\Notification::create([
-                'user_id' => $targetAccount->id,
-                'message' => 'تم تغيير كلمة المرور الخاصة بحسابك بنجاح عبر التحقق الثنائي.',
-                'type' => 'Password_Changed',
-            ]);
+            // إرسال إيميل تأكيدي بنجاح العملية
+            $mailData = [
+                'title' => '🔒 تم تغيير كلمة السر بنجاح',
+                'body' => "تم تغيير كلمة المرور الخاصة بحسابك بنجاح. إذا لم تقم بهذا الإجراء، يرجى مراجعة الإدارة فوراً."
+            ];
+            Mail::to($inputEmail)->send(new SpotlyNotificationMail($mailData));
 
             \Illuminate\Support\Facades\DB::commit();
 
@@ -183,11 +180,8 @@ class AuthController extends Controller
 
         } catch (\Exception $exception) {
             \Illuminate\Support\Facades\DB::rollBack();
-            \Illuminate\Support\Facades\Log::error('Error resetting password: ' . $exception->getMessage());
-            return response()->json([
-                'status' => 'error',
-                'message' => 'حدث خطأ أثناء إعادة تعيين كلمة المرور: ' . $exception->getMessage()
-            ], 500);
+            Log::error('Error resetting password: ' . $exception->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'حدث خطأ أثناء إعادة تعيين كلمة المرور.'], 500);
         }
     }
 }
