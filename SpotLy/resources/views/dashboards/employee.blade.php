@@ -570,6 +570,7 @@
     });
 
     // ---  معالجة نموذج التحقق الميداني من السيارات ومطابقتها ---
+    /** 
     document.getElementById('verifyVehicleForm').addEventListener('submit', async function(event) {
         try {
             event.preventDefault();
@@ -586,7 +587,7 @@
             console.error(exception);
         }
     });
-
+    */
     // ---  معالجة إرسال نموذج تحديث الملف الشخصي للموظف ---
     document.getElementById('profileForm').addEventListener('submit', async function(event) {
         try {
@@ -650,98 +651,95 @@
     دوال الشحن الفوري
     */
 
-    // تحديث حقل الإدخال المخصص تلقائياً عند الضغط على إحدى الباقات السريعة الجاهزة
-    function updateCustomAmount(selectedPoints) {
-        try {
-            const customAmountInput = document.getElementById('pointsAmountInput');
-            customAmountInput.value = selectedPoints;
-        } catch (exception) {
-            console.error("خطأ في تحديث النقاط المقترحة", exception);
+    // دالة لتحديث القيمة يدوياً عند اختيار باقة سريعة
+        function updateCustomAmount(amount) {
+            const amountInput = document.getElementById('pointsAmountInput');
+            if (amountInput) {
+                amountInput.value = amount;
+            }
         }
-    }
 
-    // إلغاء تحديد الأزرار التفاعلية السريعة إذا قام الموظف بالكتابة اليدوية المخصصة
-    function clearRadioSelection() {
-        try {
-            const allFastRadios = document.querySelectorAll('.fast-amount-radio');
-            allFastRadios.forEach(radioItem => {
-                try {
-                    radioItem.checked = false;
-                } catch (innerException) {
-                    console.error(innerException);
-                }
+        // دالة لإلغاء تحديد الأزرار الدائرية (Radio) عند الكتابة اليدوية
+        function clearRadioSelection() {
+            const radios = document.querySelectorAll('.fast-amount-radio');
+            radios.forEach(radio => {
+                radio.checked = false;
             });
-        } catch (exception) {
-            console.error("خطأ في مسح التحديد النشط", exception);
         }
-    }
 
     // معالجة إرسال نموذج الشحن الفوري وربطه بـ RechargeController المنفصل
-    document.getElementById('rechargeWalletForm').addEventListener('submit', async function(event) {
-        try {
-            event.preventDefault();
-            
-            const targetUserIdValue = document.getElementById('targetUserIdInput').value;
-            const pointsAmountValue = document.getElementById('pointsAmountInput').value;
-            const submitRechargeBtn = document.getElementById('rechargeWalletBtn');
+    // ننتظر حتى يكتمل تحميل كل عناصر HTML في الصفحة
+    document.addEventListener('DOMContentLoaded', function() {
+        
+        const formElement = document.getElementById('rechargeWalletForm');
+        
+        // تأكد أن الفورم موجود فعلاً في الصفحة قبل إضافة الحدث
+        if (formElement) {
+            formElement.addEventListener('submit', async function(event) {
+                try {
+                    event.preventDefault();
+                    
+                    const targetUserIdValue = document.getElementById('targetUserIdInput').value;
+                    const pointsAmountValue = document.getElementById('pointsAmountInput').value;
+                    const submitRechargeBtn = document.getElementById('rechargeWalletBtn');
 
-            submitRechargeBtn.disabled = true;
+                    submitRechargeBtn.disabled = true;
 
-            try {
-                Swal.fire({
-                    title: 'جاري معالجة الشحن...',
-                    html: `إضافة <b>${pointsAmountValue}</b> نقاط للحساب رقم <b>${targetUserIdValue}</b>`,
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        try {
-                            Swal.showLoading();
-                        } catch (innerException) {
-                            console.error(innerException);
+                    try {
+                        Swal.fire({
+                            title: 'جاري معالجة الشحن...',
+                            html: `إضافة <b>${pointsAmountValue}</b> نقاط للحساب رقم <b>${targetUserIdValue}</b>`,
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        // توجيه الطلب إلى مسار الشحن الفوري المخصص
+                        const response = await fetch('/api/recharges/direct', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                userId: targetUserIdValue,
+                                amount: pointsAmountValue
+                            })
+                        });
+
+                        const resultData = await response.json();
+
+                        if (response.ok && resultData.status === 'success') {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'تم الشحن بنجاح! 💳',
+                                html: `تمت إضافة <b>${pointsAmountValue}</b> نقاط إلى رصيد السائق (ID: ${targetUserIdValue}) فوراً.`,
+                                confirmButtonColor: '#2c3e50'
+                            });
+
+                            formElement.reset(); // استخدام المتغير الآمن هنا
+                            if (typeof clearRadioSelection === "function") {
+                                clearRadioSelection();
+                            }
+                        } else {
+                            throw new Error(resultData.message || 'فشل تنفيذ عملية الشحن. تأكد من صحة معرف السائق.');
                         }
+
+                    } catch (exception) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'خطأ في العملية',
+                            text: exception.message || 'حدث خطأ أثناء محاولة شحن الرصيد.',
+                            confirmButtonColor: '#d33'
+                        });
+                    } finally {
+                        submitRechargeBtn.disabled = false;
                     }
-                });
-
-                //  توجيه الطلب إلى مسار الشحن الفوري المخصص
-                const response = await fetch('/api/recharges/direct', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        userId: targetUserIdValue, // إرسال معرف السائق بشكل صحيح
-                        amount: pointsAmountValue
-                    })
-                });
-
-                const resultData = await response.json();
-
-                if (response.ok && resultData.status === 'success') {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'تم الشحن بنجاح! 💳',
-                        html: `تمت إضافة <b>${pointsAmountValue}</b> نقاط إلى رصيد السائق (ID: ${targetUserIdValue}) فوراً.`,
-                        confirmButtonColor: '#2c3e50'
-                    });
-
-                    document.getElementById('rechargeWalletForm').reset();
-                    clearRadioSelection();
-                } else {
-                    throw new Error(resultData.message || 'فشل تنفيذ عملية الشحن. تأكد من صحة معرف السائق.');
+                } catch (exception) {
+                    console.error(exception);
                 }
-
-            } catch (exception) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'خطأ في العملية',
-                    text: exception.message || 'حدث خطأ أثناء محاولة شحن الرصيد.',
-                    confirmButtonColor: '#d33'
-                });
-            } finally {
-                submitRechargeBtn.disabled = false;
-            }
-        } catch (exception) {
-            console.error(exception);
+            });
         }
     });
 
