@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB; // لاستخدام المعاملات (Transactions) لضمان سلامة الإدخال
 use Illuminate\Support\Str; //توليد الرمز العشوائي
+use Illuminate\Support\Facades\Mail;
 
 class AccountController extends Controller
 {
@@ -107,10 +108,12 @@ class AccountController extends Controller
             $inputRole = $request->input('role');
             $inputPlateNumber = $request->input('plateNumber');
 
+            // توليد كلمة مرور عشوائية من 8 أحرف
             $generatedPassword = \Illuminate\Support\Str::random(8);
 
             \Illuminate\Support\Facades\DB::beginTransaction();
 
+            // 1. إنشاء الحساب الأساسي
             $insertedAccountId = \Illuminate\Support\Facades\DB::table('accounts')->insertGetId([
                 'name' => $inputName,
                 'email' => $inputEmail,
@@ -121,6 +124,7 @@ class AccountController extends Controller
                 'updated_at' => now()
             ]);
 
+            // 2. إعداد جداول السائق (إذا كان الدور user)
             if ($inputRole === 'user') {
                 \Illuminate\Support\Facades\DB::table('users')->insert([
                     'account_id' => $insertedAccountId,
@@ -139,13 +143,28 @@ class AccountController extends Controller
                 ]);
             }
 
+            // 3. إدخال الإشعار في قاعدة البيانات (بدون كلمة المرور لأسباب أمنية)
             \Illuminate\Support\Facades\DB::table('notifications')->insert([
                 'user_id' => $insertedAccountId,
-                'message' => "مرحباً بك في SpotLy! تم إنشاء حسابك. كلمة المرور الخاصة بك هي: {$generatedPassword}",
+                'message' => "مرحباً بك في SpotLy! تم إنشاء حسابك بنجاح. يرجى مراجعة بريدك الإلكتروني للحصول على بيانات الدخول.",
                 'type' => 'Account_Created',
+                'sent_to_email' => $inputEmail, // توثيق الإيميل الذي أرسلنا له
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
+
+            // 4. إرسال البريد الإلكتروني الفعلي بكلمة المرور للسائق
+            if ($inputEmail) {
+                $mailData = [
+                    'title' => 'مرحباً بك في نظام SpotLy 🚗',
+                    'body' => "أهلاً بك {$inputName}، لقد تم إنشاء حسابك بنجاح في نظام المواقف الذكية من قبل الإدارة.\n\n" .
+                              "بيانات الدخول الخاصة بك هي:\n" .
+                              "البريد الإلكتروني: {$inputEmail}\n" .
+                              "كلمة المرور: {$generatedPassword}\n\n" .
+                              "ملاحظة: نرجو منك الحفاظ على سرية بياناتك، ويمكنك تغيير كلمة المرور من إعدادات حسابك."
+                ];
+                \Illuminate\Support\Facades\Mail::to($inputEmail)->send(new \App\Mail\SpotlyNotificationMail($mailData));
+            }
 
             \Illuminate\Support\Facades\DB::commit();
 

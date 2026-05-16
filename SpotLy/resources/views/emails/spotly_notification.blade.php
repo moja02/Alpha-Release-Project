@@ -19,7 +19,7 @@
         <div class="content">
             <h3 style="color: #0f172a;">{{ $mailDetails['title'] }}</h3>
             <p style="font-size: 16px;">مرحباً،</p>
-            <p style="font-size: 16px;">{{ $mailDetails['body'] }}</p>
+            <p style="font-size: 16px;">{!! nl2br(e($mailDetails['body'])) !!}</p>
             
             <div style="text-align: center;">
                 <a href="{{ url('/') }}" class="btn">الانتقال للوحة التحكم</a>

@@ -23,8 +23,6 @@ Route::get('/accounts/stats', [AccountController::class, 'getDriverStats']);
 
 // مسارات إدارة الكيانات الأساسية (Account Management)
 Route::post('/accounts/create', [AccountController::class, 'createAccount']);
-Route::post('/accounts/record-fake-booking', [AccountController::class, 'recordFakeBooking']);
-
 // مسارات الملف الشخصي (Profile Management)
 Route::post('/accounts/update-profile', [ProfileController::class, 'updateProfile']);
 
