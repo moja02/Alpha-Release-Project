@@ -336,6 +336,7 @@ class BookingController extends Controller
 
             // 1. جلب كل الحجوزات المبدئية المؤكدة التي انتهت مهلة الـ 20 دقيقة الخاصة بها
             $expiredBookings = \Illuminate\Support\Facades\DB::table('bookings')
+                ->where('is_guest', false)
                 ->where('type', 'initial')
                 ->where('status', 'confirmed')
                 ->where('end_time', '<=', $currentTime)

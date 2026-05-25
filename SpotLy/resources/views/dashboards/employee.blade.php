@@ -81,6 +81,9 @@
             <!-- <a class="nav-link" onclick="switchTab('verifyVehicleTab', this)"> يتم العمل عليها لاحقا لانها ليست جزء من المتطلبات ال4 الحالية
                  التحقق من السيارات
             </a> -->
+            <a class="nav-link" onclick="switchTab('verifyVehicleTab', this)">
+                إدارة الميدان (دخول وخروج)
+            </a>
             <a class="nav-link" onclick="switchTab('rechargeWalletTab', this)">
                  شحن المحافظ
             </a>
@@ -248,23 +251,78 @@
             </div>
         </section>
 
-        <!-- <section id="verifyVehicleTab" class="content-section d-none"> يتم العمل عليها لاحقا لانها ليست جزء من المتطلبات ال4 الحالية
-            <div class="card" style="max-width: 500px;">
-                <div class="card-header text-success">
-                    🚘 التحقق من السيارات عند المَدخل
-                </div>
-                <div class="card-body">
-                    <div id="verifyVehicleAlert" class="alert d-none" role="alert"></div>
-                    <form id="verifyVehicleForm">
-                        <div class="mb-3">
-                            <label class="form-label">رقم لوحة السيارة</label>
-                            <input type="text" class="form-control" id="verifyPlateInput" placeholder="أدخل رقم اللوحة لفحص الحجز الفعلي" required>
+        <section id="verifyVehicleTab" class="content-section d-none">
+            <div class="row justify-content-center">
+                <div class="col-lg-10">
+                    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                        <div class="card-header bg-dark text-white p-4 d-flex justify-content-between align-items-center border-0">
+                            <div>
+                                <h5 class="fw-bold mb-1">🚦 إدارة دخول وخروج المركبات</h5>
+                                <p class="fs-6 mb-0 text-white text-opacity-75">التحقق الميداني من المشتركين والزوار</p>
+                            </div>
+                            <span class="badge bg-success fs-5 px-3 py-2 shadow-sm">
+                                الشاغر: <span id="availableSpotsCount">--</span> موقف
+                            </span>
                         </div>
-                        <button type="submit" class="btn btn-success w-100" id="verifyVehicleBtn">فحص حالة الحجز الميداني</button>
-                    </form>
+                        
+                        <div class="card-body p-4">
+                            <ul class="nav nav-pills mb-4 nav-fill gap-2" id="field-tabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active fw-bold border" id="tab-users" data-bs-toggle="pill" data-bs-target="#content-users" type="button" role="tab">
+                                        👤 المشتركون (نظام الحجز)
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link fw-bold border" id="tab-guests" data-bs-toggle="pill" data-bs-target="#content-guests" type="button" role="tab">
+                                        🚶‍♂️ الزوار (دفع فوري)
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content bg-light p-4 rounded-3 border">
+                                
+                                <div class="tab-pane fade show active" id="content-users" role="tabpanel">
+                                    <div class="alert alert-info mb-4">
+                                        <i class="fas fa-info-circle"></i> أدخل رقم لوحة المشترك للتحقق من حجزه (المبدئي أو الفعلي) لتأكيد الدخول، أو تسجيل خروجه.
+                                    </div>
+                                    <label class="form-label fw-bold text-secondary mb-2">رقم لوحة المشترك:</label>
+                                    <div class="row g-3">
+                                        <div class="col-md-8">
+                                            <input type="text" id="userPlateInput" class="form-control form-control-lg text-center shadow-none border-primary" placeholder="مثال: 5-12345">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button type="button" class="btn btn-primary w-100 btn-lg fw-bold" onclick="processUserFieldAction('entry')">دخول ⬇️</button>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button type="button" class="btn btn-secondary w-100 btn-lg fw-bold" onclick="processUserFieldAction('exit')">خروج ⬆️</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="tab-pane fade" id="content-guests" role="tabpanel">
+                                    <div class="alert alert-warning mb-4 text-dark">
+                                        <i class="fas fa-exclamation-triangle"></i> الزوار ليس لديهم حساب. سيتم فتح تذكرة بالزمن الحالي، وحساب التكلفة عند الخروج.
+                                    </div>
+                                    <label class="form-label fw-bold text-secondary mb-2">رقم لوحة الزائر:</label>
+                                    <div class="row g-3">
+                                        <div class="col-md-8">
+                                            <input type="text" id="guestPlateInput" class="form-control form-control-lg text-center shadow-none border-warning" placeholder="أدخل رقم اللوحة لفتح/إغلاق التذكرة">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button type="button" class="btn btn-warning w-100 btn-lg fw-bold text-dark" onclick="registerGuestEntry()">دخول 🎫</button>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button type="button" class="btn btn-danger w-100 btn-lg fw-bold" onclick="processGuestExit()">خروج 💰</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </section> -->
+        </section>
 
         <section id="rechargeWalletTab" class="content-section d-none">
             <div class="row justify-content-center">
@@ -569,25 +627,112 @@
         }
     });
 
-    // ---  معالجة نموذج التحقق الميداني من السيارات ومطابقتها ---
-    /** 
-    document.getElementById('verifyVehicleForm').addEventListener('submit', async function(event) {
-        try {
-            event.preventDefault();
-            
-            const verifyPlateValue = document.getElementById('verifyPlateInput').value;
-            const alertContainer = document.getElementById('verifyVehicleAlert');
-            alertContainer.classList.add('d-none');
+    /* ==========================================
+   إدارة الميدان  (دخول وخروج المركبات)
+    ========================================== */
 
-            // محاكاة الفحص الميداني بانتظار الربط بوحدة الحجوزات 
-            alertContainer.className = 'alert alert-info';
-            alertContainer.innerText = 'جاري التحقق من اللوحة (' + verifyPlateValue + ') ومطابقتها ميدانياً...';
-            alertContainer.classList.remove('d-none');
-        } catch (exception) {
-            console.error(exception);
+    // 1. تسجيل دخول زائر (فتح تذكرة)
+    async function registerGuestEntry() {
+        const plateInputElement = document.getElementById('guestPlateInput');
+        if (!plateInputElement || !plateInputElement.value.trim()) {
+            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى إدخال رقم اللوحة أولاً.' });
+            return;
         }
-    });
-    */
+
+        Swal.fire({ title: 'جاري تسجيل الدخول...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+        try {
+            const response = await fetch('/api/field/guest/entry', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ plate_number: plateInputElement.value.trim() })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.status === 'success') {
+                Swal.fire({ icon: 'success', title: 'تم الدخول', text: 'تم فتح تذكرة الزائر بنجاح وخصم مساحة من الموقف.' });
+                plateInputElement.value = ''; 
+                updateCapacityUI(-1); // إنقاص السعة
+            } else {
+                throw new Error(data.message || 'فشل تسجيل الدخول.');
+            }
+        } catch (error) {
+            Swal.fire({ icon: 'error', title: 'خطأ', text: error.message });
+        }
+    }
+
+    // 2. تسجيل خروج زائر وحساب التكلفة
+    async function processGuestExit() {
+        const plateInputElement = document.getElementById('guestPlateInput');
+        if (!plateInputElement || !plateInputElement.value.trim()) {
+            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى إدخال رقم اللوحة لحساب التكلفة.' });
+            return;
+        }
+
+        const plateNumber = plateInputElement.value.trim();
+        Swal.fire({ title: 'جاري حساب التكلفة...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+        try {
+            const response = await fetch('/api/field/guest/exit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ plate_number: plateNumber })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.status === 'success') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'فاتورة خروج زائر 🧾',
+                    html: `
+                        <div class="text-end fs-5 mt-3">
+                            <p><b>رقم اللوحة:</b> <span class="text-primary" dir="ltr">${plateNumber}</span></p>
+                            <p><b>المدة المحسوبة:</b> ${data.duration} ساعة</p>
+                            <hr>
+                            <h3 class="text-danger">المطلوب دفعه: ${data.cost} د.ل</h3>
+                        </div>
+                    `,
+                    confirmButtonText: 'تم استلام المبلغ نقداً وإغلاق التذكرة ✔️',
+                    confirmButtonColor: '#198754'
+                }).then(() => {
+                    plateInputElement.value = '';
+                    updateCapacityUI(1); // زيادة السعة
+                });
+            } else {
+                throw new Error(data.message || 'لم يتم العثور على تذكرة نشطة لهذه اللوحة.');
+            }
+        } catch (error) {
+            Swal.fire({ icon: 'error', title: 'خطأ', text: error.message });
+        }
+    }
+
+    // 3. معالجة دخول/خروج المشتركين (سيتم ربطها بالباك إند لاحقاً)
+    async function processUserFieldAction(actionType) {
+        const plateInputElement = document.getElementById('userPlateInput');
+        if (!plateInputElement || !plateInputElement.value.trim()) {
+            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى إدخال رقم لوحة المشترك.' });
+            return;
+        }
+        
+        // هذا الكود مؤقت حتى نكتب الـ API الخاص بالمشتركين
+        Swal.fire({
+            icon: 'info',
+            title: actionType === 'entry' ? 'جاري التحقق من الحجز المبدئي...' : 'جاري التحقق من الحجز الفعلي لتسجيل الخروج...',
+            text: 'رقم اللوحة: ' + plateInputElement.value,
+            timer: 2000,
+            showConfirmButton: false
+        });
+    }
+
+    // 4. تحديث العداد في الواجهة
+    function updateCapacityUI(change) {
+        const capacityElement = document.getElementById('availableSpotsCount');
+        if (capacityElement && !isNaN(capacityElement.innerText)) {
+            capacityElement.innerText = parseInt(capacityElement.innerText) + change;
+        }
+    }
     // ---  معالجة إرسال نموذج تحديث الملف الشخصي للموظف ---
     document.getElementById('profileForm').addEventListener('submit', async function(event) {
         try {
