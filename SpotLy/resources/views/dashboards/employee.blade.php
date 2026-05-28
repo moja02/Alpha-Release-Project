@@ -293,7 +293,7 @@
                                     <table style="width: 100%; border-collapse: collapse;">
                                         <tr>
                                             <td style="width: 70%; padding-left: 10px;">
-                                                <input type="text" id="userPlateInput" class="form-control form-control-lg text-center shadow-none border-primary" placeholder="مثال: 5-12345" style="width: 100%;">
+                                                <input type="text" id="subscriberPlateInput" class="form-control form-control-lg text-center shadow-none border-primary" placeholder="مثال: 5-12345" style="width: 100%;">
                                             </td>
                                             <td style="width: 15%; padding-left: 5px;">
                                                 <button type="button" class="btn btn-primary btn-lg fw-bold w-100" onclick="processUserFieldAction('entry')">دخول ⬇️</button>
@@ -736,21 +736,86 @@
     }
 
     // 3. معالجة دخول/خروج المشتركين 
-    async function processUserFieldAction(actionType) {
-        const plateInputElement = document.getElementById('userPlateInput');
+    function processUserFieldAction(actionType) {
+        const plateInputElement = document.getElementById('subscriberPlateInput'); 
         if (!plateInputElement || !plateInputElement.value.trim()) {
-            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى إدخال رقم لوحة المشترك.' });
+            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى إدخال رقم اللوحة.' });
             return;
         }
-        
-        // هذا الكود مؤقت حتى نكتب الـ API الخاص بالمشتركين
-        Swal.fire({
-            icon: 'info',
-            title: actionType === 'entry' ? 'جاري التحقق من الحجز المبدئي...' : 'جاري التحقق من الحجز الفعلي لتسجيل الخروج...',
-            text: 'رقم اللوحة: ' + plateInputElement.value,
-            timer: 2000,
-            showConfirmButton: false
-        });
+
+        const plateNumber = plateInputElement.value.trim();
+
+        if (actionType === 'entry') {
+            // نرسل الطلب مباشرة بدون إظهار أي نافذة للسؤال عن الوقت! السيرفر سيقرر.
+            executeBackendRequest(plateNumber, 'entry', null);
+        } else {
+            Swal.fire({
+                title: 'تأكيد الخروج',
+                text: 'هل أنت متأكد من تسجيل الخروج؟',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'نعم، خروج ⬆️'
+            }).then((result) => {
+                if (result.isConfirmed) executeBackendRequest(plateNumber, 'exit', null);
+            });
+        }
+    }
+
+    // الدالة التي تتصل بالخادم فعلياً
+    async function executeBackendRequest(plateNumber, actionType, expectedTime) {
+        let employeeId = null;
+        try {
+            const rawData = localStorage.getItem('userData');
+            if (!rawData) { Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى تسجيل الدخول من جديد.' }); return; }
+            const storedUserData = JSON.parse(rawData);
+            employeeId = storedUserData.accountId || (storedUserData.profile && storedUserData.profile.account_id);
+            if (!employeeId) { Swal.fire({ icon: 'error', title: 'خطأ', text: 'المعرف مفقود.' }); return; }
+        } catch (e) { console.error(e); }
+
+        Swal.fire({ title: 'جاري التحقق...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+        try {
+            const response = await fetch('/field/user/action', {
+                method: 'POST',
+                headers: fetchHeaders,
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    plate_number: plateNumber,
+                    action_type: actionType,
+                    expected_exit_time: expectedTime,
+                    user_id: employeeId 
+                })
+            });
+            
+            const data = await response.json();
+
+            //  [ إذا رد السيرفر بأن الحجز مبدئي ويحتاج وقت] 
+            if (data.status === 'requires_time') {
+                Swal.fire({
+                    title: 'حجز مبدئي',
+                    html: `<b>${data.message}</b><br><br>الرجاء إدخال <b>الوقت المتوقع</b>:`,
+                    input: 'time',
+                    inputAttributes: { required: true },
+                    showCancelButton: true,
+                    confirmButtonText: 'تحقق و الدخول ⬇️',
+                }).then((result) => {
+                    // إذا أدخل الوقت، نعيد إرسال الطلب مع الوقت
+                    if (result.isConfirmed && result.value) {
+                        executeBackendRequest(plateNumber, 'entry', result.value);
+                    }
+                });
+                return; // نوقف التنفيذ هنا حتى لا يعرض رسالة نجاح أو خطأ
+            }
+
+            if (response.ok && data.status === 'success') {
+                Swal.fire({ icon: 'success', title: 'نجاح 🎉', text: data.message });
+                document.getElementById('subscriberPlateInput').value = ''; 
+            } else {
+                throw new Error(data.message || 'فشلت العملية.');
+            }
+        } catch (error) {
+            Swal.fire({ icon: 'error', title: 'تنبيه', text: error.message });
+        }
     }
 
     

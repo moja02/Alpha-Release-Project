@@ -44,6 +44,9 @@ Route::fallback(function () {
 Route::get('/forgot-password', function () {
     return view('auth.forgot-password');
 });
+// مسار دخول وخروج المشتركين
+Route::post('/field/user/action', [BookingController::class, 'userFieldAction']);
 // مسارات إدارة الميدان
 Route::post('/field/guest/entry', [FieldController::class, 'guestEntry']);
 Route::post('/field/guest/exit', [FieldController::class, 'guestExit']);
+
