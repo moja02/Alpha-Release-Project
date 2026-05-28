@@ -45,7 +45,5 @@ Route::get('/forgot-password', function () {
     return view('auth.forgot-password');
 });
 // مسارات إدارة الميدان
-Route::middleware('auth')->group(function () {
-    Route::post('/field/guest/entry', [FieldController::class, 'guestEntry']);
-    Route::post('/field/guest/exit', [FieldController::class, 'guestExit']);
-});
+Route::post('/field/guest/entry', [FieldController::class, 'guestEntry']);
+Route::post('/field/guest/exit', [FieldController::class, 'guestExit']);

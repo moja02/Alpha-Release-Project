@@ -251,7 +251,7 @@
             </div>
         </section>
 
-        <section id="verifyVehicleTab" class="content-section">
+        <section id="verifyVehicleTab" class="content-section d-none">
             <div class="row justify-content-center">
                 <div class="col-lg-10">
                     <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
@@ -282,45 +282,48 @@
                             <div class="bg-light p-4 rounded-3 border" style="min-height: 200px;">
                                 
                                 <div id="content-users" style="display: block;">
+
+
                                     <div class="alert alert-info mb-4 border-info">
                                         <i class="fas fa-info-circle"></i> أدخل رقم لوحة المشترك للتحقق من حجزه لتأكيد الدخول، أو تسجيل خروجه.
                                     </div>
-                                    <div class="row g-3 align-items-end">
-                                        <div class="col-md-8">
-                                            <label class="form-label fw-bold text-secondary mb-2">رقم لوحة المشترك:</label>
-                                            <input type="text" id="userPlateInput" class="form-control form-control-lg text-center shadow-none border-primary" placeholder="مثال: 5-12345">
-                                        </div>
-                                        <div class="col-md-2">
-                                            <button type="button" class="btn btn-primary w-100 btn-lg fw-bold" onclick="processUserFieldAction('entry')">دخول ⬇️</button>
-                                        </div>
-                                        <div class="col-md-2">
-                                            <button type="button" class="btn btn-secondary w-100 btn-lg fw-bold" onclick="processUserFieldAction('exit')">خروج ⬆️</button>
-                                        </div>
-                                    </div>
+                                    
+                                    <label class="form-label fw-bold text-secondary mb-2">رقم لوحة المشترك:</label>
+                                    
+                                    <table style="width: 100%; border-collapse: collapse;">
+                                        <tr>
+                                            <td style="width: 70%; padding-left: 10px;">
+                                                <input type="text" id="userPlateInput" class="form-control form-control-lg text-center shadow-none border-primary" placeholder="مثال: 5-12345" style="width: 100%;">
+                                            </td>
+                                            <td style="width: 15%; padding-left: 5px;">
+                                                <button type="button" class="btn btn-primary btn-lg fw-bold w-100" onclick="processUserFieldAction('entry')">دخول ⬇️</button>
+                                            </td>
+                                            <td style="width: 15%;">
+                                                <button type="button" class="btn btn-secondary btn-lg fw-bold w-100" onclick="processUserFieldAction('exit')">خروج ⬆️</button>
+                                            </td>
+                                        </tr>
+                                    </table>
                                 </div>
 
                                 <div id="content-guests" style="display: none;">
                                     <div class="alert alert-warning mb-4 text-dark border-warning">
-                                        <i class="fas fa-exclamation-triangle"></i> الزوار ليس لديهم حساب. سيتم فتح تذكرة بالزمن الحالي وتحديد وقت الخروج المتوقع.
+                                        <i class="fas fa-exclamation-triangle"></i> الزوار ليس لديهم حساب. سيتم فتح تذكرة وتحديد وقت الخروج.
                                     </div>
-                                    <div class="row g-2 align-items-end">
-                                        <div class="col-md-5">
+                                    <div class="d-flex gap-2 align-items-center">
+                                        <div class="w-100">
                                             <label class="form-label fw-bold text-secondary mb-1">رقم اللوحة:</label>
                                             <input type="text" id="guestPlateInput" class="form-control form-control-lg text-center shadow-none border-warning" placeholder="أدخل رقم اللوحة">
                                         </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label fw-bold text-secondary mb-1">وقت الخروج المتوقع:</label>
+                                        <div style="width: 200px;">
+                                            <label class="form-label fw-bold text-secondary mb-1">وقت الخروج:</label>
                                             <input type="time" id="guestExpectedExitInput" class="form-control form-control-lg text-center shadow-none border-warning">
                                         </div>
-                                        <div class="col-md-2">
-                                            <button type="button" class="btn btn-warning w-100 btn-lg fw-bold text-dark" onclick="registerGuestEntry()">دخول 🎫</button>
-                                        </div>
-                                        <div class="col-md-2">
-                                            <button type="button" class="btn btn-danger w-100 btn-lg fw-bold" onclick="processGuestExit()">خروج 💰</button>
+                                        <div class="d-flex align-items-end mb-1">
+                                            <button type="button" class="btn btn-warning btn-lg fw-bold text-dark px-4 text-nowrap me-2" onclick="registerGuestEntry()">دخول 🎫</button>
+                                            <button type="button" class="btn btn-danger btn-lg fw-bold px-4 text-nowrap" onclick="processGuestExit()">خروج 💰</button>
                                         </div>
                                     </div>
                                 </div>
-
                             </div>
                         </div>
                     </div>
@@ -439,6 +442,18 @@
     </main>
 
     <script>
+    // تجهيز ترويسات الطلب (Headers) وإضافة توكن الحماية CSRF ليقرأ السيرفر جلسة الموظف
+    const fetchHeaders = {
+        
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+    };
+    // استخراج بيانات الموظف المسجل من التخزين المحلي للمتصفح
+    const storedUserData = JSON.parse(localStorage.getItem('userData'));
+    // نأخذ الـ ID الخاص به (سواء كان مسجلاً باسم id أو account_id)
+    const currentEmployeeId = storedUserData ? (storedUserData.id || storedUserData.account_id) : null;
     // ---  قراءة بيانات الجلسة عند تحميل الصفحة لعرض اسم الموظف ---
     document.addEventListener('DOMContentLoaded', function() {
         
@@ -520,12 +535,6 @@
             document.getElementById('content-guests').style.display = 'block';
         }
     }
-    // تجهيز ترويسات الطلب (Headers) وإضافة توكن الحماية CSRF ليقرأ السيرفر جلسة الموظف
-    const fetchHeaders = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-    };
 
     // ---  دالة مساعدة لجلب بيانات الموظف من الـ LocalStorage وتوزيعها على الحقول ---
     function loadProfileData() {
@@ -675,9 +684,11 @@
             const response = await fetch('/field/guest/entry', {
                 method: 'POST',
                 headers: fetchHeaders,
+                credentials: 'same-origin',
                 body: JSON.stringify({ 
                     plate_number: plateInputElement.value.trim(),
-                    expected_exit_time: expectedExitElement.value
+                    expected_exit_time: expectedExitElement.value,
+                    user_id: currentEmployeeId
                 })
             });
             const data = await response.json();
@@ -702,7 +713,8 @@
             const response = await fetch('/field/guest/exit', {
                 method: 'POST',
                 headers: fetchHeaders,
-                body: JSON.stringify({ plate_number: plateNumber })
+                credentials: 'same-origin',
+                body: JSON.stringify({ plate_number: plateNumber, user_id:currentEmployeeId })
             });
             const data = await response.json();
             if (response.ok && data.status === 'success') {

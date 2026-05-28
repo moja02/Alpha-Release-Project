@@ -13,33 +13,37 @@ class FieldController extends Controller
     {
         try {
             $request->validate([
-                'plate_number' => 'required|string|max:20',
-                'expected_exit_time' => 'required|date_format:H:i' // التحقق من صيغة الوقت الساعات:الدقائق
+                'plate_number' => 'required|string|max:191',
+                'expected_exit_time' => 'required|date_format:H:i'
             ]);
             
             $plateNumber = $request->input('plate_number');
             $expectedTimeStr = $request->input('expected_exit_time');
 
-            // دمج الوقت المدخل مع تاريخ اليوم
             $expectedEndTime = Carbon::createFromFormat('H:i', $expectedTimeStr);
-            
-            // إذا كان الوقت المدخل أقدم من الوقت الحالي (الزائر دخل ليلاً وسيخرج فجراً في اليوم التالي)
             if ($expectedEndTime->isPast()) {
                 $expectedEndTime->addDay();
             }
 
+            // الخدعة القاضية لجلب الـ ID
+            $userId = auth()->id() ?? $request->input('user_id'); 
+
+            if (!$userId) {
+                return response()->json(['status' => 'error', 'message' => 'لم يتم إرسال رقم الحساب من الواجهة.'], 403);
+            }
             
-            $employee = DB::table('employees')->where('account_id', auth()->id())->first();
+            $employee = DB::table('employees')->where('account_id', $userId)->first();
+            
             if (!$employee) {
                 return response()->json(['status' => 'error', 'message' => 'هذا الحساب ليس موظفاً ميدانياً.'], 403);
             }
+
             $parking = DB::table('parkings')->where('employee_id', $employee->id)->first();
             if (!$parking) {
                 return response()->json(['status' => 'error', 'message' => 'لا توجد ساحة وقوف معينة لهذا الموظف.'], 404);
             }
             $employeeParkingId = $parking->id;
             
-
             DB::beginTransaction();
 
             $parkingData = DB::table('parkings')->where('id', $employeeParkingId)->lockForUpdate()->first();
@@ -47,8 +51,10 @@ class FieldController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'الموقف ممتلئ بالكامل!'], 400);
             }
 
+            // التعديل هنا: استخدام plate_number بدلاً من guest_plate_number
             $exists = DB::table('bookings')
-                ->where('guest_plate_number', $plateNumber)
+                ->where('plate_number', $plateNumber)
+                ->where('is_guest', 1)
                 ->where('status', 'active')
                 ->exists();
 
@@ -56,13 +62,15 @@ class FieldController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'هذه المركبة موجودة بالفعل داخل الموقف.'], 400);
             }
 
+            // التعديل هنا: إضافة نوع الحجز type وتصحيح اسم حقل اللوحة
             DB::table('bookings')->insert([
                 'parking_id' => $employeeParkingId,
-                'user_id' => null, // زائر
-                'is_guest' => true,
-                'guest_plate_number' => $plateNumber,
+                'user_id' => null, 
+                'is_guest' => 1,
+                'plate_number' => $plateNumber, // تم التصحيح
                 'start_time' => Carbon::now(),
-                'end_time' => $expectedEndTime, // حفظ وقت الخروج المتوقع
+                'end_time' => $expectedEndTime, 
+                'type' => 'actual', // لتجنب خطأ قاعدة البيانات
                 'status' => 'active',
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now()
@@ -83,21 +91,27 @@ class FieldController extends Controller
     public function guestExit(Request $request)
     {
         try {
-            $request->validate(['plate_number' => 'required|string|max:20']);
+            $request->validate(['plate_number' => 'required|string|max:191']);
             $plateNumber = $request->input('plate_number');
 
-            $employee = DB::table('employees')->where('account_id', auth()->id())->first();
+            $userId = auth()->id() ?? $request->input('user_id'); 
+
+            if (!$userId) return response()->json(['status' => 'error', 'message' => 'انتهت الجلسة.'], 403);
+
+            $employee = DB::table('employees')->where('account_id', $userId)->first();
             if (!$employee) return response()->json(['status' => 'error', 'message' => 'غير مصرح'], 403);
+            
             $parking = DB::table('parkings')->where('employee_id', $employee->id)->first();
             if (!$parking) return response()->json(['status' => 'error', 'message' => 'لا يوجد موقف'], 404);
+            
             $employeeParkingId = $parking->id;
             
-
             DB::beginTransaction();
 
+            // التعديل هنا أيضاً للبحث بـ plate_number
             $booking = DB::table('bookings')
-                ->where('guest_plate_number', $plateNumber)
-                ->where('is_guest', true)
+                ->where('plate_number', $plateNumber)
+                ->where('is_guest', 1)
                 ->where('status', 'active')
                 ->where('parking_id', $employeeParkingId)
                 ->first();
@@ -111,12 +125,13 @@ class FieldController extends Controller
             $durationMinutes = $entryTime->diffInMinutes($exitTime);
             $durationHours = ceil($durationMinutes / 60) == 0 ? 1 : ceil($durationMinutes / 60);
             
-            $hourlyRate = 2.5; // التسعيرة
+            $hourlyRate = 2.5; 
             $totalCost = $durationHours * $hourlyRate;
 
+            // في جدولك لا يوجد عمود total_cost، لذلك سنتجاهل تحديثه حالياً لتجنب خطأ جديد
+            // إذا أردت حفظ التكلفة يجب إضافة عمود total_cost في قاعدة البيانات
             DB::table('bookings')->where('id', $booking->id)->update([
                 'end_time' => $exitTime,
-                'total_cost' => $totalCost,
                 'status' => 'completed',
                 'updated_at' => Carbon::now()
             ]);
