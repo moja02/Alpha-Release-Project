@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
-use App\Models\Booking;
 
 class FieldController extends Controller
 {
@@ -14,22 +13,40 @@ class FieldController extends Controller
     {
         try {
             $request->validate([
-                'plate_number' => 'required|string|max:20'
+                'plate_number' => 'required|string|max:20',
+                'expected_exit_time' => 'required|date_format:H:i' // التحقق من صيغة الوقت الساعات:الدقائق
             ]);
-
-            $plateNumber = $request->input('plate_number');
             
-            $employeeParkingId = auth()->user()->employee->parking_id; 
+            $plateNumber = $request->input('plate_number');
+            $expectedTimeStr = $request->input('expected_exit_time');
+
+            // دمج الوقت المدخل مع تاريخ اليوم
+            $expectedEndTime = Carbon::createFromFormat('H:i', $expectedTimeStr);
+            
+            // إذا كان الوقت المدخل أقدم من الوقت الحالي (الزائر دخل ليلاً وسيخرج فجراً في اليوم التالي)
+            if ($expectedEndTime->isPast()) {
+                $expectedEndTime->addDay();
+            }
+
+            
+            $employee = DB::table('employees')->where('account_id', auth()->id())->first();
+            if (!$employee) {
+                return response()->json(['status' => 'error', 'message' => 'هذا الحساب ليس موظفاً ميدانياً.'], 403);
+            }
+            $parking = DB::table('parkings')->where('employee_id', $employee->id)->first();
+            if (!$parking) {
+                return response()->json(['status' => 'error', 'message' => 'لا توجد ساحة وقوف معينة لهذا الموظف.'], 404);
+            }
+            $employeeParkingId = $parking->id;
+            
 
             DB::beginTransaction();
 
-            // التحقق من سعة الموقف
-            $parking = DB::table('parkings')->where('id', $employeeParkingId)->lockForUpdate()->first();
-            if ($parking->available_capacity <= 0) {
+            $parkingData = DB::table('parkings')->where('id', $employeeParkingId)->lockForUpdate()->first();
+            if ($parkingData->available_capacity <= 0) {
                 return response()->json(['status' => 'error', 'message' => 'الموقف ممتلئ بالكامل!'], 400);
             }
 
-            // التحقق من عدم وجود حجز نشط لنفس اللوحة
             $exists = DB::table('bookings')
                 ->where('guest_plate_number', $plateNumber)
                 ->where('status', 'active')
@@ -39,31 +56,26 @@ class FieldController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'هذه المركبة موجودة بالفعل داخل الموقف.'], 400);
             }
 
-            // إنشاء تذكرة الزائر
             DB::table('bookings')->insert([
                 'parking_id' => $employeeParkingId,
-                'user_id' => null, // لأنه زائر
+                'user_id' => null, // زائر
                 'is_guest' => true,
                 'guest_plate_number' => $plateNumber,
                 'start_time' => Carbon::now(),
+                'end_time' => $expectedEndTime, // حفظ وقت الخروج المتوقع
                 'status' => 'active',
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now()
             ]);
 
-            // إنقاص سعة الموقف المتاح
             DB::table('parkings')->where('id', $employeeParkingId)->decrement('available_capacity', 1);
 
             DB::commit();
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'تم تسجيل دخول الزائر بنجاح وفتح تذكرة.'
-            ], 200);
+            return response()->json(['status' => 'success', 'message' => 'تم تسجيل دخول الزائر وفتح تذكرة بنجاح.']);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => 'حدث خطأ داخلي: ' . $e->getMessage()], 500);
+            return response()->json(['status' => 'error', 'message' => 'خطأ داخلي: ' . $e->getMessage()], 500);
         }
     }
 
@@ -71,16 +83,18 @@ class FieldController extends Controller
     public function guestExit(Request $request)
     {
         try {
-            $request->validate([
-                'plate_number' => 'required|string|max:20'
-            ]);
-
+            $request->validate(['plate_number' => 'required|string|max:20']);
             $plateNumber = $request->input('plate_number');
-            $employeeParkingId = auth()->user()->employee->parking_id; // نفس الموقف الخاص بالموظف
+
+            $employee = DB::table('employees')->where('account_id', auth()->id())->first();
+            if (!$employee) return response()->json(['status' => 'error', 'message' => 'غير مصرح'], 403);
+            $parking = DB::table('parkings')->where('employee_id', $employee->id)->first();
+            if (!$parking) return response()->json(['status' => 'error', 'message' => 'لا يوجد موقف'], 404);
+            $employeeParkingId = $parking->id;
+            
 
             DB::beginTransaction();
 
-            // البحث عن التذكرة النشطة للزائر
             $booking = DB::table('bookings')
                 ->where('guest_plate_number', $plateNumber)
                 ->where('is_guest', true)
@@ -92,19 +106,14 @@ class FieldController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'لم يتم العثور على سيارة زائر بهذه اللوحة.'], 404);
             }
 
-            // حساب التكلفة والزمن
             $entryTime = Carbon::parse($booking->start_time);
             $exitTime = Carbon::now();
             $durationMinutes = $entryTime->diffInMinutes($exitTime);
-            
-            // في حالة كان التوقيت أقل من ساعة، نحتسبها ساعة كاملة كحد أدنى (التقريب للأعلى)
             $durationHours = ceil($durationMinutes / 60) == 0 ? 1 : ceil($durationMinutes / 60);
             
-            // تسعيرة الزائر: مثلاً 3 دينار/نقاط للساعة الواحدة
-            $hourlyRate = 2.5; 
+            $hourlyRate = 2.5; // التسعيرة
             $totalCost = $durationHours * $hourlyRate;
 
-            // تحديث الحجز كـ منتهي
             DB::table('bookings')->where('id', $booking->id)->update([
                 'end_time' => $exitTime,
                 'total_cost' => $totalCost,
@@ -112,20 +121,14 @@ class FieldController extends Controller
                 'updated_at' => Carbon::now()
             ]);
 
-            // تحرير مساحة في الموقف
             DB::table('parkings')->where('id', $employeeParkingId)->increment('available_capacity', 1);
 
             DB::commit();
-
-            return response()->json([
-                'status' => 'success',
-                'duration' => $durationHours,
-                'cost' => $totalCost
-            ], 200);
+            return response()->json(['status' => 'success', 'duration' => $durationHours, 'cost' => $totalCost]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => 'حدث خطأ داخلي: ' . $e->getMessage()], 500);
+            return response()->json(['status' => 'error', 'message' => 'خطأ داخلي: ' . $e->getMessage()], 500);
         }
     }
 }

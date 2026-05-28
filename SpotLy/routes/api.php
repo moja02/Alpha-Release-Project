@@ -33,8 +33,6 @@ Route::post('/recharges/verify', [RechargeController::class, 'verifyRequest']);
 // إضافة مسار الشحن الفوري الخاص بالموظف
 Route::post('/recharges/direct', [RechargeController::class, 'directRecharge']);
 // مسارات لوحة تحكم الموظف
-Route::post('/field/guest/entry', [FieldController::class, 'guestEntry']);
-Route::post('/field/guest/exit', [FieldController::class, 'guestExit']);
 
 // مسارات المحفظة وطلبات التحويل الخاصة بالسائق
 Route::get('/wallet/balance', [RechargeController::class, 'getBalance']);

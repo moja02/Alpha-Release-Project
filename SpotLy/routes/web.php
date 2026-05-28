@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\FieldController;
+use App\Http\Controllers\BookingController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -41,4 +43,9 @@ Route::fallback(function () {
 // مسار فتح واجهة استعادة كلمة المرور عبر الـ OTP
 Route::get('/forgot-password', function () {
     return view('auth.forgot-password');
+});
+// مسارات إدارة الميدان
+Route::middleware('auth')->group(function () {
+    Route::post('/field/guest/entry', [FieldController::class, 'guestEntry']);
+    Route::post('/field/guest/exit', [FieldController::class, 'guestExit']);
 });

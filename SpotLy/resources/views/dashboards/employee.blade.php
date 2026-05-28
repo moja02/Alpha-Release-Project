@@ -251,43 +251,43 @@
             </div>
         </section>
 
-        <section id="verifyVehicleTab" class="content-section d-none">
+        <section id="verifyVehicleTab" class="content-section">
             <div class="row justify-content-center">
                 <div class="col-lg-10">
                     <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
-                        <div class="card-header bg-dark text-white p-4 d-flex justify-content-between align-items-center border-0">
+                        <div class="card-header bg-primary bg-gradient text-white p-4 d-flex justify-content-between align-items-center border-0">
                             <div>
                                 <h5 class="fw-bold mb-1">🚦 إدارة دخول وخروج المركبات</h5>
                                 <p class="fs-6 mb-0 text-white text-opacity-75">التحقق الميداني من المشتركين والزوار</p>
                             </div>
-                            <span class="badge bg-success fs-5 px-3 py-2 shadow-sm">
+                            <span class="badge bg-light text-primary fs-5 px-3 py-2 shadow-sm rounded-pill">
                                 الشاغر: <span id="availableSpotsCount">--</span> موقف
                             </span>
                         </div>
                         
                         <div class="card-body p-4">
-                            <ul class="nav nav-pills mb-4 nav-fill gap-2" id="field-tabs" role="tablist">
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link active fw-bold border" id="tab-users" data-bs-toggle="pill" data-bs-target="#content-users" type="button" role="tab">
+                            <ul class="nav nav-pills mb-4 nav-fill gap-2" id="field-tabs">
+                                <li class="nav-item">
+                                    <button class="nav-link active fw-bold border" id="tab-users" type="button" onclick="switchFieldTab('users')">
                                         👤 المشتركون (نظام الحجز)
                                     </button>
                                 </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link fw-bold border" id="tab-guests" data-bs-toggle="pill" data-bs-target="#content-guests" type="button" role="tab">
+                                <li class="nav-item">
+                                    <button class="nav-link fw-bold border" id="tab-guests" type="button" onclick="switchFieldTab('guests')">
                                         🚶‍♂️ الزوار (دفع فوري)
                                     </button>
                                 </li>
                             </ul>
 
-                            <div class="tab-content bg-light p-4 rounded-3 border">
+                            <div class="bg-light p-4 rounded-3 border" style="min-height: 200px;">
                                 
-                                <div class="tab-pane fade show active" id="content-users" role="tabpanel">
-                                    <div class="alert alert-info mb-4">
-                                        <i class="fas fa-info-circle"></i> أدخل رقم لوحة المشترك للتحقق من حجزه (المبدئي أو الفعلي) لتأكيد الدخول، أو تسجيل خروجه.
+                                <div id="content-users" style="display: block;">
+                                    <div class="alert alert-info mb-4 border-info">
+                                        <i class="fas fa-info-circle"></i> أدخل رقم لوحة المشترك للتحقق من حجزه لتأكيد الدخول، أو تسجيل خروجه.
                                     </div>
-                                    <label class="form-label fw-bold text-secondary mb-2">رقم لوحة المشترك:</label>
-                                    <div class="row g-3">
+                                    <div class="row g-3 align-items-end">
                                         <div class="col-md-8">
+                                            <label class="form-label fw-bold text-secondary mb-2">رقم لوحة المشترك:</label>
                                             <input type="text" id="userPlateInput" class="form-control form-control-lg text-center shadow-none border-primary" placeholder="مثال: 5-12345">
                                         </div>
                                         <div class="col-md-2">
@@ -299,14 +299,18 @@
                                     </div>
                                 </div>
 
-                                <div class="tab-pane fade" id="content-guests" role="tabpanel">
-                                    <div class="alert alert-warning mb-4 text-dark">
-                                        <i class="fas fa-exclamation-triangle"></i> الزوار ليس لديهم حساب. سيتم فتح تذكرة بالزمن الحالي، وحساب التكلفة عند الخروج.
+                                <div id="content-guests" style="display: none;">
+                                    <div class="alert alert-warning mb-4 text-dark border-warning">
+                                        <i class="fas fa-exclamation-triangle"></i> الزوار ليس لديهم حساب. سيتم فتح تذكرة بالزمن الحالي وتحديد وقت الخروج المتوقع.
                                     </div>
-                                    <label class="form-label fw-bold text-secondary mb-2">رقم لوحة الزائر:</label>
-                                    <div class="row g-3">
-                                        <div class="col-md-8">
-                                            <input type="text" id="guestPlateInput" class="form-control form-control-lg text-center shadow-none border-warning" placeholder="أدخل رقم اللوحة لفتح/إغلاق التذكرة">
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-md-5">
+                                            <label class="form-label fw-bold text-secondary mb-1">رقم اللوحة:</label>
+                                            <input type="text" id="guestPlateInput" class="form-control form-control-lg text-center shadow-none border-warning" placeholder="أدخل رقم اللوحة">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label fw-bold text-secondary mb-1">وقت الخروج المتوقع:</label>
+                                            <input type="time" id="guestExpectedExitInput" class="form-control form-control-lg text-center shadow-none border-warning">
                                         </div>
                                         <div class="col-md-2">
                                             <button type="button" class="btn btn-warning w-100 btn-lg fw-bold text-dark" onclick="registerGuestEntry()">دخول 🎫</button>
@@ -501,6 +505,28 @@
         }
     }
 
+    // دالة التبديل اليدوي بين التبويبات 
+    function switchFieldTab(target) {
+        document.getElementById('tab-users').classList.remove('active');
+        document.getElementById('tab-guests').classList.remove('active');
+        document.getElementById('content-users').style.display = 'none';
+        document.getElementById('content-guests').style.display = 'none';
+        
+        if(target === 'users') {
+            document.getElementById('tab-users').classList.add('active');
+            document.getElementById('content-users').style.display = 'block';
+        } else {
+            document.getElementById('tab-guests').classList.add('active');
+            document.getElementById('content-guests').style.display = 'block';
+        }
+    }
+    // تجهيز ترويسات الطلب (Headers) وإضافة توكن الحماية CSRF ليقرأ السيرفر جلسة الموظف
+    const fetchHeaders = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+    };
+
     // ---  دالة مساعدة لجلب بيانات الموظف من الـ LocalStorage وتوزيعها على الحقول ---
     function loadProfileData() {
         try {
@@ -631,84 +657,73 @@
    إدارة الميدان  (دخول وخروج المركبات)
     ========================================== */
 
-    // 1. تسجيل دخول زائر (فتح تذكرة)
+    // 1. الزوار: دالة تسجيل دخول وفتح تذكرة 
     async function registerGuestEntry() {
         const plateInputElement = document.getElementById('guestPlateInput');
+        const expectedExitElement = document.getElementById('guestExpectedExitInput');
+
         if (!plateInputElement || !plateInputElement.value.trim()) {
-            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى إدخال رقم اللوحة أولاً.' });
-            return;
+            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى إدخال رقم اللوحة.' }); return;
+        }
+        if (!expectedExitElement || !expectedExitElement.value) {
+            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى تحديد وقت الخروج المتوقع.' }); return;
         }
 
         Swal.fire({ title: 'جاري تسجيل الدخول...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
         try {
-            const response = await fetch('/api/field/guest/entry', {
+            const response = await fetch('/field/guest/entry', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ plate_number: plateInputElement.value.trim() })
+                headers: fetchHeaders,
+                body: JSON.stringify({ 
+                    plate_number: plateInputElement.value.trim(),
+                    expected_exit_time: expectedExitElement.value
+                })
             });
-
             const data = await response.json();
-
             if (response.ok && data.status === 'success') {
-                Swal.fire({ icon: 'success', title: 'تم الدخول', text: 'تم فتح تذكرة الزائر بنجاح وخصم مساحة من الموقف.' });
-                plateInputElement.value = ''; 
-                updateCapacityUI(-1); // إنقاص السعة
-            } else {
-                throw new Error(data.message || 'فشل تسجيل الدخول.');
-            }
-        } catch (error) {
-            Swal.fire({ icon: 'error', title: 'خطأ', text: error.message });
-        }
+                Swal.fire({ icon: 'success', title: 'تم الدخول', text: data.message });
+                plateInputElement.value = ''; expectedExitElement.value = ''; updateCapacityUI(-1);
+            } else { throw new Error(data.message || 'فشل تسجيل الدخول.'); }
+        } catch (error) { Swal.fire({ icon: 'error', title: 'خطأ', text: error.message }); }
     }
 
-    // 2. تسجيل خروج زائر وحساب التكلفة
+    // 2. الزوار: دالة تسجيل خروج وحساب التكلفة 
     async function processGuestExit() {
         const plateInputElement = document.getElementById('guestPlateInput');
         if (!plateInputElement || !plateInputElement.value.trim()) {
-            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى إدخال رقم اللوحة لحساب التكلفة.' });
-            return;
+            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى إدخال رقم اللوحة لحساب التكلفة.' }); return;
         }
 
         const plateNumber = plateInputElement.value.trim();
         Swal.fire({ title: 'جاري حساب التكلفة...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
         try {
-            const response = await fetch('/api/field/guest/exit', {
+            const response = await fetch('/field/guest/exit', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                headers: fetchHeaders,
                 body: JSON.stringify({ plate_number: plateNumber })
             });
-
             const data = await response.json();
-
             if (response.ok && data.status === 'success') {
                 Swal.fire({
-                    icon: 'info',
-                    title: 'فاتورة خروج زائر 🧾',
-                    html: `
-                        <div class="text-end fs-5 mt-3">
-                            <p><b>رقم اللوحة:</b> <span class="text-primary" dir="ltr">${plateNumber}</span></p>
-                            <p><b>المدة المحسوبة:</b> ${data.duration} ساعة</p>
-                            <hr>
-                            <h3 class="text-danger">المطلوب دفعه: ${data.cost} د.ل</h3>
-                        </div>
-                    `,
-                    confirmButtonText: 'تم استلام المبلغ نقداً وإغلاق التذكرة ✔️',
-                    confirmButtonColor: '#198754'
-                }).then(() => {
-                    plateInputElement.value = '';
-                    updateCapacityUI(1); // زيادة السعة
-                });
-            } else {
-                throw new Error(data.message || 'لم يتم العثور على تذكرة نشطة لهذه اللوحة.');
-            }
-        } catch (error) {
-            Swal.fire({ icon: 'error', title: 'خطأ', text: error.message });
+                    icon: 'info', title: 'فاتورة خروج زائر 🧾',
+                    html: `<div class="text-end fs-5 mt-3"><p><b>رقم اللوحة:</b> <span class="text-primary" dir="ltr">${plateNumber}</span></p><p><b>المدة المحسوبة:</b> ${data.duration} ساعة</p><hr><h3 class="text-danger">المطلوب دفعه: ${data.cost} د.ل</h3></div>`,
+                    confirmButtonText: 'تم استلام المبلغ نقداً ✔️', confirmButtonColor: '#198754'
+                }).then(() => { plateInputElement.value = ''; updateCapacityUI(1); });
+            } else { throw new Error(data.message || 'فشل حساب التكلفة.'); }
+        } catch (error) { Swal.fire({ icon: 'error', title: 'خطأ', text: error.message }); }
+    }
+
+    // دالة مساعدة لتحديث العداد في الواجهة
+    function updateCapacityUI(change) {
+        const capacityElement = document.getElementById('availableSpotsCount');
+        if (capacityElement && !isNaN(capacityElement.innerText)) {
+            capacityElement.innerText = parseInt(capacityElement.innerText) + change;
         }
     }
 
-    // 3. معالجة دخول/خروج المشتركين (سيتم ربطها بالباك إند لاحقاً)
+    // 3. معالجة دخول/خروج المشتركين 
     async function processUserFieldAction(actionType) {
         const plateInputElement = document.getElementById('userPlateInput');
         if (!plateInputElement || !plateInputElement.value.trim()) {
@@ -726,13 +741,7 @@
         });
     }
 
-    // 4. تحديث العداد في الواجهة
-    function updateCapacityUI(change) {
-        const capacityElement = document.getElementById('availableSpotsCount');
-        if (capacityElement && !isNaN(capacityElement.innerText)) {
-            capacityElement.innerText = parseInt(capacityElement.innerText) + change;
-        }
-    }
+    
     // ---  معالجة إرسال نموذج تحديث الملف الشخصي للموظف ---
     document.getElementById('profileForm').addEventListener('submit', async function(event) {
         try {
