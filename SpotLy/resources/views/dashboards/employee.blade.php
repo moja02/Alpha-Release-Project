@@ -454,6 +454,16 @@
     const storedUserData = JSON.parse(localStorage.getItem('userData'));
     // نأخذ الـ ID الخاص به (سواء كان مسجلاً باسم id أو account_id)
     const currentEmployeeId = storedUserData ? (storedUserData.id || storedUserData.account_id) : null;
+
+    // دالة مساعدة لاستخراج رقم حساب الموظف دائماً بشكل صحيح من المتصفح
+    function getValidEmployeeId() {
+        try {
+            const data = JSON.parse(localStorage.getItem('userData'));
+            return data ? (data.accountId || (data.profile && data.profile.account_id)) : null;
+        } catch(e) { 
+            return null; 
+        }
+    }
     // ---  قراءة بيانات الجلسة عند تحميل الصفحة لعرض اسم الموظف ---
     document.addEventListener('DOMContentLoaded', function() {
         
@@ -688,7 +698,7 @@
                 body: JSON.stringify({ 
                     plate_number: plateInputElement.value.trim(),
                     expected_exit_time: expectedExitElement.value,
-                    user_id: currentEmployeeId
+                    user_id: getValidEmployeeId()
                 })
             });
             const data = await response.json();
@@ -714,7 +724,7 @@
                 method: 'POST',
                 headers: fetchHeaders,
                 credentials: 'same-origin',
-                body: JSON.stringify({ plate_number: plateNumber, user_id:currentEmployeeId })
+                body: JSON.stringify({ plate_number: plateNumber, user_id:getValidEmployeeId() })
             });
             const data = await response.json();
             if (response.ok && data.status === 'success') {
