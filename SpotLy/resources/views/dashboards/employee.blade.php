@@ -261,7 +261,7 @@
                                 <p class="fs-6 mb-0 text-white text-opacity-75">التحقق الميداني من المشتركين والزوار</p>
                             </div>
                             <span class="badge bg-light text-primary fs-5 px-3 py-2 shadow-sm rounded-pill">
-                                الشاغر: <span id="availableSpotsCount">--</span> موقف
+                                الشاغر: <span id="availableSpotsDisplay" class="badge bg-primary">جاري التحميل...</span> موقف
                             </span>
                         </div>
                         
@@ -675,6 +675,27 @@
     /* ==========================================
    إدارة الميدان  (دخول وخروج المركبات)
     ========================================== */
+    // دالة لجلب وتحديث عدد الشواغر
+    async function updateParkingCapacity() {
+        const employeeId = getValidEmployeeId(); 
+        if (!employeeId) return;
+
+        try {
+            
+            const response = await fetch(`/field/parking/capacity?user_id=${employeeId}`);
+            const data = await response.json();
+            
+            // تحديث العنصر في الواجهة
+            document.getElementById('availableSpotsDisplay').innerText = data.capacity ;
+        } catch (error) {
+            console.error('خطأ في جلب الشواغر:', error);
+        }
+    }
+
+    // 1. استدعاء الدالة عند تحميل الصفحة
+    document.addEventListener('DOMContentLoaded', () => {
+        updateParkingCapacity();
+    });
 
     // 1. الزوار: دالة تسجيل دخول وفتح تذكرة 
     async function registerGuestEntry() {
@@ -705,6 +726,7 @@
             if (response.ok && data.status === 'success') {
                 Swal.fire({ icon: 'success', title: 'تم الدخول', text: data.message });
                 plateInputElement.value = ''; expectedExitElement.value = ''; updateCapacityUI(-1);
+                updateParkingCapacity();
             } else { throw new Error(data.message || 'فشل تسجيل الدخول.'); }
         } catch (error) { Swal.fire({ icon: 'error', title: 'خطأ', text: error.message }); }
     }
@@ -733,6 +755,7 @@
                     html: `<div class="text-end fs-5 mt-3"><p><b>رقم اللوحة:</b> <span class="text-primary" dir="ltr">${plateNumber}</span></p><p><b>المدة المحسوبة:</b> ${data.duration} ساعة</p><hr><h3 class="text-danger">المطلوب دفعه: ${data.cost} د.ل</h3></div>`,
                     confirmButtonText: 'تم استلام المبلغ نقداً ✔️', confirmButtonColor: '#198754'
                 }).then(() => { plateInputElement.value = ''; updateCapacityUI(1); });
+                updateParkingCapacity();
             } else { throw new Error(data.message || 'فشل حساب التكلفة.'); }
         } catch (error) { Swal.fire({ icon: 'error', title: 'خطأ', text: error.message }); }
     }
@@ -820,6 +843,7 @@
             if (response.ok && data.status === 'success') {
                 Swal.fire({ icon: 'success', title: 'نجاح 🎉', text: data.message });
                 document.getElementById('subscriberPlateInput').value = ''; 
+                updateParkingCapacity();
             } else {
                 throw new Error(data.message || 'فشلت العملية.');
             }

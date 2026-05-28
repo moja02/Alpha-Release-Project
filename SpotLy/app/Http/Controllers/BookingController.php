@@ -557,6 +557,20 @@ class BookingController extends Controller
             return response()->json(['status' => 'error', 'message' => 'خطأ: ' . $e->getMessage()], 500);
         }
     }
+    //حساب الاماكن الشاغرة المتبقية في الموقف 
+    public function getParkingCapacity(Request $request)
+    {
+        // نستقبل معرف الموظف الذي أرسلناه من المتصفح
+        $userId = $request->input('user_id');
+
+        $employee = DB::table('employees')->where('account_id', $userId)->first();
+        if (!$employee) return response()->json(['capacity' => 0]);
+
+        $parking = DB::table('parkings')->where('employee_id', $employee->id)->first();
+        if (!$parking) return response()->json(['capacity' => 0]);
+
+        return response()->json(['capacity' => $parking->available_capacity]);
+    }
 
 }
 

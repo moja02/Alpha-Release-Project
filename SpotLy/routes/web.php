@@ -49,4 +49,4 @@ Route::post('/field/user/action', [BookingController::class, 'userFieldAction'])
 // مسارات إدارة الميدان
 Route::post('/field/guest/entry', [FieldController::class, 'guestEntry']);
 Route::post('/field/guest/exit', [FieldController::class, 'guestExit']);
-
+Route::get('/field/parking/capacity', [BookingController::class, 'getParkingCapacity']);
