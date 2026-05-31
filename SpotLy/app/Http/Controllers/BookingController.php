@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\SpotlyNotificationMail;
+use Carbon\Carbon;
 
 class BookingController extends Controller
 {
@@ -336,6 +337,7 @@ class BookingController extends Controller
 
             // 1. جلب كل الحجوزات المبدئية المؤكدة التي انتهت مهلة الـ 20 دقيقة الخاصة بها
             $expiredBookings = \Illuminate\Support\Facades\DB::table('bookings')
+                ->where('is_guest', false)
                 ->where('type', 'initial')
                 ->where('status', 'confirmed')
                 ->where('end_time', '<=', $currentTime)
@@ -431,6 +433,182 @@ class BookingController extends Controller
             \Illuminate\Support\Facades\Log::error('Error in cleanup function: ' . $exception->getMessage());
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
+    }
+
+    // معالجة دخول وخروج المشتركين (أصحاب الحجوزات المسبقة)
+    public function userFieldAction(Request $request)
+    {
+        try {
+            $request->validate([
+                'plate_number' => 'required|string|max:191',
+                'action_type' => 'required|in:entry,exit',
+                'user_id' => 'required',
+                'expected_exit_time' => 'nullable|date_format:H:i'
+            ]);
+
+            $plateNumber = $request->input('plate_number');
+            $actionType = $request->input('action_type');
+            $userId = $request->input('user_id');
+            $expectedTimeStr = $request->input('expected_exit_time');
+
+            $employee = DB::table('employees')->where('account_id', $userId)->first();
+            if (!$employee) return response()->json(['status' => 'error', 'message' => 'هذا الحساب ليس موظفاً ميدانياً.'], 403);
+
+            $parking = DB::table('parkings')->where('employee_id', $employee->id)->first();
+            if (!$parking) return response()->json(['status' => 'error', 'message' => 'لا توجد ساحة معينة لك.'], 404);
+            $employeeParkingId = $parking->id;
+
+            DB::beginTransaction();
+
+            if ($actionType === 'entry') {
+                $parkingData = DB::table('parkings')->where('id', $employeeParkingId)->lockForUpdate()->first();
+                if ($parkingData->available_capacity <= 0) return response()->json(['status' => 'error', 'message' => 'الموقف ممتلئ!'], 400);
+
+                $alreadyInside = DB::table('bookings')->where('plate_number', $plateNumber)->where('status', 'active')->exists();
+                if ($alreadyInside) return response()->json(['status' => 'error', 'message' => 'السيارة موجودة بالفعل.'], 400);
+
+                $booking = DB::table('bookings')->where('plate_number', $plateNumber)->where('status', 'confirmed')->first();
+                if (!$booking) return response()->json(['status' => 'error', 'message' => 'لا يوجد حجز مسبق مؤكد لهذه اللوحة.'], 404);
+
+                if ($booking->type === 'initial') {
+                    // إذا كان الحجز مبدئياً ولم يقم الموظف بإدخال الوقت بعد
+                    if (!$expectedTimeStr) {
+                        DB::rollBack();
+                        return response()->json([
+                            'status' => 'requires_time', 
+                            'message' => 'هذا الحجز مبدئي. يرجى إدخال وقت الخروج المتوقع لخصم الرصيد.'
+                        ]);
+                    }
+
+                    // إذا أرسل الموظف الوقت، نتحقق من الرصيد الأساسي أولاً
+                    $expectedEndTime = Carbon::createFromFormat('H:i', $expectedTimeStr);
+                    if ($expectedEndTime->isPast()) $expectedEndTime->addDay();
+                    
+                    $durationMinutes = Carbon::now()->diffInMinutes($expectedEndTime);
+                    $durationHours = ceil($durationMinutes / 60) == 0 ? 1 : ceil($durationMinutes / 60);
+                    $expectedCost = $durationHours * 2.5; // التسعيرة الأساسية
+
+                    $wallet = DB::table('wallets')->where('user_id', $booking->user_id)->first();
+                    if (!$wallet || $wallet->balance < $expectedCost) {
+                        return response()->json(['status' => 'error', 'message' => 'رصيد غير كافٍ! (المطلوب: ' . $expectedCost . ')'], 400);
+                    }
+
+                    // الدخول (حفظ وقت الخروج المتوقع في end_time لمقارنته عند الخروج الفعلي)
+                    DB::table('bookings')->where('id', $booking->id)->update([
+                        'status' => 'active',
+                        'end_time' => $expectedEndTime,
+                        'updated_at' => Carbon::now()
+                    ]);
+                    $message = 'تم تأكيد الدخول المبدئي بنجاح. سيتم احتساب التكلفة الفعالية والعقوبات عند الخروج.';
+
+                } else {
+                    // إذا كان الحجز (actual) فعلي ومسبق الدفع
+                    DB::table('bookings')->where('id', $booking->id)->update([
+                        'status' => 'active',
+                        'updated_at' => Carbon::now()
+                    ]);
+                    $message = 'تم تأكيد الدخول الفعلي بنجاح فوراً.';
+                }
+
+                DB::table('parkings')->where('id', $employeeParkingId)->decrement('available_capacity', 1);
+
+            } else {
+                // --- منطق الخروج (تطبيق العقوبات والخصم) ---
+                $booking = DB::table('bookings')
+                    ->where('plate_number', $plateNumber)
+                    ->where('status', 'active')
+                    ->where('parking_id', $employeeParkingId)
+                    ->first();
+
+                if (!$booking) return response()->json(['status' => 'error', 'message' => 'السيارة غير موجودة بالموقف.'], 404);
+
+                $exitTime = Carbon::now();
+                $expectedExitTime = Carbon::parse($booking->end_time); // الوقت المتوقع المخزن عند الدخول أو الحجز المسبق
+                
+                $penaltyPoints = 0;
+                $hasDelay = false;
+
+                // قاعدة العقوبة المشتركة للمبدئي والفعلي
+                // إذا تجاوز الوقت الحالي وقت الخروج المتوقع
+                if ($exitTime->gt($expectedExitTime)) {
+                    $delayMinutes = $exitTime->diffInMinutes($expectedExitTime);
+                    $penaltyPoints = ceil($delayMinutes / 30); // نقطة واحدة لكل 30 دقيقة أو كسرها
+                    $hasDelay = true;
+                }
+
+                if ($booking->type === 'initial') {
+                    // --- حساب التكلفة للحجز المبدئي ---
+                    $entryTime = Carbon::parse($booking->start_time);
+                    $actualMinutes = $entryTime->diffInMinutes($exitTime);
+                    $actualHours = ceil($actualMinutes / 60) == 0 ? 1 : ceil($actualMinutes / 60);
+                    
+                    // التكلفة الإجمالية = الساعات الفعلية * 2.5 + نقاط العقوبة
+                    $finalCost = ($actualHours * 2.5) + $penaltyPoints;
+
+                    DB::table('wallets')->where('user_id', $booking->user_id)->decrement('balance', $finalCost);
+                    
+                    $message = 'تم تسجيل الخروج وخصم ' . $finalCost . ' من المحفظة.';
+                    if ($hasDelay) {
+                        $message .= ' (شاملة عقوبة تأخير: ' . $penaltyPoints . ' نقطة).';
+                    }
+                } else {
+                    // --- حساب التكلفة للحجز الفعلي (مسبق الدفع) ---
+                    // الحجز الفعلي مدفوع قيمته مسبقاً، لذا نخصم فقط قيمة العقوبة إن وجدت
+                    if ($hasDelay) {
+                        DB::table('wallets')->where('user_id', $booking->user_id)->decrement('balance', $penaltyPoints);
+                        $message = 'تم تسجيل خروج المشترك. تم خصم عقوبة تأخير بقيمة ' . $penaltyPoints . ' نقطة من المحفظة لتجاوز الوقت المحدد.';
+                    } else {
+                        $message = 'تم خروج المشترك بنجاح. (مدفوع مسبقاً وبدون تأخير).';
+                    }
+                }
+
+                // إرسال إشعار البريد الإلكتروني في حالة وجود تأخير
+                if ($hasDelay) {
+                    $user = DB::table('users')->where('id', $booking->user_id)->first();
+                    if ($user && !empty($user->email)) {
+                        try {
+                            \Illuminate\Support\Facades\Mail::to($user->email)->send(
+                                new \App\Mail\LateExitNotification($booking, $penaltyPoints)
+                            );
+                        } catch (\Exception $mailException) {
+                            // نلتقط خطأ الإيميل حتى لا يتعطل كود الخروج في حال عدم إعداد الـ SMTP بشكل صحيح
+                            \Log::error('فشل إرسال بريد التأخير للمشترك: ' . $mailException->getMessage());
+                        }
+                    }
+                }
+
+                // تحديث حالة الحجز إلى مكتمل
+                DB::table('bookings')->where('id', $booking->id)->update([
+                    'status' => 'completed',
+                    'end_time' => $exitTime,
+                    'updated_at' => Carbon::now()
+                ]);
+
+                DB::table('parkings')->where('id', $employeeParkingId)->increment('available_capacity', 1);
+            }
+
+            DB::commit();
+            return response()->json(['status' => 'success', 'message' => $message]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['status' => 'error', 'message' => 'خطأ: ' . $e->getMessage()], 500);
+        }
+    }
+
+    //حساب الاماكن الشاغرة المتبقية في الموقف 
+    public function getParkingCapacity(Request $request)
+    {
+        // نستقبل معرف الموظف الذي أرسلناه من المتصفح
+        $userId = $request->input('user_id');
+
+        $employee = DB::table('employees')->where('account_id', $userId)->first();
+        if (!$employee) return response()->json(['capacity' => 0]);
+
+        $parking = DB::table('parkings')->where('employee_id', $employee->id)->first();
+        if (!$parking) return response()->json(['capacity' => 0]);
+
+        return response()->json(['capacity' => $parking->available_capacity]);
     }
 
 }

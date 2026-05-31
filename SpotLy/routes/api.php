@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RechargeController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\FieldController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -31,6 +32,7 @@ Route::get('/recharges/pending', [RechargeController::class, 'getPendingRecharge
 Route::post('/recharges/verify', [RechargeController::class, 'verifyRequest']);
 // إضافة مسار الشحن الفوري الخاص بالموظف
 Route::post('/recharges/direct', [RechargeController::class, 'directRecharge']);
+// مسارات لوحة تحكم الموظف
 
 // مسارات المحفظة وطلبات التحويل الخاصة بالسائق
 Route::get('/wallet/balance', [RechargeController::class, 'getBalance']);

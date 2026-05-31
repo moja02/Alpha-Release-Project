@@ -81,6 +81,9 @@
             <!-- <a class="nav-link" onclick="switchTab('verifyVehicleTab', this)"> يتم العمل عليها لاحقا لانها ليست جزء من المتطلبات ال4 الحالية
                  التحقق من السيارات
             </a> -->
+            <a class="nav-link" onclick="switchTab('verifyVehicleTab', this)">
+                إدارة الميدان (دخول وخروج)
+            </a>
             <a class="nav-link" onclick="switchTab('rechargeWalletTab', this)">
                  شحن المحافظ
             </a>
@@ -248,23 +251,85 @@
             </div>
         </section>
 
-        <!-- <section id="verifyVehicleTab" class="content-section d-none"> يتم العمل عليها لاحقا لانها ليست جزء من المتطلبات ال4 الحالية
-            <div class="card" style="max-width: 500px;">
-                <div class="card-header text-success">
-                    🚘 التحقق من السيارات عند المَدخل
-                </div>
-                <div class="card-body">
-                    <div id="verifyVehicleAlert" class="alert d-none" role="alert"></div>
-                    <form id="verifyVehicleForm">
-                        <div class="mb-3">
-                            <label class="form-label">رقم لوحة السيارة</label>
-                            <input type="text" class="form-control" id="verifyPlateInput" placeholder="أدخل رقم اللوحة لفحص الحجز الفعلي" required>
+        <section id="verifyVehicleTab" class="content-section d-none">
+            <div class="row justify-content-center">
+                <div class="col-lg-10">
+                    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                        <div class="card-header bg-primary bg-gradient text-white p-4 d-flex justify-content-between align-items-center border-0">
+                            <div>
+                                <h5 class="fw-bold mb-1">🚦 إدارة دخول وخروج المركبات</h5>
+                                <p class="fs-6 mb-0 text-white text-opacity-75">التحقق الميداني من المشتركين والزوار</p>
+                            </div>
+                            <span class="badge bg-light text-primary fs-5 px-3 py-2 shadow-sm rounded-pill">
+                                الشاغر: <span id="availableSpotsDisplay" class="badge bg-primary">جاري التحميل...</span> موقف
+                            </span>
                         </div>
-                        <button type="submit" class="btn btn-success w-100" id="verifyVehicleBtn">فحص حالة الحجز الميداني</button>
-                    </form>
+                        
+                        <div class="card-body p-4">
+                            <ul class="nav nav-pills mb-4 nav-fill gap-2" id="field-tabs">
+                                <li class="nav-item">
+                                    <button class="nav-link active fw-bold border" id="tab-users" type="button" onclick="switchFieldTab('users')">
+                                        👤 المشتركون (نظام الحجز)
+                                    </button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="nav-link fw-bold border" id="tab-guests" type="button" onclick="switchFieldTab('guests')">
+                                        🚶‍♂️ الزوار (دفع فوري)
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div class="bg-light p-4 rounded-3 border" style="min-height: 200px;">
+                                
+                                <div id="content-users" style="display: block;">
+
+
+                                    <div class="alert alert-info mb-4 border-info">
+                                        <i class="fas fa-info-circle"></i> أدخل رقم لوحة المشترك للتحقق من حجزه لتأكيد الدخول، أو تسجيل خروجه.
+                                    </div>
+                                    
+                                    <label class="form-label fw-bold text-secondary mb-2">رقم لوحة المشترك:</label>
+                                    
+                                    <table style="width: 100%; border-collapse: collapse;">
+                                        <tr>
+                                            <td style="width: 70%; padding-left: 10px;">
+                                                <input type="text" id="subscriberPlateInput" class="form-control form-control-lg text-center shadow-none border-primary" placeholder="مثال: 5-12345" style="width: 100%;">
+                                            </td>
+                                            <td style="width: 15%; padding-left: 5px;">
+                                                <button type="button" class="btn btn-primary btn-lg fw-bold w-100" onclick="processUserFieldAction('entry')">دخول ⬇️</button>
+                                            </td>
+                                            <td style="width: 15%;">
+                                                <button type="button" class="btn btn-secondary btn-lg fw-bold w-100" onclick="processUserFieldAction('exit')">خروج ⬆️</button>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+
+                                <div id="content-guests" style="display: none;">
+                                    <div class="alert alert-warning mb-4 text-dark border-warning">
+                                        <i class="fas fa-exclamation-triangle"></i> الزوار ليس لديهم حساب. سيتم فتح تذكرة وتحديد وقت الخروج.
+                                    </div>
+                                    <div class="d-flex gap-2 align-items-center">
+                                        <div class="w-100">
+                                            <label class="form-label fw-bold text-secondary mb-1">رقم اللوحة:</label>
+                                            <input type="text" id="guestPlateInput" class="form-control form-control-lg text-center shadow-none border-warning" placeholder="أدخل رقم اللوحة">
+                                        </div>
+                                        <div style="width: 200px;">
+                                            <label class="form-label fw-bold text-secondary mb-1">وقت الخروج:</label>
+                                            <input type="time" id="guestExpectedExitInput" class="form-control form-control-lg text-center shadow-none border-warning">
+                                        </div>
+                                        <div class="d-flex align-items-end mb-1">
+                                            <button type="button" class="btn btn-warning btn-lg fw-bold text-dark px-4 text-nowrap me-2" onclick="registerGuestEntry()">دخول 🎫</button>
+                                            <button type="button" class="btn btn-danger btn-lg fw-bold px-4 text-nowrap" onclick="processGuestExit()">خروج 💰</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </section> -->
+        </section>
 
         <section id="rechargeWalletTab" class="content-section d-none">
             <div class="row justify-content-center">
@@ -377,6 +442,28 @@
     </main>
 
     <script>
+    // تجهيز ترويسات الطلب (Headers) وإضافة توكن الحماية CSRF ليقرأ السيرفر جلسة الموظف
+    const fetchHeaders = {
+        
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+    };
+    // استخراج بيانات الموظف المسجل من التخزين المحلي للمتصفح
+    const storedUserData = JSON.parse(localStorage.getItem('userData'));
+    // نأخذ الـ ID الخاص به (سواء كان مسجلاً باسم id أو account_id)
+    const currentEmployeeId = storedUserData ? (storedUserData.id || storedUserData.account_id) : null;
+
+    // دالة مساعدة لاستخراج رقم حساب الموظف دائماً بشكل صحيح من المتصفح
+    function getValidEmployeeId() {
+        try {
+            const data = JSON.parse(localStorage.getItem('userData'));
+            return data ? (data.accountId || (data.profile && data.profile.account_id)) : null;
+        } catch(e) { 
+            return null; 
+        }
+    }
     // ---  قراءة بيانات الجلسة عند تحميل الصفحة لعرض اسم الموظف ---
     document.addEventListener('DOMContentLoaded', function() {
         
@@ -440,6 +527,22 @@
             }
         } catch (exception) {
             console.error("خطأ أثناء التبديل بين الأقسام", exception);
+        }
+    }
+
+    // دالة التبديل اليدوي بين التبويبات 
+    function switchFieldTab(target) {
+        document.getElementById('tab-users').classList.remove('active');
+        document.getElementById('tab-guests').classList.remove('active');
+        document.getElementById('content-users').style.display = 'none';
+        document.getElementById('content-guests').style.display = 'none';
+        
+        if(target === 'users') {
+            document.getElementById('tab-users').classList.add('active');
+            document.getElementById('content-users').style.display = 'block';
+        } else {
+            document.getElementById('tab-guests').classList.add('active');
+            document.getElementById('content-guests').style.display = 'block';
         }
     }
 
@@ -569,25 +672,187 @@
         }
     });
 
-    // ---  معالجة نموذج التحقق الميداني من السيارات ومطابقتها ---
-    /** 
-    document.getElementById('verifyVehicleForm').addEventListener('submit', async function(event) {
-        try {
-            event.preventDefault();
-            
-            const verifyPlateValue = document.getElementById('verifyPlateInput').value;
-            const alertContainer = document.getElementById('verifyVehicleAlert');
-            alertContainer.classList.add('d-none');
+    /* ==========================================
+   إدارة الميدان  (دخول وخروج المركبات)
+    ========================================== */
+    // دالة لجلب وتحديث عدد الشواغر
+    async function updateParkingCapacity() {
+        const employeeId = getValidEmployeeId(); 
+        if (!employeeId) return;
 
-            // محاكاة الفحص الميداني بانتظار الربط بوحدة الحجوزات 
-            alertContainer.className = 'alert alert-info';
-            alertContainer.innerText = 'جاري التحقق من اللوحة (' + verifyPlateValue + ') ومطابقتها ميدانياً...';
-            alertContainer.classList.remove('d-none');
-        } catch (exception) {
-            console.error(exception);
+        try {
+            
+            const response = await fetch(`/field/parking/capacity?user_id=${employeeId}`);
+            const data = await response.json();
+            
+            // تحديث العنصر في الواجهة
+            document.getElementById('availableSpotsDisplay').innerText = data.capacity ;
+        } catch (error) {
+            console.error('خطأ في جلب الشواغر:', error);
         }
+    }
+
+    // 1. استدعاء الدالة عند تحميل الصفحة
+    document.addEventListener('DOMContentLoaded', () => {
+        updateParkingCapacity();
     });
-    */
+
+    // 1. الزوار: دالة تسجيل دخول وفتح تذكرة 
+    async function registerGuestEntry() {
+        const plateInputElement = document.getElementById('guestPlateInput');
+        const expectedExitElement = document.getElementById('guestExpectedExitInput');
+
+        if (!plateInputElement || !plateInputElement.value.trim()) {
+            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى إدخال رقم اللوحة.' }); return;
+        }
+        if (!expectedExitElement || !expectedExitElement.value) {
+            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى تحديد وقت الخروج المتوقع.' }); return;
+        }
+
+        Swal.fire({ title: 'جاري تسجيل الدخول...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+        try {
+            const response = await fetch('/field/guest/entry', {
+                method: 'POST',
+                headers: fetchHeaders,
+                credentials: 'same-origin',
+                body: JSON.stringify({ 
+                    plate_number: plateInputElement.value.trim(),
+                    expected_exit_time: expectedExitElement.value,
+                    user_id: getValidEmployeeId()
+                })
+            });
+            const data = await response.json();
+            if (response.ok && data.status === 'success') {
+                Swal.fire({ icon: 'success', title: 'تم الدخول', text: data.message });
+                plateInputElement.value = ''; expectedExitElement.value = ''; updateCapacityUI(-1);
+                updateParkingCapacity();
+            } else { throw new Error(data.message || 'فشل تسجيل الدخول.'); }
+        } catch (error) { Swal.fire({ icon: 'error', title: 'خطأ', text: error.message }); }
+    }
+
+    // 2. الزوار: دالة تسجيل خروج وحساب التكلفة 
+    async function processGuestExit() {
+        const plateInputElement = document.getElementById('guestPlateInput');
+        if (!plateInputElement || !plateInputElement.value.trim()) {
+            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى إدخال رقم اللوحة لحساب التكلفة.' }); return;
+        }
+
+        const plateNumber = plateInputElement.value.trim();
+        Swal.fire({ title: 'جاري حساب التكلفة...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+        try {
+            const response = await fetch('/field/guest/exit', {
+                method: 'POST',
+                headers: fetchHeaders,
+                credentials: 'same-origin',
+                body: JSON.stringify({ plate_number: plateNumber, user_id:getValidEmployeeId() })
+            });
+            const data = await response.json();
+            if (response.ok && data.status === 'success') {
+                Swal.fire({
+                    icon: 'info', title: 'فاتورة خروج زائر 🧾',
+                    html: `<div class="text-end fs-5 mt-3"><p><b>رقم اللوحة:</b> <span class="text-primary" dir="ltr">${plateNumber}</span></p><p><b>المدة المحسوبة:</b> ${data.duration} ساعة</p><hr><h3 class="text-danger">المطلوب دفعه: ${data.cost} د.ل</h3></div>`,
+                    confirmButtonText: 'تم استلام المبلغ نقداً ✔️', confirmButtonColor: '#198754'
+                }).then(() => { plateInputElement.value = ''; updateCapacityUI(1); });
+                updateParkingCapacity();
+            } else { throw new Error(data.message || 'فشل حساب التكلفة.'); }
+        } catch (error) { Swal.fire({ icon: 'error', title: 'خطأ', text: error.message }); }
+    }
+
+    // دالة مساعدة لتحديث العداد في الواجهة
+    function updateCapacityUI(change) {
+        const capacityElement = document.getElementById('availableSpotsCount');
+        if (capacityElement && !isNaN(capacityElement.innerText)) {
+            capacityElement.innerText = parseInt(capacityElement.innerText) + change;
+        }
+    }
+
+    // 3. معالجة دخول/خروج المشتركين 
+    function processUserFieldAction(actionType) {
+        const plateInputElement = document.getElementById('subscriberPlateInput'); 
+        if (!plateInputElement || !plateInputElement.value.trim()) {
+            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى إدخال رقم اللوحة.' });
+            return;
+        }
+
+        const plateNumber = plateInputElement.value.trim();
+
+        if (actionType === 'entry') {
+            // نرسل الطلب مباشرة بدون إظهار أي نافذة للسؤال عن الوقت! السيرفر سيقرر.
+            executeBackendRequest(plateNumber, 'entry', null);
+        } else {
+            Swal.fire({
+                title: 'تأكيد الخروج',
+                text: 'هل أنت متأكد من تسجيل الخروج؟',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'نعم، خروج ⬆️'
+            }).then((result) => {
+                if (result.isConfirmed) executeBackendRequest(plateNumber, 'exit', null);
+            });
+        }
+    }
+
+    // الدالة التي تتصل بالخادم فعلياً
+    async function executeBackendRequest(plateNumber, actionType, expectedTime) {
+        let employeeId = null;
+        try {
+            const rawData = localStorage.getItem('userData');
+            if (!rawData) { Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى تسجيل الدخول من جديد.' }); return; }
+            const storedUserData = JSON.parse(rawData);
+            employeeId = storedUserData.accountId || (storedUserData.profile && storedUserData.profile.account_id);
+            if (!employeeId) { Swal.fire({ icon: 'error', title: 'خطأ', text: 'المعرف مفقود.' }); return; }
+        } catch (e) { console.error(e); }
+
+        Swal.fire({ title: 'جاري التحقق...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+        try {
+            const response = await fetch('/field/user/action', {
+                method: 'POST',
+                headers: fetchHeaders,
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    plate_number: plateNumber,
+                    action_type: actionType,
+                    expected_exit_time: expectedTime,
+                    user_id: employeeId 
+                })
+            });
+            
+            const data = await response.json();
+
+            //  [ إذا رد السيرفر بأن الحجز مبدئي ويحتاج وقت] 
+            if (data.status === 'requires_time') {
+                Swal.fire({
+                    title: 'حجز مبدئي',
+                    html: `<b>${data.message}</b><br><br>الرجاء إدخال <b>الوقت المتوقع</b>:`,
+                    input: 'time',
+                    inputAttributes: { required: true },
+                    showCancelButton: true,
+                    confirmButtonText: 'تحقق و الدخول ⬇️',
+                }).then((result) => {
+                    // إذا أدخل الوقت، نعيد إرسال الطلب مع الوقت
+                    if (result.isConfirmed && result.value) {
+                        executeBackendRequest(plateNumber, 'entry', result.value);
+                    }
+                });
+                return; // نوقف التنفيذ هنا حتى لا يعرض رسالة نجاح أو خطأ
+            }
+
+            if (response.ok && data.status === 'success') {
+                Swal.fire({ icon: 'success', title: 'نجاح 🎉', text: data.message });
+                document.getElementById('subscriberPlateInput').value = ''; 
+                updateParkingCapacity();
+            } else {
+                throw new Error(data.message || 'فشلت العملية.');
+            }
+        } catch (error) {
+            Swal.fire({ icon: 'error', title: 'تنبيه', text: error.message });
+        }
+    }
+
+    
     // ---  معالجة إرسال نموذج تحديث الملف الشخصي للموظف ---
     document.getElementById('profileForm').addEventListener('submit', async function(event) {
         try {
