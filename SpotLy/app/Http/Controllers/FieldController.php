@@ -9,6 +9,7 @@ use Carbon\Carbon;
 class FieldController extends Controller
 {
     // 1. تسجيل دخول زائر (بدون حساب)
+    // 1. تسجيل دخول الزائر (معدلة للتأكيد)
     public function guestEntry(Request $request)
     {
         try {
@@ -25,7 +26,6 @@ class FieldController extends Controller
                 $expectedEndTime->addDay();
             }
 
-            // الخدعة القاضية لجلب الـ ID
             $userId = auth()->id() ?? $request->input('user_id'); 
 
             if (!$userId) {
@@ -33,7 +33,6 @@ class FieldController extends Controller
             }
             
             $employee = DB::table('employees')->where('account_id', $userId)->first();
-            
             if (!$employee) {
                 return response()->json(['status' => 'error', 'message' => 'هذا الحساب ليس موظفاً ميدانياً.'], 403);
             }
@@ -51,7 +50,6 @@ class FieldController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'الموقف ممتلئ بالكامل!'], 400);
             }
 
-            // التعديل هنا: استخدام plate_number بدلاً من guest_plate_number
             $exists = DB::table('bookings')
                 ->where('plate_number', $plateNumber)
                 ->where('is_guest', 1)
@@ -62,15 +60,14 @@ class FieldController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'هذه المركبة موجودة بالفعل داخل الموقف.'], 400);
             }
 
-            // التعديل هنا: إضافة نوع الحجز type وتصحيح اسم حقل اللوحة
             DB::table('bookings')->insert([
                 'parking_id' => $employeeParkingId,
                 'user_id' => null, 
                 'is_guest' => 1,
-                'plate_number' => $plateNumber, // تم التصحيح
+                'plate_number' => $plateNumber,
                 'start_time' => Carbon::now(),
                 'end_time' => $expectedEndTime, 
-                'type' => 'actual', // لتجنب خطأ قاعدة البيانات
+                'type' => 'actual', 
                 'status' => 'active',
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now()
@@ -87,7 +84,7 @@ class FieldController extends Controller
         }
     }
 
-    // 2. تسجيل خروج زائر وحساب التكلفة
+    // 2. تسجيل خروج زائر وحساب التكلفة مع تطبيق العقوبة عند التأخير
     public function guestExit(Request $request)
     {
         try {
@@ -95,7 +92,6 @@ class FieldController extends Controller
             $plateNumber = $request->input('plate_number');
 
             $userId = auth()->id() ?? $request->input('user_id'); 
-
             if (!$userId) return response()->json(['status' => 'error', 'message' => 'انتهت الجلسة.'], 403);
 
             $employee = DB::table('employees')->where('account_id', $userId)->first();
@@ -108,7 +104,6 @@ class FieldController extends Controller
             
             DB::beginTransaction();
 
-            // التعديل هنا أيضاً للبحث بـ plate_number
             $booking = DB::table('bookings')
                 ->where('plate_number', $plateNumber)
                 ->where('is_guest', 1)
@@ -121,16 +116,32 @@ class FieldController extends Controller
             }
 
             $entryTime = Carbon::parse($booking->start_time);
-            $exitTime = Carbon::now();
+            $expectedExitTime = Carbon::parse($booking->end_time); // جلب وقت الخروج المتوقع الذي خزنّاه عند الدخول
+            $exitTime = Carbon::now(); // وقت الخروج الفعلي الحالي
+            
+            // 1. حساب التكلفة الأساسية (بناءً على ساعات التواجد الفعلية والتسعيرة 2.5)
             $durationMinutes = $entryTime->diffInMinutes($exitTime);
             $durationHours = ceil($durationMinutes / 60) == 0 ? 1 : ceil($durationMinutes / 60);
             
             $hourlyRate = 2.5; 
-            $totalCost = $durationHours * $hourlyRate;
+            $baseCost = $durationHours * $hourlyRate;
+            $totalCost = $baseCost;
 
+            // 2. تطبيق قاعدة العقوبة الذكية عند التأخير
+            $penaltyPoints = 0;
+            $penaltyMessage = "";
             
+            if ($exitTime->gt($expectedExitTime)) {
+                $delayMinutes = $exitTime->diffInMinutes($expectedExitTime);
+                $penaltyPoints = ceil($delayMinutes / 30); // نقطة واحدة لكل 30 دقيقة تأخير أو كسرها
+                $totalCost += $penaltyPoints; // إضافة قيمة العقوبة للتكلفة الإجمالية للزائر للكاش
+                $penaltyMessage = " (تشمل غرامة تأخير: " . $penaltyPoints . " نقطة لتأخير قدره " . $delayMinutes . " دقيقة)";
+            }
+
+            // 3. تحديث بيانات الحجز وحفظ وقت الخروج الفعلي في حقل (actual_exit_time) إن وجد،
+            // أو تحديث حقل end_time بعد أن أنهينا المقارنة والحسابات بنجاح.
             DB::table('bookings')->where('id', $booking->id)->update([
-                'end_time' => $exitTime,
+                'end_time' => $exitTime, // تحديثه بوقت الخروج الفعلي لإغلاق الحجز
                 'status' => 'completed',
                 'updated_at' => Carbon::now()
             ]);
@@ -138,7 +149,16 @@ class FieldController extends Controller
             DB::table('parkings')->where('id', $employeeParkingId)->increment('available_capacity', 1);
 
             DB::commit();
-            return response()->json(['status' => 'success', 'duration' => $durationHours, 'cost' => $totalCost]);
+            
+            // سنرسل رسالة النجاح والـ message المنسقة ليتم عرضها في السويت أليرت (Swal) كـ كاش للدفع المباشر
+            $formattedMessage = "المدة الفعلية: " . $durationHours . " ساعة. القيمة المطلوبة كاش: " . $totalCost . " دل." . $penaltyMessage;
+            
+            return response()->json([
+                'status' => 'success', 
+                'duration' => $durationHours, 
+                'cost' => $totalCost,
+                'message' => $formattedMessage
+            ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
