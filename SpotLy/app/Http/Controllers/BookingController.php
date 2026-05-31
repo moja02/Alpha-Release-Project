@@ -470,7 +470,6 @@ class BookingController extends Controller
                 $booking = DB::table('bookings')->where('plate_number', $plateNumber)->where('status', 'confirmed')->first();
                 if (!$booking) return response()->json(['status' => 'error', 'message' => 'لا يوجد حجز مسبق مؤكد لهذه اللوحة.'], 404);
 
-                
                 if ($booking->type === 'initial') {
                     // إذا كان الحجز مبدئياً ولم يقم الموظف بإدخال الوقت بعد
                     if (!$expectedTimeStr) {
@@ -481,40 +480,40 @@ class BookingController extends Controller
                         ]);
                     }
 
-                    // إذا أرسل الموظف الوقت، نتحقق من الرصيد
+                    // إذا أرسل الموظف الوقت، نتحقق من الرصيد الأساسي أولاً
                     $expectedEndTime = Carbon::createFromFormat('H:i', $expectedTimeStr);
                     if ($expectedEndTime->isPast()) $expectedEndTime->addDay();
                     
                     $durationMinutes = Carbon::now()->diffInMinutes($expectedEndTime);
                     $durationHours = ceil($durationMinutes / 60) == 0 ? 1 : ceil($durationMinutes / 60);
-                    $expectedCost = $durationHours * 2.5; // التسعيرة
+                    $expectedCost = $durationHours * 2.5; // التسعيرة الأساسية
 
                     $wallet = DB::table('wallets')->where('user_id', $booking->user_id)->first();
                     if (!$wallet || $wallet->balance < $expectedCost) {
                         return response()->json(['status' => 'error', 'message' => 'رصيد غير كافٍ! (المطلوب: ' . $expectedCost . ')'], 400);
                     }
 
-                    // الدخول (ونترك النوع initial لكي نعرف أنه يحتاج خصم عند الخروج)
+                    // الدخول (حفظ وقت الخروج المتوقع في end_time لمقارنته عند الخروج الفعلي)
                     DB::table('bookings')->where('id', $booking->id)->update([
                         'status' => 'active',
                         'end_time' => $expectedEndTime,
                         'updated_at' => Carbon::now()
                     ]);
-                    $message = 'تم تأكيد الدخول المبدئي بنجاح. سيتم الخصم عند الخروج.';
+                    $message = 'تم تأكيد الدخول المبدئي بنجاح. سيتم احتساب التكلفة الفعالية والعقوبات عند الخروج.';
 
                 } else {
-                    // إذا كان الحجز (actual) فعلي ومسبق الدفع 
+                    // إذا كان الحجز (actual) فعلي ومسبق الدفع
                     DB::table('bookings')->where('id', $booking->id)->update([
                         'status' => 'active',
                         'updated_at' => Carbon::now()
                     ]);
-                    $message = ' تم تأكيد الدخول الفعلي بنجاح فوراً.';
+                    $message = 'تم تأكيد الدخول الفعلي بنجاح فوراً.';
                 }
 
                 DB::table('parkings')->where('id', $employeeParkingId)->decrement('available_capacity', 1);
 
             } else {
-                // --- منطق الخروج ---
+                // --- منطق الخروج (تطبيق العقوبات والخصم) ---
                 $booking = DB::table('bookings')
                     ->where('plate_number', $plateNumber)
                     ->where('status', 'active')
@@ -524,22 +523,61 @@ class BookingController extends Controller
                 if (!$booking) return response()->json(['status' => 'error', 'message' => 'السيارة غير موجودة بالموقف.'], 404);
 
                 $exitTime = Carbon::now();
-
+                $expectedExitTime = Carbon::parse($booking->end_time); // الوقت المتوقع المخزن عند الدخول أو الحجز المسبق
                 
+                $penaltyPoints = 0;
+                $hasDelay = false;
+
+                // قاعدة العقوبة المشتركة للمبدئي والفعلي
+                // إذا تجاوز الوقت الحالي وقت الخروج المتوقع
+                if ($exitTime->gt($expectedExitTime)) {
+                    $delayMinutes = $exitTime->diffInMinutes($expectedExitTime);
+                    $penaltyPoints = ceil($delayMinutes / 30); // نقطة واحدة لكل 30 دقيقة أو كسرها
+                    $hasDelay = true;
+                }
+
                 if ($booking->type === 'initial') {
-                    // إذا كان حجزاً مبدئياً، نخصم الرصيد من المحفظة الآن
+                    // --- حساب التكلفة للحجز المبدئي ---
                     $entryTime = Carbon::parse($booking->start_time);
                     $actualMinutes = $entryTime->diffInMinutes($exitTime);
                     $actualHours = ceil($actualMinutes / 60) == 0 ? 1 : ceil($actualMinutes / 60);
-                    $finalCost = $actualHours * 2.5;
+                    
+                    // التكلفة الإجمالية = الساعات الفعلية * 2.5 + نقاط العقوبة
+                    $finalCost = ($actualHours * 2.5) + $penaltyPoints;
 
                     DB::table('wallets')->where('user_id', $booking->user_id)->decrement('balance', $finalCost);
+                    
                     $message = 'تم تسجيل الخروج وخصم ' . $finalCost . ' من المحفظة.';
+                    if ($hasDelay) {
+                        $message .= ' (شاملة عقوبة تأخير: ' . $penaltyPoints . ' نقطة).';
+                    }
                 } else {
-                    // إذا كان حجزاً فعلياً مسبق الدفع ، لا نخصم شيء!
-                    $message = 'تم خروج المشترك بنجاح. (مدفوع مسبقاً).';
+                    // --- حساب التكلفة للحجز الفعلي (مسبق الدفع) ---
+                    // الحجز الفعلي مدفوع قيمته مسبقاً، لذا نخصم فقط قيمة العقوبة إن وجدت
+                    if ($hasDelay) {
+                        DB::table('wallets')->where('user_id', $booking->user_id)->decrement('balance', $penaltyPoints);
+                        $message = 'تم تسجيل خروج المشترك. تم خصم عقوبة تأخير بقيمة ' . $penaltyPoints . ' نقطة من المحفظة لتجاوز الوقت المحدد.';
+                    } else {
+                        $message = 'تم خروج المشترك بنجاح. (مدفوع مسبقاً وبدون تأخير).';
+                    }
                 }
 
+                // إرسال إشعار البريد الإلكتروني في حالة وجود تأخير
+                if ($hasDelay) {
+                    $user = DB::table('users')->where('id', $booking->user_id)->first();
+                    if ($user && !empty($user->email)) {
+                        try {
+                            \Illuminate\Support\Facades\Mail::to($user->email)->send(
+                                new \App\Mail\LateExitNotification($booking, $penaltyPoints)
+                            );
+                        } catch (\Exception $mailException) {
+                            // نلتقط خطأ الإيميل حتى لا يتعطل كود الخروج في حال عدم إعداد الـ SMTP بشكل صحيح
+                            \Log::error('فشل إرسال بريد التأخير للمشترك: ' . $mailException->getMessage());
+                        }
+                    }
+                }
+
+                // تحديث حالة الحجز إلى مكتمل
                 DB::table('bookings')->where('id', $booking->id)->update([
                     'status' => 'completed',
                     'end_time' => $exitTime,
@@ -557,6 +595,7 @@ class BookingController extends Controller
             return response()->json(['status' => 'error', 'message' => 'خطأ: ' . $e->getMessage()], 500);
         }
     }
+
     //حساب الاماكن الشاغرة المتبقية في الموقف 
     public function getParkingCapacity(Request $request)
     {

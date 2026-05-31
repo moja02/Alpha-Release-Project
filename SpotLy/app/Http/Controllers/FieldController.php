@@ -128,8 +128,7 @@ class FieldController extends Controller
             $hourlyRate = 2.5; 
             $totalCost = $durationHours * $hourlyRate;
 
-            // في جدولك لا يوجد عمود total_cost، لذلك سنتجاهل تحديثه حالياً لتجنب خطأ جديد
-            // إذا أردت حفظ التكلفة يجب إضافة عمود total_cost في قاعدة البيانات
+            
             DB::table('bookings')->where('id', $booking->id)->update([
                 'end_time' => $exitTime,
                 'status' => 'completed',
