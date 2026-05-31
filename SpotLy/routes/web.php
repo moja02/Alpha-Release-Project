@@ -32,6 +32,9 @@ Route::get('/employee-dashboard', function () {
     return view('dashboards.employee');
 });
 
+Route::get('/developer/dashboard', function () {
+    return view('developer.developer_dashboard');
+})->name('developer.dashboard');
 /* 
 مسار احتياطي للأخطاء (Fallback Route)
 يعيد توجيه أي شخص يكتب رابطاً غير موجود في المتصفح إلى صفحة الدخول أوتوماتيكياً
