@@ -150,13 +150,13 @@
                     <div class="col-md-4">
                         <div class="stat-card border-t-yellow p-4">
                             <h5 class="fw-bold mb-2">إجمالي المواقف المُسجلة</h5>
-                            <h2 class="text-secondary mb-0">5 ساحات</h2>
+                            <h2 class="text-secondary mb-0">{{ $parkingsCount }} ساحات</h2>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="stat-card border-t-green p-4">
                             <h5 class="fw-bold mb-2">موظفي الميدان</h5>
-                            <h2 class="text-secondary mb-0">12 موظف</h2>
+                            <h2 class="text-secondary mb-0">{{ $employeesCount }} موظف</h2>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -178,6 +178,10 @@
                                     <div class="mb-3">
                                         <label class="form-label fw-bold text-secondary">اسم الموقف أو الساحة</label>
                                         <input type="text" id="parkingName" class="form-control form-control-lg" placeholder="مثال: موقف الجامعة الشمالي" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold text-secondary">وصف موقع الساحة (location_park)</label>
+                                        <input type="text" id="parkingLocation" class="form-control form-control-lg" placeholder="مثال: بجوار البوابة الرئيسية" required>
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label fw-bold text-secondary">السعة الكلية للمركبات</label>
@@ -235,16 +239,16 @@
         try {
             // سحب البيانات من الذاكرة (سواء كنت تحفظها باسم userData أو developerData)
             const storedData = JSON.parse(localStorage.getItem('userData') || localStorage.getItem('developerData'));
-            
-            // تحقق إذا كان الحساب موجوداً وهل صلاحيته مدير/مطور
-            if (!storedData || (storedData.role !== 'developer' && storedData.role !== 'admin')) {
+
+            // السماح للمطور فقط بالدخول
+            if (!storedData || storedData.role !== 'developer') {
                 Swal.fire({
                     icon: 'error',
                     title: 'غير مصرح',
-                    text: 'يجب تسجيل الدخول كمدير نظام للوصول لهذه اللوحة.',
+                    text: 'هذه البوابة مخصصة للمطورين فقط.',
                     allowOutsideClick: false
                 }).then(() => {
-                    window.location.href = '/login'; // توجيه لصفحة الدخول
+                    window.location.href = '/login'; 
                 });
                 return;
             }
@@ -292,39 +296,38 @@
     // 4. دالة الحفظ الفعلي في قاعدة البيانات (Laravel)
     async function submitParking() {
         const name = document.getElementById('parkingName').value;
+        const location_park = document.getElementById('parkingLocation').value; 
         const capacity = document.getElementById('parkingCapacity').value;
         const lat = document.getElementById('latInput').value;
         const lng = document.getElementById('lngInput').value;
 
-        if(!name || !capacity || !lat || !lng) {
-            Swal.fire({icon: 'warning', title: 'بيانات ناقصة', text: 'يرجى إدخال اسم الموقف، سعته، والنقر على الخريطة لتحديد الموقع.'});
+        if(!name || !location_park || !capacity || !lat || !lng) {
+            Swal.fire({icon: 'warning', title: 'بيانات ناقصة', text: 'يرجى تعبئة جميع الحقول وتحديد الموقع على الخريطة.'});
             return;
         }
 
         Swal.fire({ title: 'جاري الحفظ...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
         try {
-            // إرسال البيانات للمتحكم الذي أنشأناه سابقاً
             const response = await fetch('{{ route("developer.parking.store") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}' // حماية لارافيل
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
                 },
                 body: JSON.stringify({
                     name: name,
+                    location_park: location_park, //  إرسال القيمة للسيرفر
                     total_capacity: capacity,
                     latitude: lat,
-                    longitude: lng,
-                    developer_id: developerId
+                    longitude: lng
                 })
             });
 
             const data = await response.json();
 
             if (response.ok) {
-                Swal.fire({icon: 'success', title: 'نجاح 🎉', text: 'تم إنشاء الموقف وإضافته للخريطة بنجاح!'});
-                // تفريغ الحقول لكي يضيف موقفاً آخر إن أراد
+                Swal.fire({icon: 'success', title: 'نجاح 🎉', text: data.message});
                 document.getElementById('addParkingForm').reset();
                 if(marker) map.removeLayer(marker);
             } else {
