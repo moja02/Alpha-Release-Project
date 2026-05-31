@@ -13,22 +13,26 @@ Route::post('/web-login', [AuthController::class, 'login']);
 
 // 2. مسارات لوحات التحكم (Dashboards)
 // ملاحظة: تأكد أنك لا تكرر أي مسار هنا
-Route::middleware(['web'])->group(function () {
+Route::middleware(['web', 'auth'])->group(function () {
     
-    // لوحة المطور
-    Route::get('/developer/dashboard', [DeveloperController::class, 'index'])->name('developer.dashboard');
-    Route::post('/developer/parkings/store', [DeveloperController::class, 'storeParking'])->name('developer.parking.store');
+    // حماية لوحة المطور
+    Route::get('/developer/dashboard', [DeveloperController::class, 'index'])
+        ->middleware('role:developer')
+        ->name('developer.dashboard');
 
-    // لوحة الموظف
+    // حماية لوحة الموظف
     Route::get('/employee-dashboard', function () {
         return view('dashboards.employee');
-    });
+    })->middleware('role:employee');
 
-    // لوحة المستخدم
+    // حماية لوحة المستخدم
     Route::get('/user-dashboard', function () {
         return view('dashboards.user');
-    });
+    })->middleware('role:user');
 });
+
+Route::post('/developer/parkings/store', [DeveloperController::class, 'storeParking'])->name('developer.parking.store');
+    
 
 // 3. مسارات الخدمات (خلفية)
 Route::post('/field/user/action', [BookingController::class, 'userFieldAction']);

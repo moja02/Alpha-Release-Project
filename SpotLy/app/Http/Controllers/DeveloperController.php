@@ -11,6 +11,9 @@ class DeveloperController extends Controller
     // 1. عرض لوحة التحكم 
     public function index()
     {
+        if (auth()->user()->role !== 'developer') {
+            abort(403, 'غير مصرح لك!');
+        }
         // جلب الإحصائيات من قاعدة البيانات لعرضها في قسم "نظرة عامة"
         $parkingsCount = DB::table('parkings')->count();
         
