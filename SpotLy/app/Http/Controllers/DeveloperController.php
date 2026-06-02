@@ -11,31 +11,35 @@ class DeveloperController extends Controller
     // 1. عرض لوحة التحكم 
     public function index()
     {
-        if (auth()->user()->role !== 'developer') {
-            abort(403, 'غير مصرح لك!');
+        try {
+            if (auth()->user()->role !== 'developer') {
+                abort(403, 'غير مصرح لك!');
+            }
+            // جلب الإحصائيات من قاعدة البيانات لعرضها في قسم "نظرة عامة"
+            $parkingsCount = DB::table('parkings')->count();
+            
+            // جلب عدد الموظفين 
+            $employeesCount = DB::table('employees')->count(); 
+
+            // جلب قائمة المدراء مع حالتهم 
+            $managers = DB::table('accounts')
+                ->leftJoin('managers', 'accounts.id', '=', 'managers.account_id')
+                ->select(
+                    'accounts.id', 
+                    'accounts.name', 
+                    'accounts.email', 
+                    'accounts.phone', 
+                    'accounts.created_at', 
+                    DB::raw('COALESCE(managers.status, "active") as status')
+                )
+                ->where('accounts.role', 'manager')
+                ->get();
+
+            // تمرير البيانات إلى الواجهة
+            return view('developer.developer_dashboard', compact('parkingsCount', 'employeesCount', 'managers'));
+        } catch (\Exception $exception) {
+            abort(500, 'حدث خطأ داخلي: ' . $exception->getMessage());
         }
-        // جلب الإحصائيات من قاعدة البيانات لعرضها في قسم "نظرة عامة"
-        $parkingsCount = DB::table('parkings')->count();
-        
-        // جلب عدد الموظفين (بافتراض أن جدول employees يحتوي على موظفي الميدان)
-        $employeesCount = DB::table('employees')->count(); 
-
-        // جلب قائمة المدراء مع حالتهم (عبر leftJoin لتفادي المشاكل مع أي بيانات قديمة لا تملك سجل في جدول managers)
-        $managers = DB::table('accounts')
-            ->leftJoin('managers', 'accounts.id', '=', 'managers.account_id')
-            ->select(
-                'accounts.id', 
-                'accounts.name', 
-                'accounts.email', 
-                'accounts.phone', 
-                'accounts.created_at', 
-                DB::raw('COALESCE(managers.status, "active") as status')
-            )
-            ->where('accounts.role', 'manager')
-            ->get();
-
-        // تمرير البيانات إلى الواجهة
-        return view('developer.developer_dashboard', compact('parkingsCount', 'employeesCount', 'managers'));
     }
 
     // 2. استقبال بيانات الخريطة وحفظ الموقف الجديد
@@ -167,7 +171,7 @@ class DeveloperController extends Controller
                 ], 404);
             }
 
-            // التحقق من وجود سجل في جدول managers، وإذا لم يوجد نقوم بإنشائه (تجنباً للمشاكل مع البيانات القديمة)
+            // التحقق من وجود سجل في جدول managers
             $managerProfile = DB::table('managers')->where('account_id', $id)->first();
             if (!$managerProfile) {
                 DB::table('managers')->insert([
