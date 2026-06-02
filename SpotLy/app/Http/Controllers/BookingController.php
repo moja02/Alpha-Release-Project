@@ -37,6 +37,101 @@ class BookingController extends Controller
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }
+
+    public function getRecommendedSpots(Request $request)
+    {
+        try {
+            $lat = $request->input('latitude');
+            $lng = $request->input('longitude');
+            $sortBy = $request->input('sort_by', 'wsm'); // default to wsm
+            $wDist = floatval($request->input('w_dist', 0.5));
+            $wAvail = floatval($request->input('w_avail', 0.5));
+
+            $parkingAreas = DB::table('parkings')
+                ->leftJoin('employees', 'parkings.employee_id', '=', 'employees.id')
+                ->select('parkings.*', 'employees.bank_account_number as employee_bank_account')
+                ->get();
+
+            $parkings = $parkingAreas->all();
+
+            if ($lat !== null && $lng !== null) {
+                $lat = floatval($lat);
+                $lng = floatval($lng);
+                foreach ($parkings as $parking) {
+                    if (isset($parking->latitude) && isset($parking->longitude)) {
+                        $radLat1 = deg2rad($lat);
+                        $radLat2 = deg2rad($parking->latitude);
+                        $radLng1 = deg2rad($lng);
+                        $radLng2 = deg2rad($parking->longitude);
+                        $deltaLat = $radLat2 - $radLat1;
+                        $deltaLng = $radLng2 - $radLng1;
+                        $a = sin($deltaLat/2) * sin($deltaLat/2) + cos($radLat1) * cos($radLat2) * sin($deltaLng/2) * sin($deltaLng/2);
+                        $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+                        $parking->distance_km = round(6371 * $c, 2);
+                    } else {
+                        $parking->distance_km = 99999;
+                    }
+                }
+            } else {
+                foreach ($parkings as $parking) {
+                    $parking->distance_km = null;
+                }
+            }
+
+            if ($sortBy === 'wsm' && $lat !== null && $lng !== null) {
+                $validDistances = array_filter(array_map(fn($p) => $p->distance_km, $parkings), fn($d) => $d !== null && $d < 99999);
+                $minDist = count($validDistances) > 0 ? min($validDistances) : 0;
+                $maxDist = count($validDistances) > 0 ? max($validDistances) : 1;
+                $distRange = $maxDist - $minDist ?: 1;
+
+                foreach ($parkings as $parking) {
+                    $normDist = ($parking->distance_km !== null && $parking->distance_km < 99999) 
+                        ? (($maxDist - $parking->distance_km) / $distRange) 
+                        : 0;
+
+                    $normAvail = $parking->total_capacity > 0 
+                        ? ($parking->available_capacity / $parking->total_capacity) 
+                        : 0;
+
+                    $score = ($wDist * $normDist) + ($wAvail * $normAvail);
+                    $parking->wsm_score = round($score, 4);
+                    $parking->match_percentage = round($score * 100);
+                }
+
+                usort($parkings, function($a, $b) {
+                    return $b->wsm_score <=> $a->wsm_score;
+                });
+            } else {
+                // fallback standard sorting
+                usort($parkings, function($a, $b) use ($sortBy) {
+                    if ($sortBy === 'available_capacity') {
+                        return $b->available_capacity <=> $a->available_capacity;
+                    } elseif ($sortBy === 'ratio') {
+                        $ratioA = $a->total_capacity > 0 ? ($a->available_capacity / $a->total_capacity) : 0;
+                        $ratioB = $b->total_capacity > 0 ? ($b->available_capacity / $b->total_capacity) : 0;
+                        return $ratioB <=> $ratioA;
+                    } else {
+                        if ($a->distance_km === null && $b->distance_km === null) return 0;
+                        if ($a->distance_km === null) return 1;
+                        if ($b->distance_km === null) return -1;
+                        return $a->distance_km <=> $b->distance_km;
+                    }
+                });
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'sort_by' => $sortBy,
+                'w_dist' => $wDist,
+                'w_avail' => $wAvail,
+                'data' => $parkings
+            ], 200);
+
+        } catch (\Exception $exception) {
+            Log::error('Error fetching recommended spots: ' . $exception->getMessage());
+            return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
+        }
+    }
     
      // جلب بيانات التذكرة النشطة للسائق (الحجز المبدئي أو الفعلي)
      

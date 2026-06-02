@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SpotLy - بوابة السائق التفاعلية</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { 
@@ -50,6 +51,20 @@
         }
         .spot-card:hover {
             transform: translateY(-5px);
+        }
+        #booking-tabs .nav-link {
+            color: rgba(255, 255, 255, 0.75);
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        #booking-tabs .nav-link:hover {
+            color: #fff;
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+        #booking-tabs .nav-link.active {
+            color: #1e293b !important;
+            background-color: #ffffff !important;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
         }
     </style>
 </head>
@@ -162,20 +177,102 @@
             </div>
 
             <div id="bookingSpotsGridSection" class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                <div class="card-header bg-gradient bg-primary text-white p-4 border-0 d-flex align-items-center justify-content-between">
-                    <div>
-                        <h5 class="fw-bold mb-1">📍 خريطة المواقف المباشرة</h5>
-                        <p class="fs-6 mb-0 text-white text-opacity-75">اضغط على الموقف المتاح باللون الأخضر لإتمام عملية الحجز</p>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <span class="badge bg-success px-3 py-2 rounded-pill">متاح</span>
-                        <span class="badge bg-danger px-3 py-2 rounded-pill">محجوز</span>
+                <div class="card-header bg-gradient bg-primary text-white p-4 border-0">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                        <div>
+                            <h5 class="fw-bold mb-1">📍 حجز موقف سيارات تفاعلي</h5>
+                            <p class="fs-6 mb-0 text-white text-opacity-75">اختر طريقة الحجز المفضلة لديك بالأسفل</p>
+                        </div>
+                        <ul class="nav nav-pills nav-fill gap-2 border p-1 rounded-pill bg-white bg-opacity-10" id="booking-tabs" style="min-width: 320px;">
+                            <li class="nav-item">
+                                <button class="nav-link active fw-bold text-white rounded-pill px-4 py-2 border-0" id="tab-manual" type="button" onclick="switchBookingSubTab('manual')">
+                                    🔍 بحث يدوي
+                                </button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link fw-bold text-white rounded-pill px-4 py-2 border-0" id="tab-smart" type="button" onclick="switchBookingSubTab('smart')">
+                                    🧠 ترشيح ذكي (API)
+                                </button>
+                            </li>
+                        </ul>
                     </div>
                 </div>
 
-                <div class="card-body p-4 bg-light">
-                    <div class="row g-3" id="spotsGridContainer">
-                        <div class="text-center py-5 text-muted">جاري تحميل خريطة المواقف المباشرة...</div>
+                <!-- 1. محتوى البحث اليدوي -->
+                <div id="booking-manual-content" style="display: block;">
+                    <div class="card-body p-4 bg-light">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="fw-bold text-secondary">🗺️ خريطة المواقف المباشرة في النظام</span>
+                            <div class="d-flex gap-2">
+                                <span class="badge bg-success px-3 py-2 rounded-pill">متاح</span>
+                                <span class="badge bg-danger px-3 py-2 rounded-pill">محجوز</span>
+                            </div>
+                        </div>
+                        <div class="row g-3" id="spotsGridContainer">
+                            <div class="text-center py-5 text-muted">جاري تحميل خريطة المواقف المباشرة...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. محتوى الترشيح الذكي (واجهة المطور API) -->
+                <div id="booking-smart-content" style="display: none;">
+                    <div class="card-body p-4 bg-light">
+                        <!-- مقابض التحكم بالوزن -->
+                        <div class="card border-0 shadow-sm rounded-4 mb-4">
+                            <div class="card-header bg-white py-3 border-bottom">
+                                <h6 class="fw-bold text-dark mb-0">🧠 تفضيلات الترشيح الذكي (Weighted Sum Model)</h6>
+                            </div>
+                            <div class="card-body bg-white p-4">
+                                <div class="alert alert-light border border-info border-opacity-25 text-dark rounded-3 mb-4 py-2">
+                                    💡 <strong>تفاعلي:</strong> قم بسحب أوزان التفضيل حسب رغبتك بالأسفل (المجموع الكلي 100%). وانقر على الخريطة لتحديد مكان وجهتك لتعديل المسافة الجغرافية.
+                                </div>
+                                <div class="row align-items-center">
+                                    <div class="col-md-6 mb-3 mb-md-0">
+                                        <label class="form-label fw-bold text-secondary d-flex justify-content-between mb-2">
+                                            <span>📏 القرب الجغرافي للوجهة (المسافة):</span>
+                                            <span class="text-primary fw-bold" id="lblDistWeight">50%</span>
+                                        </label>
+                                        <input type="range" class="form-range" id="wsmDistanceSlider" min="0" max="100" value="50" oninput="adjustWsmSliders('distance')">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold text-secondary d-flex justify-content-between mb-2">
+                                            <span>🚗 وفرة الأماكن (الشواغر):</span>
+                                            <span class="text-success fw-bold" id="lblAvailWeight">50%</span>
+                                        </label>
+                                        <input type="range" class="form-range" id="wsmAvailabilitySlider" min="0" max="100" value="50" oninput="adjustWsmSliders('availability')">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- الخريطة التفاعلية وقائمة التوصيات الجانبية -->
+                        <div class="row g-4 mb-4">
+                            <!-- حاوية الخريطة -->
+                            <div class="col-lg-8">
+                                <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+                                    <div class="card-header bg-white py-3 fw-bold border-bottom">
+                                        🗺️ خريطة المواقف الذكية (انقر لتحديد وجهتك 📍)
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <div id="wsmMap" style="height: 420px; border-radius: 12px; z-index: 1;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- القائمة الجانبية للتوصيات -->
+                            <div class="col-lg-4">
+                                <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+                                    <div class="card-header bg-white py-3 fw-bold border-bottom d-flex justify-content-between align-items-center">
+                                        <span>⭐ المواقف المقترحة</span>
+                                        <span class="badge bg-success rounded-pill px-2 py-1" style="font-size: 0.85rem;">نسبة المطابقة</span>
+                                    </div>
+                                    <div class="card-body p-0" style="max-height: 440px; overflow-y: auto;" id="wsmRecommendationSidebarList">
+                                        <div class="text-center py-5 text-muted">جاري تحميل الترشيحات الذكية...</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+
                     </div>
                 </div>
             </div>
@@ -281,6 +378,7 @@
         </section>
     </main>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         let currentUserData = null;
 
@@ -730,6 +828,338 @@
                 console.error("خطأ في تحميل خريطة المواقف", exception);
             }
         }
+
+        // التبديل بين البحث اليدوي والترشيح الذكي داخل حجز الموقف التفاعلي
+        window.switchBookingSubTab = function(target) {
+            const tabManual = document.getElementById('tab-manual');
+            const tabSmart = document.getElementById('tab-smart');
+            const manualContent = document.getElementById('booking-manual-content');
+            const smartContent = document.getElementById('booking-smart-content');
+
+            if (target === 'manual') {
+                tabManual.classList.add('active');
+                tabSmart.classList.remove('active');
+                manualContent.style.display = 'block';
+                smartContent.style.display = 'none';
+                loadLiveSpotsGrid(); // تحديث المواقف المباشرة
+            } else {
+                tabSmart.classList.add('active');
+                tabManual.classList.remove('active');
+                manualContent.style.display = 'none';
+                smartContent.style.display = 'block';
+                
+                // تهيئة الخريطة لأول مرة أو تحديث حجمها لتفادي مشاكل الأبعاد
+                if (!wsmMap) {
+                    setTimeout(() => {
+                        initWsmMap();
+                    }, 100);
+                } else {
+                    setTimeout(() => {
+                        wsmMap.invalidateSize();
+                    }, 100);
+                }
+            }
+        };
+
+        // متغيرات خوارزمية المجموع الموزون (WSM) للترشيح الذكي
+        let wsmMap = null;
+        let wsmMapMarker = null;
+        let wsmMarkersList = [];
+        let wsmLat = 32.8872;
+        let wsmLng = 13.1913;
+        let wsmDistWeight = 0.5;
+        let wsmAvailWeight = 0.5;
+        let wsmParkingsData = [];
+
+        // 1. دالة حساب المسافة الجغرافية بالكيلومتر بين نقطتين (Haversine Formula)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // نصف قطر الأرض بالكيلومتر
+            const dLat = deg2rad(lat2 - lat1);
+            const dLon = deg2rad(lon2 - lon1);
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+        function deg2rad(deg) {
+            return deg * (Math.PI / 180);
+        }
+
+        // 2. تحديث وتعديل أوزان Sliders بطريقة تفاعلية ومجموع 100%
+        window.adjustWsmSliders = function(source) {
+            const distSlider = document.getElementById('wsmDistanceSlider');
+            const availSlider = document.getElementById('wsmAvailabilitySlider');
+            
+            if (source === 'distance') {
+                availSlider.value = 100 - parseInt(distSlider.value);
+            } else {
+                distSlider.value = 100 - parseInt(availSlider.value);
+            }
+            
+            // تحديث بطاقات الأرقام
+            document.getElementById('lblDistWeight').innerText = distSlider.value + '%';
+            document.getElementById('lblAvailWeight').innerText = availSlider.value + '%';
+            
+            wsmDistWeight = parseInt(distSlider.value) / 100;
+            wsmAvailWeight = parseInt(availSlider.value) / 100;
+            
+            updateWsmApiUrlDisplay();
+            updateWsmCalculations();
+        };
+
+        // 3. تهيئة خريطة الـ WSM الذكية
+        window.initWsmMap = async function() {
+            try {
+                if (wsmMap) return;
+                
+                const container = document.getElementById('wsmMap');
+                if (!container) return;
+
+                // تهيئة الخريطة وتوسيطها عند موقع الجامعة
+                wsmMap = L.map('wsmMap').setView([wsmLat, wsmLng], 13);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(wsmMap);
+
+                // تعريف الأيقونات بتنسيق CSS دائري مميز
+                window.greenIcon = L.divIcon({
+                    html: '<div style="background-color: #2ecc71; width: 28px; height: 28px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px; font-family: sans-serif;">P</div>',
+                    className: 'custom-div-icon',
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14]
+                });
+                
+                window.yellowIcon = L.divIcon({
+                    html: '<div style="background-color: #f1c40f; width: 28px; height: 28px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px; font-family: sans-serif;">P</div>',
+                    className: 'custom-div-icon',
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14]
+                });
+                
+                window.redIcon = L.divIcon({
+                    html: '<div style="background-color: #e74c3c; width: 28px; height: 28px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px; font-family: sans-serif;">P</div>',
+                    className: 'custom-div-icon',
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14]
+                });
+
+                window.userDestIcon = L.divIcon({
+                    html: '<div style="background-color: #3498db; width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 12px rgba(52, 152, 219, 0.6); display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">📍</div>',
+                    className: 'custom-div-icon-dest',
+                    iconSize: [34, 34],
+                    iconAnchor: [17, 17]
+                });
+
+                // إضافة علامة السائق الزرقاء القابلة للسحب
+                wsmMapMarker = L.marker([wsmLat, wsmLng], {
+                    icon: userDestIcon,
+                    draggable: true
+                }).addTo(wsmMap).bindPopup('<div class="text-center font-bold">وجهتك المستهدفة / موقعك 📍</div>').openPopup();
+
+                wsmMapMarker.on('dragend', function() {
+                    const pos = wsmMapMarker.getLatLng();
+                    wsmLat = pos.lat;
+                    wsmLng = pos.lng;
+                    updateWsmApiUrlDisplay();
+                    updateWsmCalculations();
+                });
+
+                // نقرة على الخريطة لتحديث الوجهة
+                wsmMap.on('click', function(e) {
+                    wsmLat = e.latlng.lat;
+                    wsmLng = e.latlng.lng;
+                    wsmMapMarker.setLatLng(e.latlng);
+                    updateWsmApiUrlDisplay();
+                    updateWsmCalculations();
+                });
+
+                // جلب المواقف وتعبئة البيانات محلياً
+                const response = await fetch('/api/parkings/spots');
+                const res = await response.json();
+                if (response.ok && res.status === 'success') {
+                    wsmParkingsData = res.data;
+                    updateWsmCalculations();
+                }
+            } catch (error) {
+                console.error("خطأ في تشغيل خريطة WSM", error);
+            }
+        };
+
+        // 4. تنفيذ الخوارزمية محلياً وإصدار النتائج
+        window.updateWsmCalculations = function() {
+            if (!wsmParkingsData || wsmParkingsData.length === 0) return;
+
+            // حساب المسافات بالكيلومتر
+            let dataCopy = wsmParkingsData.map(p => {
+                const distance = calculateDistance(wsmLat, wsmLng, p.latitude, p.longitude);
+                return { ...p, computed_distance: distance };
+            });
+
+            // الحصول على القيم للتطبيع
+            const distances = dataCopy.map(p => p.computed_distance);
+            const maxDist = Math.max(...distances) || 1;
+            const minDist = Math.min(...distances) || 0;
+            const distRange = maxDist - minDist || 1;
+
+            // تطبيق معادلة WSM
+            dataCopy.forEach(p => {
+                const normDist = (maxDist - p.computed_distance) / distRange;
+                const normAvail = p.total_capacity > 0 ? (p.available_capacity / p.total_capacity) : 0;
+                
+                const score = (wsmDistWeight * normDist) + (wsmAvailWeight * normAvail);
+                p.wsm_score = score;
+                p.match_percentage = Math.round(score * 100);
+            });
+
+            // فرز تنازلي حسب الدرجة الأعلى
+            dataCopy.sort((a, b) => b.wsm_score - a.wsm_score);
+
+            // تحديث العلامات والقائمة
+            updateWsmMapMarkers(dataCopy);
+            updateWsmRecommendationList(dataCopy);
+        };
+
+        // 5. رسم وتلوين علامات المواقف على الخريطة
+        window.updateWsmMapMarkers = function(sortedData) {
+            if (!wsmMap) return;
+
+            // تنظيف المواقع السابقة
+            wsmMarkersList.forEach(m => wsmMap.removeLayer(m));
+            wsmMarkersList = [];
+
+            sortedData.forEach((p, idx) => {
+                if (!p.latitude || !p.longitude) return;
+
+                // أخضر للأول، أصفر للثاني والثالث (متاحين)، أحمر للبقية أو الممتلئ
+                let markerIcon = yellowIcon;
+                if (p.available_capacity === 0) {
+                    markerIcon = redIcon;
+                } else if (idx === 0) {
+                    markerIcon = greenIcon;
+                } else if (idx >= 3) {
+                    markerIcon = redIcon;
+                }
+
+                const marker = L.marker([p.latitude, p.longitude], { icon: markerIcon }).addTo(wsmMap);
+                
+                const popupContent = `
+                    <div style="direction: rtl; text-align: right; font-family: sans-serif; min-width: 170px; line-height: 1.4;">
+                        <h6 class="fw-bold mb-1 text-dark">${p.name}</h6>
+                        <span class="badge bg-success text-white mb-2">تطابق: ${p.match_percentage}%</span>
+                        <p class="mb-1 text-muted small">📍 <b>المسافة:</b> ${p.computed_distance.toFixed(2)} كم</p>
+                        <p class="mb-2 text-muted small">🚗 <b>الشاغر:</b> ${p.available_capacity} / ${p.total_capacity}</p>
+                        ${p.available_capacity > 0 
+                            ? `<button onclick="initiateSpotReservation(${p.id}, '${p.name}', ${p.available_capacity})" class="btn btn-sm btn-primary w-100 fw-bold py-1">حجز فوري 🚀</button>` 
+                            : '<span class="badge bg-danger w-100 d-block text-center py-1">ممتلئ بالكامل</span>'}
+                    </div>
+                `;
+                marker.bindPopup(popupContent);
+                wsmMarkersList.push(marker);
+            });
+        };
+
+        // 6. تحديث قائمة المقترحات الجانبية
+        window.updateWsmRecommendationList = function(sortedData) {
+            const list = document.getElementById('wsmRecommendationSidebarList');
+            if (!list) return;
+
+            list.innerHTML = '';
+
+            sortedData.forEach((p, idx) => {
+                let badgeStyle = 'bg-warning text-dark';
+                if (p.available_capacity === 0) {
+                    badgeStyle = 'bg-danger text-white';
+                } else if (idx === 0) {
+                    badgeStyle = 'bg-success text-white';
+                } else if (idx >= 3) {
+                    badgeStyle = 'bg-secondary text-white';
+                }
+
+                const isAvailable = p.available_capacity > 0;
+
+                const itemHtml = `
+                    <div class="p-3 border-bottom list-group-item-action transition-all" style="cursor: pointer;" onclick="focusParkingOnWsmMap(${p.latitude}, ${p.longitude}, '${p.name}')">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-bold text-dark" style="font-size: 0.9rem;">${p.name}</span>
+                            <span class="badge ${badgeStyle} rounded-pill px-2 py-1" style="font-size: 0.75rem;">${p.match_percentage}%</span>
+                        </div>
+                        <small class="text-muted d-block mb-2">📍 ${p.location_park} (${p.computed_distance.toFixed(2)} كم)</small>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-secondary fw-semibold">الشاغر: ${p.available_capacity} / ${p.total_capacity}</small>
+                            ${isAvailable 
+                                ? `<button onclick="event.stopPropagation(); initiateSpotReservation(${p.id}, '${p.name}', ${p.available_capacity})" class="btn btn-sm btn-primary px-3 py-1 rounded-pill fw-bold" style="font-size: 0.75rem;">حجز 🚀</button>` 
+                                : '<span class="badge bg-danger rounded-pill px-2 py-1" style="font-size: 0.7rem;">ممتلئ</span>'}
+                        </div>
+                    </div>
+                `;
+                list.insertAdjacentHTML('beforeend', itemHtml);
+            });
+        };
+
+        // 7. التركيز على الموقف على الخريطة
+        window.focusParkingOnWsmMap = function(lat, lng, name) {
+            if (wsmMap) {
+                wsmMap.setView([lat, lng], 15);
+                const marker = wsmMarkersList.find(m => m.getLatLng().lat === lat && m.getLatLng().lng === lng);
+                if (marker) {
+                    marker.openPopup();
+                }
+            }
+        };
+
+        // 8. تحديث نص استعلام الـ API للمطورين
+        window.updateWsmApiUrlDisplay = function() {
+            const display = document.getElementById('wsmApiUrlDisplay');
+            if (display) {
+                display.value = `/api/parkings/recommend?latitude=${wsmLat.toFixed(6)}&longitude=${wsmLng.toFixed(6)}&sort_by=wsm&w_dist=${wsmDistWeight.toFixed(2)}&w_avail=${wsmAvailWeight.toFixed(2)}`;
+            }
+        };
+
+        // 9. إرسال طلب الـ API الفعلي للسيرفر لعرض استجابة المطور (JSON)
+        window.sendSmartRecommendationRequest = async function() {
+            const btnSend = document.getElementById('btnSendSmartApi');
+            btnSend.disabled = true;
+            btnSend.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> جاري الطلب...';
+
+            const startTime = performance.now();
+            const url = document.getElementById('wsmApiUrlDisplay').value;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                const endTime = performance.now();
+                const latency = Math.round(endTime - startTime);
+
+                // إظهار لوحة المطور وتحديث بيانات الاستجابة
+                document.getElementById('apiResponsePanel').classList.remove('d-none');
+                document.getElementById('apiResponseStatus').innerText = `${response.status} ${response.statusText || (response.ok ? 'OK' : 'Error')}`;
+                
+                const statusBadge = document.getElementById('apiResponseStatus').parentElement;
+                if (response.ok) {
+                    statusBadge.className = 'badge bg-success px-3 py-2 rounded-pill';
+                } else {
+                    statusBadge.className = 'badge bg-danger px-3 py-2 rounded-pill';
+                }
+
+                document.getElementById('apiResponseTime').innerText = latency;
+                document.getElementById('apiResponseBody').innerText = JSON.stringify(data, null, 4);
+
+            } catch (error) {
+                console.error("خطأ أثناء إرسال طلب الـ API", error);
+                document.getElementById('apiResponsePanel').classList.remove('d-none');
+                document.getElementById('apiResponseStatus').innerText = '500 Error';
+                document.getElementById('apiResponseStatus').parentElement.className = 'badge bg-danger px-3 py-2 rounded-pill';
+                document.getElementById('apiResponseBody').innerText = JSON.stringify({
+                    status: "error",
+                    message: error.message || "Internal Server Error"
+                }, null, 4);
+            } finally {
+                btnSend.disabled = false;
+                btnSend.innerHTML = 'إرسال الطلب ⚡';
+            }
+        };
 
         // دالة مساعدة لإظهار/إخفاء حقول الوقت بناءً على اختيار السائق
         window.toggleTimeInputs = function(isActualSelected) {
