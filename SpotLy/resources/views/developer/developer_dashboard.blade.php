@@ -128,6 +128,9 @@
             <a class="nav-link" onclick="switchTab('employeesTab', this, 'إدارة موظفي الميدان 👥')">
                 إدارة موظفي الميدان
             </a>
+            <a class="nav-link" onclick="switchTab('addManagerTab', this, 'إنشاء حسابات المدراء 👤')">
+                إنشاء حسابات المدراء
+            </a>
         </div>
     </div>
 
@@ -219,6 +222,79 @@
                         <i class="fas fa-tools fa-4x text-muted mb-3"></i>
                         <h4 class="text-secondary">واجهة إدارة الموظفين</h4>
                         <p class="text-muted">هنا سيتم برمجة جدول يعرض الموظفين لتعيينهم على المواقف التي أنشأتها.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="addManagerTab" class="content-section d-none">
+                <div class="row g-4">
+                    <!-- نموذج إنشاء حساب مدير جديد -->
+                    <div class="col-md-5">
+                        <div class="card shadow-sm border-0">
+                            <div class="card-body p-4">
+                                <h5 class="mb-4 text-primary fw-bold">
+                                    <i class="fas fa-user-plus me-1"></i> إنشاء حساب مدير جديد
+                                </h5>
+                                <form id="addManagerForm">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold text-secondary">الاسم الكامل</label>
+                                        <input type="text" id="managerName" class="form-control form-control-lg" placeholder="مثال: علي محمد" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold text-secondary">البريد الإلكتروني</label>
+                                        <input type="email" id="managerEmail" class="form-control form-control-lg" placeholder="example@spotly.com" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold text-secondary">رقم الهاتف</label>
+                                        <input type="text" id="managerPhone" class="form-control form-control-lg" placeholder="09XXXXXXXX" required>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="form-label fw-bold text-secondary">كلمة المرور</label>
+                                        <input type="password" id="managerPassword" class="form-control form-control-lg" placeholder="••••••••" required>
+                                    </div>
+                                    <button type="button" onclick="submitManager()" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm">
+                                        إنشاء الحساب 💾
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- جدول المدراء الحاليين -->
+                    <div class="col-md-7">
+                        <div class="card shadow-sm border-0">
+                            <div class="card-body p-4">
+                                <h5 class="mb-4 text-primary fw-bold">
+                                    <i class="fas fa-users-cog me-1"></i> المدراء الحاليون في النظام
+                                </h5>
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle" id="managersTable">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>الاسم</th>
+                                                <th>البريد الإلكتروني</th>
+                                                <th>رقم الهاتف</th>
+                                                <th>تاريخ الإنشاء</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse($managers as $manager)
+                                                <tr>
+                                                    <td class="fw-bold">{{ $manager->name }}</td>
+                                                    <td>{{ $manager->email }}</td>
+                                                    <td>{{ $manager->phone }}</td>
+                                                    <td>{{ $manager->created_at ? \Carbon\Carbon::parse($manager->created_at)->format('Y-m-d H:i') : '-' }}</td>
+                                                </tr>
+                                            @empty
+                                                <tr>
+                                                    <td colspan="4" class="text-center text-muted py-4">لا يوجد مدراء مسجلين حالياً.</td>
+                                                </tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -338,6 +414,64 @@
         }
     }
 
+    // دالة إنشاء حساب مدير جديد
+    async function submitManager() {
+        const name = document.getElementById('managerName').value;
+        const email = document.getElementById('managerEmail').value;
+        const phone = document.getElementById('managerPhone').value;
+        const password = document.getElementById('managerPassword').value;
+
+        if(!name || !email || !phone || !password) {
+            Swal.fire({icon: 'warning', title: 'بيانات ناقصة', text: 'يرجى تعبئة جميع الحقول المطلوبة.'});
+            return;
+        }
+
+        Swal.fire({ title: 'جاري إنشاء الحساب...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+        try {
+            const response = await fetch('{{ route("developer.manager.store") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    name: name,
+                    email: email,
+                    phone: phone,
+                    password: password
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                Swal.fire({icon: 'success', title: 'نجاح 🎉', text: data.message});
+                document.getElementById('addManagerForm').reset();
+                
+                // إضافة المدير الجديد إلى الجدول ديناميكياً
+                const tableBody = document.querySelector('#managersTable tbody');
+                if (tableBody.innerHTML.includes('لا يوجد مدراء')) {
+                    tableBody.innerHTML = '';
+                }
+                
+                const newRow = `
+                    <tr>
+                        <td class="fw-bold">${data.manager.name}</td>
+                        <td>${data.manager.email}</td>
+                        <td>${data.manager.phone}</td>
+                        <td>${data.manager.created_at}</td>
+                    </tr>
+                `;
+                tableBody.insertAdjacentHTML('afterbegin', newRow);
+            } else {
+                throw new Error(data.message || 'حدث خطأ أثناء إنشاء الحساب.');
+            }
+        } catch (error) {
+            Swal.fire({icon: 'error', title: 'عذراً', text: error.message});
+        }
+    }
+
     // 5. دالة تسجيل الخروج
     function logoutDeveloper() {
         Swal.fire({
@@ -345,7 +479,7 @@
             text: 'هل أنت متأكد أنك تريد المغادرة؟',
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'نعم، خروج',
+            confirmButtonText: 'nعم، خروج',
             cancelButtonText: 'إلغاء'
         }).then((result) => {
             if (result.isConfirmed) {
