@@ -621,7 +621,7 @@
             text: 'هل أنت متأكد أنك تريد المغادرة؟',
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'nعم، خروج',
+            confirmButtonText: 'نعم، خروج',
             cancelButtonText: 'إلغاء'
         }).then((result) => {
             if (result.isConfirmed) {
