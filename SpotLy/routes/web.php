@@ -6,13 +6,12 @@ use App\Http\Controllers\DeveloperController;
 use App\Http\Controllers\FieldController;
 use App\Http\Controllers\BookingController;
 
-// 1. مسارات الدخول (لا تكررها)
+// 1. مسارات الدخول 
 Route::get('/', fn() => redirect('/login'));
-Route::get('/login', fn() => view('auth.login'));
+Route::get('/login', fn() => view('auth.login'))->name('login');
 Route::post('/web-login', [AuthController::class, 'login']);
 
 // 2. مسارات لوحات التحكم (Dashboards)
-// ملاحظة: تأكد أنك لا تكرر أي مسار هنا
 Route::middleware(['web', 'auth'])->group(function () {
     
     // حماية لوحة المطور
