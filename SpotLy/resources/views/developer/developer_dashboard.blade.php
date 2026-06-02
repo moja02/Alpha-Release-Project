@@ -274,20 +274,36 @@
                                                 <th>الاسم</th>
                                                 <th>البريد الإلكتروني</th>
                                                 <th>رقم الهاتف</th>
-                                                <th>تاريخ الإنشاء</th>
+                                                <th>الحالة</th>
+                                                <th>الإجراءات</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             @forelse($managers as $manager)
-                                                <tr>
+                                                <tr id="manager-row-{{ $manager->id }}">
                                                     <td class="fw-bold">{{ $manager->name }}</td>
                                                     <td>{{ $manager->email }}</td>
                                                     <td>{{ $manager->phone }}</td>
-                                                    <td>{{ $manager->created_at ? \Carbon\Carbon::parse($manager->created_at)->format('Y-m-d H:i') : '-' }}</td>
+                                                    <td>
+                                                        @if($manager->status === 'active')
+                                                            <span class="badge bg-success status-badge">نشط</span>
+                                                        @else
+                                                            <span class="badge bg-danger status-badge">معطل</span>
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        <button class="btn btn-sm btn-outline-secondary toggle-status-btn fw-bold" onclick="toggleManagerStatus({{ $manager->id }}, this)">
+                                                            @if($manager->status === 'active')
+                                                                تعطيل الحساب
+                                                            @else
+                                                                تفعيل الحساب
+                                                            @endif
+                                                        </button>
+                                                    </td>
                                                 </tr>
                                             @empty
                                                 <tr>
-                                                    <td colspan="4" class="text-center text-muted py-4">لا يوجد مدراء مسجلين حالياً.</td>
+                                                    <td colspan="5" class="text-center text-muted py-4">لا يوجد مدراء مسجلين حالياً.</td>
                                                 </tr>
                                             @endforelse
                                         </tbody>
@@ -456,16 +472,61 @@
                 }
                 
                 const newRow = `
-                    <tr>
+                    <tr id="manager-row-${data.manager.id}">
                         <td class="fw-bold">${data.manager.name}</td>
                         <td>${data.manager.email}</td>
                         <td>${data.manager.phone}</td>
-                        <td>${data.manager.created_at}</td>
+                        <td><span class="badge bg-success status-badge">نشط</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-secondary toggle-status-btn fw-bold" onclick="toggleManagerStatus(${data.manager.id}, this)">
+                                تعطيل الحساب
+                            </button>
+                        </td>
                     </tr>
                 `;
                 tableBody.insertAdjacentHTML('afterbegin', newRow);
             } else {
                 throw new Error(data.message || 'حدث خطأ أثناء إنشاء الحساب.');
+            }
+        } catch (error) {
+            Swal.fire({icon: 'error', title: 'عذراً', text: error.message});
+        }
+    }
+
+    // دالة تعطيل/تفعيل حساب المدير
+    async function toggleManagerStatus(managerId, button) {
+        Swal.fire({ title: 'جاري تحديث الحالة...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+        try {
+            const response = await fetch(`/developer/managers/${managerId}/toggle-status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                }
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                Swal.fire({icon: 'success', title: 'تم التحديث', text: data.message, timer: 1500, showConfirmButton: false});
+                
+                // تحديث واجهة السطر الحالي
+                const row = document.getElementById(`manager-row-${managerId}`);
+                if (row) {
+                    const badge = row.querySelector('.status-badge');
+                    if (data.new_status === 'active') {
+                        badge.className = 'badge bg-success status-badge';
+                        badge.innerText = 'نشط';
+                        button.innerText = 'تعطيل الحساب';
+                    } else {
+                        badge.className = 'badge bg-danger status-badge';
+                        badge.innerText = 'معطل';
+                        button.innerText = 'تفعيل الحساب';
+                    }
+                }
+            } else {
+                throw new Error(data.message || 'حدث خطأ أثناء تحديث حالة الحساب.');
             }
         } catch (error) {
             Swal.fire({icon: 'error', title: 'عذراً', text: error.message});

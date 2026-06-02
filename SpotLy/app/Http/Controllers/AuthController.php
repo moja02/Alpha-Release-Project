@@ -56,8 +56,12 @@ class AuthController extends Controller
 
             } elseif ($account->role === 'manager') {
                 //  توجيه المدير  
-                $profileDetails = null; 
+                $profileDetails = \App\Models\Manager::where('account_id', $account->id)->first(); 
                 $redirectUrl = '/manager/dashboard'; 
+                
+                if ($profileDetails && $profileDetails->status === 'blocked') {
+                    return response()->json(['status' => 'error', 'message' => 'Access Denied: Your account is blocked.'], 403);
+                }
             }
 
             // إنشاء التوكن

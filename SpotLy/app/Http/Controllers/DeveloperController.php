@@ -20,8 +20,19 @@ class DeveloperController extends Controller
         // جلب عدد الموظفين (بافتراض أن جدول employees يحتوي على موظفي الميدان)
         $employeesCount = DB::table('employees')->count(); 
 
-        // جلب قائمة المدراء
-        $managers = DB::table('accounts')->where('role', 'manager')->get();
+        // جلب قائمة المدراء مع حالتهم (عبر leftJoin لتفادي المشاكل مع أي بيانات قديمة لا تملك سجل في جدول managers)
+        $managers = DB::table('accounts')
+            ->leftJoin('managers', 'accounts.id', '=', 'managers.account_id')
+            ->select(
+                'accounts.id', 
+                'accounts.name', 
+                'accounts.email', 
+                'accounts.phone', 
+                'accounts.created_at', 
+                DB::raw('COALESCE(managers.status, "active") as status')
+            )
+            ->where('accounts.role', 'manager')
+            ->get();
 
         // تمرير البيانات إلى الواجهة
         return view('developer.developer_dashboard', compact('parkingsCount', 'employeesCount', 'managers'));
@@ -85,6 +96,8 @@ class DeveloperController extends Controller
                 'password' => 'required|string|min:6',
             ]);
 
+            DB::beginTransaction();
+
             // إدراج الحساب في قاعدة البيانات
             $insertedId = DB::table('accounts')->insertGetId([
                 'name' => $request->name,
@@ -96,25 +109,96 @@ class DeveloperController extends Controller
                 'updated_at' => \Carbon\Carbon::now(),
             ]);
 
+            // إدراج سجل في جدول managers
+            DB::table('managers')->insert([
+                'account_id' => $insertedId,
+                'status' => 'active',
+                'created_at' => \Carbon\Carbon::now(),
+                'updated_at' => \Carbon\Carbon::now(),
+            ]);
+
+            DB::commit();
+
             return response()->json([
                 'status' => 'success', 
                 'message' => 'تم إنشاء حساب المدير بنجاح.',
                 'manager' => [
+                    'id' => $insertedId,
                     'name' => $request->name,
                     'email' => $request->email,
                     'phone' => $request->phone,
+                    'status' => 'active',
                     'created_at' => \Carbon\Carbon::now()->format('Y-m-d H:i')
                 ]
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
             return response()->json([
                 'status' => 'error', 
                 'message' => $e->validator->errors()->first()
             ], 422);
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'status' => 'error', 
+                'message' => 'خطأ داخلي: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // 4. تغيير حالة تفعيل المدير (تنشيط / تعطيل)
+    public function toggleManagerStatus($id)
+    {
+        if (auth()->user()->role !== 'developer') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'غير مصرح لك!'
+            ], 403);
+        }
+
+        try {
+            // التحقق من وجود الحساب
+            $account = DB::table('accounts')->where('id', $id)->where('role', 'manager')->first();
+            if (!$account) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'حساب المدير غير موجود.'
+                ], 404);
+            }
+
+            // التحقق من وجود سجل في جدول managers، وإذا لم يوجد نقوم بإنشائه (تجنباً للمشاكل مع البيانات القديمة)
+            $managerProfile = DB::table('managers')->where('account_id', $id)->first();
+            if (!$managerProfile) {
+                DB::table('managers')->insert([
+                    'account_id' => $id,
+                    'status' => 'active',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $currentStatus = 'active';
+            } else {
+                $currentStatus = $managerProfile->status;
+            }
+
+            $newStatus = ($currentStatus === 'active') ? 'blocked' : 'active';
+
+            DB::table('managers')
+                ->where('account_id', $id)
+                ->update([
+                    'status' => $newStatus,
+                    'updated_at' => now()
+                ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => ($newStatus === 'active') ? 'تم تفعيل حساب المدير بنجاح.' : 'تم تعطيل حساب المدير بنجاح.',
+                'new_status' => $newStatus
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
                 'message' => 'خطأ داخلي: ' . $e->getMessage()
             ], 500);
         }

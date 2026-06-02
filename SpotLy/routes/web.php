@@ -32,6 +32,7 @@ Route::middleware(['web', 'auth'])->group(function () {
 
 Route::post('/developer/parkings/store', [DeveloperController::class, 'storeParking'])->name('developer.parking.store');
 Route::post('/developer/managers/store', [DeveloperController::class, 'storeManager'])->name('developer.manager.store');
+Route::post('/developer/managers/{id}/toggle-status', [DeveloperController::class, 'toggleManagerStatus'])->name('developer.manager.toggle-status');
     
 
 // 3. مسارات الخدمات (خلفية)
