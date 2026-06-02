@@ -218,10 +218,46 @@
 
             <section id="employeesTab" class="content-section d-none">
                 <div class="card shadow-sm border-0">
-                    <div class="card-body text-center p-5">
-                        <i class="fas fa-tools fa-4x text-muted mb-3"></i>
-                        <h4 class="text-secondary">واجهة إدارة الموظفين</h4>
-                        <p class="text-muted">هنا سيتم برمجة جدول يعرض الموظفين لتعيينهم على المواقف التي أنشأتها.</p>
+                    <div class="card-body p-4">
+                        <h5 class="mb-4 text-primary fw-bold">
+                            <i class="fas fa-users me-1"></i> قائمة موظفي الميدان المسجلين
+                        </h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>الاسم</th>
+                                        <th>البريد الإلكتروني</th>
+                                        <th>رقم الهاتف</th>
+                                        <th>رقم الحساب المصرفي (IBAN)</th>
+                                        <th>الموقف المرتبط</th>
+                                        <th>تاريخ التسجيل</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($employeesList as $employee)
+                                        <tr>
+                                            <td class="fw-bold">{{ $employee->name }}</td>
+                                            <td>{{ $employee->email }}</td>
+                                            <td>{{ $employee->phone }}</td>
+                                            <td><code class="text-dark">{{ $employee->bank_account_number }}</code></td>
+                                            <td>
+                                                @if($employee->parking_name)
+                                                    <span class="badge bg-info text-dark fw-bold"><i class="fas fa-parking"></i> {{ $employee->parking_name }}</span>
+                                                @else
+                                                    <span class="badge bg-light text-muted"><i class="fas fa-times-circle"></i> غير معين</span>
+                                                @endif
+                                            </td>
+                                            <td>{{ $employee->created_at ? \Carbon\Carbon::parse($employee->created_at)->format('Y-m-d H:i') : '-' }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">لا يوجد موظفي ميدان مسجلين حالياً.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </section>

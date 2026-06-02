@@ -21,6 +21,25 @@ class DeveloperController extends Controller
             // جلب عدد الموظفين 
             $employeesCount = DB::table('employees')->count(); 
 
+            // جلب قائمة الساحات بالكامل لإظهارها على الخريطة
+            $parkingsList = DB::table('parkings')->get(['id', 'name', 'latitude', 'longitude', 'total_capacity', 'available_capacity']);
+
+            // جلب قائمة موظفي الميدان المسجلين في النظام مع المواقف المرتبطة بهم إن وجدت
+            $employeesList = DB::table('accounts')
+                ->join('employees', 'accounts.id', '=', 'employees.account_id')
+                ->leftJoin('parkings', 'employees.id', '=', 'parkings.employee_id')
+                ->select(
+                    'accounts.id as account_id', 
+                    'employees.id as employee_id', 
+                    'accounts.name', 
+                    'accounts.email', 
+                    'accounts.phone', 
+                    'employees.bank_account_number', 
+                    'accounts.created_at',
+                    'parkings.name as parking_name'
+                )
+                ->get();
+
             // جلب قائمة المدراء مع حالتهم 
             $managers = DB::table('accounts')
                 ->leftJoin('managers', 'accounts.id', '=', 'managers.account_id')
@@ -35,11 +54,8 @@ class DeveloperController extends Controller
                 ->where('accounts.role', 'manager')
                 ->get();
 
-            // جلب قائمة الساحات بالكامل لإظهارها على الخريطة
-            $parkingsList = DB::table('parkings')->get(['id', 'name', 'latitude', 'longitude', 'total_capacity', 'available_capacity']);
-
             // تمرير البيانات إلى الواجهة
-            return view('developer.developer_dashboard', compact('parkingsCount', 'employeesCount', 'managers', 'parkingsList'));
+            return view('developer.developer_dashboard', compact('parkingsCount', 'employeesCount', 'managers', 'parkingsList', 'employeesList'));
         } catch (\Exception $exception) {
             abort(500, 'حدث خطأ داخلي: ' . $exception->getMessage());
         }
