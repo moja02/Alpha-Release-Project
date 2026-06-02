@@ -35,8 +35,11 @@ class DeveloperController extends Controller
                 ->where('accounts.role', 'manager')
                 ->get();
 
+            // جلب قائمة الساحات بالكامل لإظهارها على الخريطة
+            $parkingsList = DB::table('parkings')->get(['id', 'name', 'latitude', 'longitude', 'total_capacity', 'available_capacity']);
+
             // تمرير البيانات إلى الواجهة
-            return view('developer.developer_dashboard', compact('parkingsCount', 'employeesCount', 'managers'));
+            return view('developer.developer_dashboard', compact('parkingsCount', 'employeesCount', 'managers', 'parkingsList'));
         } catch (\Exception $exception) {
             abort(500, 'حدث خطأ داخلي: ' . $exception->getMessage());
         }
@@ -56,7 +59,7 @@ class DeveloperController extends Controller
             ]);
 
             // إدراج الموقف في قاعدة البيانات
-            \Illuminate\Support\Facades\DB::table('parkings')->insert([
+            $insertedId = \Illuminate\Support\Facades\DB::table('parkings')->insertGetId([
                 'name' => $request->name,
                 'location_park' => $request->location_park, // إدراج الوصف/الموقع
                 'total_capacity' => $request->total_capacity,
@@ -70,7 +73,15 @@ class DeveloperController extends Controller
 
             return response()->json([
                 'status' => 'success', 
-                'message' => 'تم حفظ الموقف بنجاح وتعيين شواغره.'
+                'message' => 'تم حفظ الموقف بنجاح وتعيين شواغره.',
+                'parking' => [
+                    'id' => $insertedId,
+                    'name' => $request->name,
+                    'total_capacity' => $request->total_capacity,
+                    'available_capacity' => $request->total_capacity,
+                    'latitude' => $request->latitude,
+                    'longitude' => $request->longitude
+                ]
             ]);
 
         } catch (\Exception $e) {

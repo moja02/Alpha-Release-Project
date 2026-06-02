@@ -325,6 +325,8 @@
     let map;
     let marker;
     let developerId = null;
+    // قائمة الساحات المسجلة من قاعدة البيانات لعرضها على الخريطة
+    const existingParkings = @json($parkingsList);
 
     // 1. التحقق من تسجيل الدخول عند فتح الصفحة
     document.addEventListener('DOMContentLoaded', () => {
@@ -369,12 +371,28 @@
         }
     }
 
-    // 3. دالة تشغيل خريطة Leaflet
+    // 3. دالة تشغيل خريطة Leaflet ورسم الساحات الحالية
     function initMap() {
         map = L.map('map').setView([32.8872, 13.1913], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap'
         }).addTo(map);
+
+        // وضع علامات (Markers) للساحات المسجلة مسبقاً
+        existingParkings.forEach(parking => {
+            if (parking.latitude && parking.longitude) {
+                L.marker([parking.latitude, parking.longitude])
+                    .addTo(map)
+                    .bindPopup(`
+                        <div style="direction: rtl; text-align: right; font-family: sans-serif; min-width: 150px;">
+                            <h6 class="fw-bold mb-1 text-primary"><i class="fas fa-parking me-1"></i> ${parking.name}</h6>
+                            <small class="text-muted d-block mb-2">ساحة وقوف فعالة</small>
+                            <p class="mb-1 text-dark small"><b>إجمالي السعة:</b> ${parking.total_capacity} مركبة</p>
+                            <p class="mb-0 text-success small"><b>الشواغر المتوفرة:</b> ${parking.available_capacity} مركبة</p>
+                        </div>
+                    `);
+            }
+        });
 
         map.on('click', function(e) {
             document.getElementById('latInput').value = e.latlng.lat.toFixed(6);
@@ -421,6 +439,23 @@
             if (response.ok) {
                 Swal.fire({icon: 'success', title: 'نجاح 🎉', text: data.message});
                 document.getElementById('addParkingForm').reset();
+                
+                // رسم الساحة الجديدة على الخريطة مباشرة وتخزينها
+                if (data.parking && data.parking.latitude && data.parking.longitude) {
+                    L.marker([data.parking.latitude, data.parking.longitude])
+                        .addTo(map)
+                        .bindPopup(`
+                            <div style="direction: rtl; text-align: right; font-family: sans-serif; min-width: 150px;">
+                                <h6 class="fw-bold mb-1 text-primary"><i class="fas fa-parking me-1"></i> ${data.parking.name}</h6>
+                                <small class="text-muted d-block mb-2">ساحة وقوف فعالة</small>
+                                <p class="mb-1 text-dark small"><b>إجمالي السعة:</b> ${data.parking.total_capacity} مركبة</p>
+                                <p class="mb-0 text-success small"><b>الشواغر المتوفرة:</b> ${data.parking.available_capacity} مركبة</p>
+                            </div>
+                        `);
+                    
+                    existingParkings.push(data.parking);
+                }
+
                 if(marker) map.removeLayer(marker);
             } else {
                 throw new Error(data.message || 'حدث خطأ أثناء الحفظ.');
