@@ -364,6 +364,16 @@
     // قائمة الساحات المسجلة من قاعدة البيانات لعرضها على الخريطة
     const existingParkings = @json($parkingsList);
 
+    // تعريف أيقونة برتقالية مخصصة للساحات الحالية
+    const orangeIcon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+
     // 1. التحقق من تسجيل الدخول عند فتح الصفحة
     document.addEventListener('DOMContentLoaded', () => {
         try {
@@ -417,7 +427,7 @@
         // وضع علامات (Markers) للساحات المسجلة مسبقاً
         existingParkings.forEach(parking => {
             if (parking.latitude && parking.longitude) {
-                L.marker([parking.latitude, parking.longitude])
+                L.marker([parking.latitude, parking.longitude], {icon: orangeIcon})
                     .addTo(map)
                     .bindPopup(`
                         <div style="direction: rtl; text-align: right; font-family: sans-serif; min-width: 150px;">
@@ -478,7 +488,7 @@
                 
                 // رسم الساحة الجديدة على الخريطة مباشرة وتخزينها
                 if (data.parking && data.parking.latitude && data.parking.longitude) {
-                    L.marker([data.parking.latitude, data.parking.longitude])
+                    L.marker([data.parking.latitude, data.parking.longitude], {icon: orangeIcon})
                         .addTo(map)
                         .bindPopup(`
                             <div style="direction: rtl; text-align: right; font-family: sans-serif; min-width: 150px;">
