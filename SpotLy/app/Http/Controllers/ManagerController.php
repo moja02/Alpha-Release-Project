@@ -70,7 +70,23 @@ class ManagerController extends Controller
                 )
                 ->get();
 
-            return view('dashboards.manager', compact('parkingsList', 'unassignedEmployees'));
+            // قائمة السائقين (المستخدمين) المحظورين فقط
+            $blockedUsers = DB::table('users')
+                ->join('accounts', 'users.account_id', '=', 'accounts.id')
+                ->select(
+                    'users.id',
+                    'users.account_id',
+                    'accounts.name as driver_name',
+                    'accounts.email as driver_email',
+                    'accounts.phone as driver_phone',
+                    'users.plate_number',
+                    'users.fake_booking_count',
+                    'users.status'
+                )
+                ->where('users.status', 'blocked')
+                ->get();
+
+            return view('dashboards.manager', compact('parkingsList', 'unassignedEmployees', 'blockedUsers'));
 
         } catch (\Exception $exception) {
             abort(500, 'حدث خطأ داخلي أثناء تحميل لوحة تحكم المدير: ' . $exception->getMessage());
@@ -237,6 +253,42 @@ class ManagerController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'تم فك ارتباط الموظف عن الساحة بنجاح.'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'خطأ داخلي: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * إلغاء حظر سائق وتصفير مخالفاته
+     */
+    public function unblockUser(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            if (!$user || $user->role !== 'manager') {
+                return response()->json(['status' => 'error', 'message' => 'غير مصرح لك!'], 403);
+            }
+
+            $request->validate([
+                'user_id' => 'required|integer|exists:users,id',
+            ]);
+
+            DB::table('users')
+                ->where('id', $request->user_id)
+                ->update([
+                    'status' => 'active',
+                    'fake_booking_count' => 0,
+                    'updated_at' => now()
+                ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'تم فك حظر السائق وتصفير المخالفات بنجاح.'
             ]);
 
         } catch (\Exception $e) {

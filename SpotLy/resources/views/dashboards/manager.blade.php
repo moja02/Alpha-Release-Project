@@ -96,6 +96,9 @@
             <a class="nav-link" onclick="switchTab('parkingsTab', this)">
                 📍 الساحات المدارة
             </a>
+            <a class="nav-link" onclick="switchTab('violationsTab', this)">
+                🚫 إدارة الحظر والمخالفات
+            </a>
             <a class="nav-link" onclick="switchTab('profileTab', this)">
                 ⚙️ البيانات الشخصية
             </a>
@@ -300,6 +303,59 @@
                 </div>
             </div>
         </div>
+
+        <!-- تبويب: إدارة الحظر والمخالفات -->
+        <section id="violationsTab" class="content-section d-none">
+            <div class="card">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 text-dark fw-bold">🚫 إدارة حسابات السائقين المحظورين</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive shadow-sm">
+                        <table class="table table-hover align-middle mb-0 text-center">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>اسم السائق</th>
+                                    <th>البريد الإلكتروني</th>
+                                    <th>رقم الهاتف</th>
+                                    <th>رقم اللوحة</th>
+                                    <th>عدد المخالفات</th>
+                                    <th>حالة الحساب</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($blockedUsers as $driver)
+                                    <tr id="driver-row-{{ $driver->id }}">
+                                        <td class="fw-bold text-dark">{{ $driver->driver_name }}</td>
+                                        <td>{{ $driver->driver_email }}</td>
+                                        <td><span dir="ltr">{{ $driver->driver_phone }}</span></td>
+                                        <td><span class="badge bg-secondary px-3 py-1">{{ $driver->plate_number }}</span></td>
+                                        <td><span class="badge bg-warning text-dark px-3 py-1" id="driver-violations-{{ $driver->id }}">{{ $driver->fake_booking_count }}</span></td>
+                                        <td>
+                                            @if($driver->status === 'blocked')
+                                                <span class="badge bg-danger px-3 py-1" id="driver-status-{{ $driver->id }}">محظور</span>
+                                            @else
+                                                <span class="badge bg-success px-3 py-1" id="driver-status-{{ $driver->id }}">نشط</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <button onclick="confirmUnblockDriver({{ $driver->id }}, '{{ addslashes($driver->driver_name) }}')" class="btn btn-sm btn-success rounded-pill px-3" id="unblock-btn-{{ $driver->id }}">
+                                                ✅ فك الحظر وتصفير المخالفات
+                                            </button>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="text-muted py-4">لا يوجد سائقون محظورون حالياً.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
 
         <!-- تبويب: البيانات الشخصية -->
         <section id="profileTab" class="content-section d-none">
@@ -660,6 +716,75 @@
                             icon: 'error',
                             title: 'خطأ',
                             text: resData.message || 'فشل فك ارتباط الموظف.',
+                            confirmButtonColor: '#d33'
+                        });
+                    }
+                } catch (error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'خطأ اتصال',
+                        text: 'تعذر الاتصال بالخادم.',
+                        confirmButtonColor: '#d33'
+                    });
+                }
+            }
+        });
+    }
+
+    // فك الحظر وتصفير المخالفات للسائق
+    function confirmUnblockDriver(driverId, driverName) {
+        Swal.fire({
+            title: 'تأكيد إلغاء الحظر وتصفير المخالفات',
+            text: `هل أنت متأكد من تصفير مخالفات السائق (${driverName}) وإعادة تنشيط حسابه؟`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#198754',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'نعم، فك الحظر والتصفير',
+            cancelButtonText: 'إلغاء'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    const response = await fetch('/manager/users/unblock', {
+                        method: 'POST',
+                        headers: fetchHeaders,
+                        body: JSON.stringify({
+                            user_id: driverId
+                        })
+                    });
+
+                    const resData = await response.json();
+
+                    if (response.ok && resData.status === 'success') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'نجاح العملية',
+                            text: resData.message,
+                            confirmButtonColor: '#2c3e50'
+                        });
+
+                        // تحديث القيم والشارات ديناميكياً لتوفير تجربة مستخدم متميزة
+                        const violationsBadge = document.getElementById(`driver-violations-${driverId}`);
+                        const statusBadge = document.getElementById(`driver-status-${driverId}`);
+                        const unblockBtn = document.getElementById(`unblock-btn-${driverId}`);
+
+                        if (violationsBadge) {
+                            violationsBadge.innerText = '0';
+                        }
+                        if (statusBadge) {
+                            statusBadge.className = 'badge bg-success px-3 py-1';
+                            statusBadge.innerText = 'نشط';
+                        }
+                        if (unblockBtn) {
+                            unblockBtn.disabled = true;
+                            unblockBtn.className = 'btn btn-sm btn-outline-secondary rounded-pill px-3';
+                            unblockBtn.innerText = 'تم التصفير';
+                        }
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'خطأ',
+                            text: resData.message || 'فشل إلغاء حظر السائق.',
                             confirmButtonColor: '#d33'
                         });
                     }
