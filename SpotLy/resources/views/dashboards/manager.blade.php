@@ -180,9 +180,15 @@
                                             @endif
                                         </td>
                                         <td>
-                                            <button onclick="openCreateEmployeeModal({{ $parking->id }}, '{{ addslashes($parking->parking_name) }}')" class="btn btn-sm btn-primary rounded-pill px-3">
-                                                👤 إنشاء حساب موظف
-                                            </button>
+                                            @if($parking->employee_id)
+                                                <button onclick="confirmUnlinkEmployee({{ $parking->id }}, '{{ addslashes($parking->parking_name) }}', '{{ addslashes($parking->employee_name ?? 'الموظف') }}')" class="btn btn-sm btn-outline-danger rounded-pill px-3">
+                                                    🔓 إلغاء ربط الموظف
+                                                </button>
+                                            @else
+                                                <button onclick="openCreateEmployeeModal({{ $parking->id }}, '{{ addslashes($parking->parking_name) }}')" class="btn btn-sm btn-primary rounded-pill px-3">
+                                                    👤 إنشاء حساب موظف
+                                                </button>
+                                            @endif
                                         </td>
                                     </tr>
                                 @empty
@@ -214,40 +220,76 @@
                                 <input type="text" class="form-control bg-light text-muted border-0" id="modalParkingName" readonly>
                             </div>
 
-                            <div class="mb-3">
-                                <label class="form-label fw-bold text-secondary">اسم الموظف الكامل</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light">👤</span>
-                                    <input type="text" class="form-control" id="employeeNameInput" required placeholder="أدخل اسم الموظف">
+                            <div class="mb-4 bg-light p-3 rounded-3 border-0">
+                                <label class="form-label fw-bold text-secondary mb-2">طريقة التعيين</label>
+                                <div class="d-flex gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="assignment_type" id="assignTypeCreate" value="create" checked onchange="toggleAssignmentType()">
+                                        <label class="form-check-label fw-bold text-dark" for="assignTypeCreate">👤 إنشاء حساب جديد</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="assignment_type" id="assignTypeSelect" value="select" onchange="toggleAssignmentType()">
+                                        <label class="form-check-label fw-bold text-dark" for="assignTypeSelect">📋 اختيار موظف مسجل</label>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="mb-3">
-                                <label class="form-label fw-bold text-secondary">البريد الإلكتروني</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light">📧</span>
-                                    <input type="email" class="form-control" id="employeeEmailInput" required placeholder="name@example.com">
+                            <!-- قسم: إنشاء حساب موظف جديد -->
+                            <div id="createNewEmployeeSection">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold text-secondary">اسم الموظف الكامل</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">👤</span>
+                                        <input type="text" class="form-control" id="employeeNameInput" required placeholder="أدخل اسم الموظف">
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold text-secondary">البريد الإلكتروني</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">📧</span>
+                                        <input type="email" class="form-control" id="employeeEmailInput" required placeholder="name@example.com">
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold text-secondary">رقم الهاتف</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">📞</span>
+                                        <input type="text" class="form-control" id="employeePhoneInput" required placeholder="مثال: 0912345678">
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold text-secondary">رقم الحساب المصرفي (IBAN - اختياري)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">🏦</span>
+                                        <input type="text" class="form-control" id="employeeBankInput" placeholder="أدخل رقم الحساب المصرفي">
+                                    </div>
+                                </div>
+
+                                <div class="alert alert-info border-0 rounded-3 mb-0 py-2 small">
+                                    💡 سيقوم النظام تلقائياً بتوليد كلمة مرور عشوائية وإرسالها إلى البريد الإلكتروني للموظف الجديد.
                                 </div>
                             </div>
 
-                            <div class="mb-3">
-                                <label class="form-label fw-bold text-secondary">رقم الهاتف</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light">📞</span>
-                                    <input type="text" class="form-control" id="employeePhoneInput" required placeholder="مثال: 0912345678">
+                            <!-- قسم: اختيار موظف مسجل غير معين -->
+                            <div id="selectExistingEmployeeSection" class="d-none">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold text-secondary">اختر موظفاً من النظام</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">📋</span>
+                                        <select class="form-select" id="existingEmployeeSelect">
+                                            <option value="" selected disabled>اختر موظفاً غير معين لساحة...</option>
+                                            @foreach($unassignedEmployees as $emp)
+                                                <option value="{{ $emp->id }}">{{ $emp->employee_name }} ({{ $emp->employee_phone }})</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="form-text text-muted small mt-2">
+                                        تتضمن هذه القائمة الموظفين الميدانيين المسجلين في النظام والذين لا يشرفون على أي ساحة حالياً.
+                                    </div>
                                 </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label fw-bold text-secondary">رقم الحساب المصرفي (IBAN - اختياري)</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light">🏦</span>
-                                    <input type="text" class="form-control" id="employeeBankInput" placeholder="أدخل رقم الحساب المصرفي">
-                                </div>
-                            </div>
-
-                            <div class="alert alert-info border-0 rounded-3 mb-0 py-2 small">
-                                💡 سيقوم النظام تلقائياً بتوليد كلمة مرور عشوائية وإرسالها إلى البريد الإلكتروني للموظف الجديد.
                             </div>
 
                             <button type="submit" class="btn btn-primary w-100 fw-bold py-2 mt-4 rounded-3" id="saveEmployeeBtn">
@@ -467,10 +509,40 @@
 
     let employeeModal;
 
+    function toggleAssignmentType() {
+        const typeSelect = document.getElementById('assignTypeSelect').checked;
+        const createSection = document.getElementById('createNewEmployeeSection');
+        const selectSection = document.getElementById('selectExistingEmployeeSection');
+        
+        if (typeSelect) {
+            createSection.classList.add('d-none');
+            selectSection.classList.remove('d-none');
+            
+            // Remove required attribute from inputs to allow submission
+            document.getElementById('employeeNameInput').removeAttribute('required');
+            document.getElementById('employeeEmailInput').removeAttribute('required');
+            document.getElementById('employeePhoneInput').removeAttribute('required');
+            document.getElementById('existingEmployeeSelect').setAttribute('required', 'required');
+        } else {
+            createSection.classList.remove('d-none');
+            selectSection.classList.add('d-none');
+            
+            // Add required attribute back
+            document.getElementById('employeeNameInput').setAttribute('required', 'required');
+            document.getElementById('employeeEmailInput').setAttribute('required', 'required');
+            document.getElementById('employeePhoneInput').setAttribute('required', 'required');
+            document.getElementById('existingEmployeeSelect').removeAttribute('required');
+        }
+    }
+
     function openCreateEmployeeModal(parkingId, parkingName) {
         document.getElementById('modalParkingId').value = parkingId;
         document.getElementById('modalParkingName').value = parkingName;
         document.getElementById('createEmployeeForm').reset();
+        
+        // Reset assignment type view to 'create'
+        document.getElementById('assignTypeCreate').checked = true;
+        toggleAssignmentType();
         
         if (!employeeModal) {
             employeeModal = new bootstrap.Modal(document.getElementById('createEmployeeModal'));
@@ -482,25 +554,40 @@
         event.preventDefault();
         
         const parkingId = document.getElementById('modalParkingId').value;
-        const name = document.getElementById('employeeNameInput').value;
-        const email = document.getElementById('employeeEmailInput').value;
-        const phone = document.getElementById('employeePhoneInput').value;
-        const bankAccount = document.getElementById('employeeBankInput').value;
-        const submitBtn = document.getElementById('saveEmployeeBtn');
+        const assignmentType = document.querySelector('input[name="assignment_type"]:checked').value;
+        
+        let requestData = {
+            parking_id: parkingId,
+            assignment_type: assignmentType
+        };
 
+        if (assignmentType === 'select') {
+            const employeeId = document.getElementById('existingEmployeeSelect').value;
+            if (!employeeId) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'تنبيه',
+                    text: 'الرجاء اختيار موظف من القائمة.',
+                    confirmButtonColor: '#3085d6'
+                });
+                return;
+            }
+            requestData.employee_id = employeeId;
+        } else {
+            requestData.name = document.getElementById('employeeNameInput').value;
+            requestData.email = document.getElementById('employeeEmailInput').value;
+            requestData.phone = document.getElementById('employeePhoneInput').value;
+            requestData.bank_account_number = document.getElementById('employeeBankInput').value || null;
+        }
+
+        const submitBtn = document.getElementById('saveEmployeeBtn');
         submitBtn.disabled = true;
 
         try {
             const response = await fetch('/manager/employees/store', {
                 method: 'POST',
                 headers: fetchHeaders,
-                body: JSON.stringify({
-                    name: name,
-                    email: email,
-                    phone: phone,
-                    bank_account_number: bankAccount || null,
-                    parking_id: parkingId
-                })
+                body: JSON.stringify(requestData)
             });
 
             const result = await response.json();
@@ -509,7 +596,7 @@
                 Swal.fire({
                     icon: 'success',
                     title: 'نجاح العملية',
-                    text: 'تم إنشاء حساب الموظف الميداني وتعيينه للساحة بنجاح.',
+                    text: result.message || 'تم تعيين الموظف للساحة بنجاح.',
                     confirmButtonColor: '#2c3e50'
                 }).then(() => {
                     location.reload();
@@ -534,6 +621,59 @@
             submitBtn.disabled = false;
         }
     });
+
+    // تأكيد وفك ارتباط الموظف عن الساحة
+    function confirmUnlinkEmployee(parkingId, parkingName, employeeName) {
+        Swal.fire({
+            title: 'تأكيد فك الارتباط',
+            text: `هل أنت متأكد من فك ارتباط الموظف (${employeeName}) عن ساحة (${parkingName})؟`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'نعم، فك الارتباط',
+            cancelButtonText: 'إلغاء'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    const response = await fetch('/manager/parkings/unlink', {
+                        method: 'POST',
+                        headers: fetchHeaders,
+                        body: JSON.stringify({
+                            parking_id: parkingId
+                        })
+                    });
+
+                    const resData = await response.json();
+
+                    if (response.ok && resData.status === 'success') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'تم فك الارتباط بنجاح',
+                            text: resData.message,
+                            confirmButtonColor: '#2c3e50'
+                        }).then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'خطأ',
+                            text: resData.message || 'فشل فك ارتباط الموظف.',
+                            confirmButtonColor: '#d33'
+                        });
+                    }
+                } catch (error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'خطأ اتصال',
+                        text: 'تعذر الاتصال بالخادم.',
+                        confirmButtonColor: '#d33'
+                    });
+                }
+            }
+        });
+    }
     </script>
 </body>
 </html>

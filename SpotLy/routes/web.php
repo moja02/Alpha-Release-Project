@@ -37,6 +37,9 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::post('/manager/employees/store', [ManagerController::class, 'storeEmployee'])
         ->middleware('role:manager')
         ->name('manager.employee.store');
+    Route::post('/manager/parkings/unlink', [ManagerController::class, 'unlinkEmployee'])
+        ->middleware('role:manager')
+        ->name('manager.parking.unlink');
 });
 
 Route::post('/developer/parkings/store', [DeveloperController::class, 'storeParking'])->name('developer.parking.store');
