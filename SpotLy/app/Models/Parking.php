@@ -15,12 +15,19 @@ class Parking extends Model
         'available_capacity',
         'latitude',
         'longitude',
-        'employee_id' 
+        'employee_id',
+        'manager_id'
     ];
 
     //  علاقة الساحة بالموظف المسؤول عنها
     public function employee()
     {
         return $this->belongsTo(Employee::class, 'employee_id');
+    }
+
+    // علاقة الساحة بالمدير المسؤول عنها
+    public function manager()
+    {
+        return $this->belongsTo(Manager::class, 'manager_id');
     }
 }

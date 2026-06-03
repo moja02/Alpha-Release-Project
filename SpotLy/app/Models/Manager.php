@@ -20,4 +20,9 @@ class Manager extends Model
     {
         return $this->belongsTo(Account::class);
     }
+
+    public function parkings()
+    {
+        return $this->hasMany(Parking::class, 'manager_id');
+    }
 }

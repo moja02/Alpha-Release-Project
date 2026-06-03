@@ -328,6 +328,9 @@
                                                         @endif
                                                     </td>
                                                     <td>
+                                                        <button class="btn btn-sm btn-outline-primary manage-parkings-btn fw-bold ms-1" onclick="openManageParkingsModal({{ $manager->id }})">
+                                                            <i class="fas fa-parking me-1"></i> إدارة الساحات
+                                                        </button>
                                                         <button class="btn btn-sm btn-outline-secondary toggle-status-btn fw-bold" onclick="toggleManagerStatus({{ $manager->id }}, this)">
                                                             @if($manager->status === 'active')
                                                                 تعطيل الحساب
@@ -354,6 +357,41 @@
         </div>
     </div>
 
+    <!-- نافذة إدارة ربط الساحات بالمدير -->
+    <div class="modal fade" id="manageParkingsModal" tabindex="-1" aria-labelledby="manageParkingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 12px;">
+                <div class="modal-header bg-primary text-white" style="border-top-left-radius: 12px; border-top-right-radius: 12px;">
+                    <h5 class="modal-title fw-bold" id="manageParkingsModalLabel">
+                        <i class="fas fa-parking me-1"></i> إدارة ربط الساحات
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-secondary mb-3">
+                        حدد الساحات التي ترغب في ربطها بالمدير: <strong class="text-dark" id="modalManagerName">...</strong>
+                    </p>
+                    <div id="modalLoadingSpinner" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">جاري التحميل...</span>
+                        </div>
+                    </div>
+                    <form id="manageParkingsForm" class="d-none">
+                        <input type="hidden" id="modalManagerAccountId">
+                        <div id="parkingsListContainer" style="max-height: 300px; overflow-y: auto; padding-right: 5px;">
+                            <!-- سيتم إدراج الساحات هنا عبر JS -->
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer bg-light" style="border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
+                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="button" onclick="saveManagerParkings()" class="btn btn-primary fw-bold px-4" id="saveParkingsBtn">حفظ التغييرات 💾</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -559,6 +597,9 @@
                         <td>${data.manager.phone}</td>
                         <td><span class="badge bg-success status-badge">نشط</span></td>
                         <td>
+                            <button class="btn btn-sm btn-outline-primary manage-parkings-btn fw-bold ms-1" onclick="openManageParkingsModal(${data.manager.id})">
+                                <i class="fas fa-parking me-1"></i> إدارة الساحات
+                            </button>
                             <button class="btn btn-sm btn-outline-secondary toggle-status-btn fw-bold" onclick="toggleManagerStatus(${data.manager.id}, this)">
                                 تعطيل الحساب
                             </button>
@@ -608,6 +649,105 @@
                 }
             } else {
                 throw new Error(data.message || 'حدث خطأ أثناء تحديث حالة الحساب.');
+            }
+        } catch (error) {
+            Swal.fire({icon: 'error', title: 'عذراً', text: error.message});
+        }
+    }
+
+    // دالة فتح نافذة ربط الساحات بالمدير وجلب البيانات
+    async function openManageParkingsModal(managerAccountId) {
+        // تهيئة الـ Modal وعرضه
+        const modalEl = document.getElementById('manageParkingsModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+
+        // إعادة ضبط حالة الواجهة
+        document.getElementById('modalManagerName').innerText = '...';
+        document.getElementById('modalManagerAccountId').value = managerAccountId;
+        document.getElementById('modalLoadingSpinner').classList.remove('d-none');
+        document.getElementById('manageParkingsForm').classList.add('d-none');
+        
+        const container = document.getElementById('parkingsListContainer');
+        container.innerHTML = '';
+
+        try {
+            const response = await fetch(`/developer/managers/${managerAccountId}/parkings`);
+            const data = await response.json();
+
+            if (response.ok) {
+                document.getElementById('modalManagerName').innerText = data.manager_name;
+                
+                if (data.parkings.length === 0) {
+                    container.innerHTML = '<div class="text-center py-4 text-muted">لا توجد ساحات غير مربوطة في النظام حالياً.</div>';
+                } else {
+                    data.parkings.forEach(parking => {
+                        const isChecked = parking.manager_id === data.manager_id ? 'checked' : '';
+                        const isLinkedBadge = parking.manager_id === data.manager_id 
+                            ? '<span class="badge bg-primary text-white ms-2">مرتبطة بهذا المدير</span>' 
+                            : '<span class="badge bg-secondary text-white ms-2">غير مربوطة</span>';
+                        
+                        const parkingHtml = `
+                            <div class="form-check p-3 mb-2 rounded border border-light-subtle bg-white shadow-sm d-flex justify-content-between align-items-center" style="direction: rtl;">
+                                <div class="d-flex align-items-center">
+                                    <input class="form-check-input ms-3 fs-5" type="checkbox" name="parking_ids[]" value="${parking.id}" id="parking-chk-${parking.id}" ${isChecked}>
+                                    <label class="form-check-label fw-bold text-dark fs-6" for="parking-chk-${parking.id}">
+                                        ${parking.name}
+                                        <small class="text-muted d-block mt-1 fw-normal"><i class="fas fa-map-marker-alt me-1"></i> ${parking.location_park}</small>
+                                    </label>
+                                </div>
+                                <div>
+                                    ${isLinkedBadge}
+                                </div>
+                            </div>
+                        `;
+                        container.insertAdjacentHTML('beforeend', parkingHtml);
+                    });
+                }
+
+                document.getElementById('modalLoadingSpinner').classList.add('d-none');
+                document.getElementById('manageParkingsForm').classList.remove('d-none');
+            } else {
+                throw new Error(data.message || 'حدث خطأ أثناء جلب البيانات.');
+            }
+        } catch (error) {
+            bootstrap.Modal.getInstance(modalEl).hide();
+            Swal.fire({icon: 'error', title: 'عذراً', text: error.message});
+        }
+    }
+
+    // دالة حفظ تغييرات ربط الساحات بالمدير
+    async function saveManagerParkings() {
+        const managerAccountId = document.getElementById('modalManagerAccountId').value;
+        const checkedBoxes = document.querySelectorAll('input[name="parking_ids[]"]:checked');
+        const parkingIds = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+
+        Swal.fire({ title: 'جاري حفظ التغييرات...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+        try {
+            const response = await fetch(`/developer/managers/${managerAccountId}/parkings`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    parking_ids: parkingIds
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                Swal.fire({icon: 'success', title: 'نجاح 🎉', text: data.message, timer: 1500, showConfirmButton: false});
+                // إغلاق الـ Modal
+                const modalEl = document.getElementById('manageParkingsModal');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+            } else {
+                throw new Error(data.message || 'حدث خطأ أثناء الحفظ.');
             }
         } catch (error) {
             Swal.fire({icon: 'error', title: 'عذراً', text: error.message});

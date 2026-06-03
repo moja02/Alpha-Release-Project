@@ -45,6 +45,7 @@ class DeveloperController extends Controller
                 ->leftJoin('managers', 'accounts.id', '=', 'managers.account_id')
                 ->select(
                     'accounts.id', 
+                    'managers.id as manager_id',
                     'accounts.name', 
                     'accounts.email', 
                     'accounts.phone', 
@@ -141,7 +142,7 @@ class DeveloperController extends Controller
             ]);
 
             // إدراج سجل في جدول managers
-            DB::table('managers')->insert([
+            $managerProfileId = DB::table('managers')->insertGetId([
                 'account_id' => $insertedId,
                 'status' => 'active',
                 'created_at' => \Carbon\Carbon::now(),
@@ -155,6 +156,7 @@ class DeveloperController extends Controller
                 'message' => 'تم إنشاء حساب المدير بنجاح.',
                 'manager' => [
                     'id' => $insertedId,
+                    'manager_id' => $managerProfileId,
                     'name' => $request->name,
                     'email' => $request->email,
                     'phone' => $request->phone,
@@ -228,6 +230,125 @@ class DeveloperController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'خطأ داخلي: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // 5. جلب ساحات المدير والساحات غير المربوطة
+    public function getManagerParkings($id)
+    {
+        if (auth()->user()->role !== 'developer') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'غير مصرح لك!'
+            ], 403);
+        }
+
+        try {
+            // البحث عن حساب المدير
+            $account = DB::table('accounts')->where('id', $id)->where('role', 'manager')->first();
+            if (!$account) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'حساب المدير غير موجود.'
+                ], 404);
+            }
+
+            // البحث عن سجل المدير في جدول managers
+            $manager = DB::table('managers')->where('account_id', $id)->first();
+            if (!$manager) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'سجل المدير غير موجود.'
+                ], 404);
+            }
+
+            // جلب الساحات المربوطة بهذا المدير + الساحات غير المربوطة بأي مدير
+            $parkings = DB::table('parkings')
+                ->select('id', 'name', 'location_park', 'manager_id')
+                ->whereNull('manager_id')
+                ->orWhere('manager_id', $manager->id)
+                ->get();
+
+            return response()->json([
+                'status' => 'success',
+                'manager_name' => $account->name,
+                'manager_id' => $manager->id,
+                'parkings' => $parkings
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'خطأ داخلي: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // 6. تحديث ساحات المدير
+    public function updateManagerParkings(Request $request, $id)
+    {
+        if (auth()->user()->role !== 'developer') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'غير مصرح لك!'
+            ], 403);
+        }
+
+        try {
+            $request->validate([
+                'parking_ids' => 'nullable|array',
+                'parking_ids.*' => 'integer|exists:parkings,id'
+            ]);
+
+            // البحث عن سجل المدير في جدول managers
+            $manager = DB::table('managers')->where('account_id', $id)->first();
+            if (!$manager) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'سجل المدير غير موجود.'
+                ], 404);
+            }
+
+            $parkingIds = $request->input('parking_ids', []);
+
+            DB::beginTransaction();
+
+            // إزالة ربط الساحات التي كانت تابعة لهذا المدير
+            DB::table('parkings')
+                ->where('manager_id', $manager->id)
+                ->update([
+                    'manager_id' => null,
+                    'updated_at' => now()
+                ]);
+
+            // ربط الساحات الجديدة بهذا المدير
+            if (!empty($parkingIds)) {
+                DB::table('parkings')
+                    ->whereIn('id', $parkingIds)
+                    ->update([
+                        'manager_id' => $manager->id,
+                        'updated_at' => now()
+                    ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'تم تحديث ربط الساحات بالمدير بنجاح.'
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->validator->errors()->first()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'status' => 'error',
                 'message' => 'خطأ داخلي: ' . $e->getMessage()

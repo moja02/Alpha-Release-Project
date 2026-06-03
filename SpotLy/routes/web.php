@@ -33,6 +33,8 @@ Route::middleware(['web', 'auth'])->group(function () {
 Route::post('/developer/parkings/store', [DeveloperController::class, 'storeParking'])->name('developer.parking.store');
 Route::post('/developer/managers/store', [DeveloperController::class, 'storeManager'])->name('developer.manager.store');
 Route::post('/developer/managers/{id}/toggle-status', [DeveloperController::class, 'toggleManagerStatus'])->name('developer.manager.toggle-status');
+Route::get('/developer/managers/{id}/parkings', [DeveloperController::class, 'getManagerParkings'])->name('developer.manager.parkings');
+Route::post('/developer/managers/{id}/parkings', [DeveloperController::class, 'updateManagerParkings'])->name('developer.manager.parkings.update');
     
 
 // 3. مسارات الخدمات (خلفية)
