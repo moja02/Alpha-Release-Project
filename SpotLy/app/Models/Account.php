@@ -2,10 +2,15 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-class Account extends Model
+class Account extends Authenticatable
 {
+    use HasApiTokens, Notifiable;
+
+    protected $table = 'accounts';
     // السماح بالإدخال الجماعي لحقول الحساب الأساسية
     protected $fillable = [
         'name',
@@ -28,5 +33,10 @@ class Account extends Model
     public function employee()
     {
         return $this->hasOne(Employee::class);
+    }
+
+    public function manager()
+    {
+        return $this->hasOne(Manager::class);
     }
 }

@@ -63,14 +63,14 @@
             submitBtn.disabled = true;
             submitBtn.innerHTML = 'Verifying...';
 
-            
             try {
-                //  إرسال البيانات إلى مسار الـ API للتحقق من الهوية
-                const response = await fetch('/api/accounts/login', {
+                const response = await fetch('/web-login', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json'
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
                     },
                     body: JSON.stringify({
                         email: emailValue,
@@ -80,27 +80,38 @@
 
                 const responseData = await response.json();
 
-                if (response.ok) {
-                    // حفظ بيانات المستخدم في المتصفح
+                // التحقق من نجاح الاستجابة
+                if (response.ok && responseData.status === 'success') {
+                    
+                    // 1. حفظ بيانات المستخدم
                     localStorage.setItem('authToken', responseData.token);
                     localStorage.setItem('userData', JSON.stringify(responseData.accountData));
 
-                    const userRole = responseData.accountData.role;
-
-                    //  إظهار إشعار SweetAlert تفاعلي عند النجاح مع مؤقت توجيه تلقائي
+                    // 2. إظهار الإشعار والانتظار حتى ينتهي
                     Swal.fire({
                         icon: 'success',
                         title: 'Welcome Back!',
                         text: `Logged in successfully as ${responseData.accountData.name}`,
-                        timer: 1500,
+                        timer: 1000,
                         showConfirmButton: false
                     }).then(() => {
-                        // التوجيه التلقائي إلى لوحة التحكم المناسبة للصلاحية
-                        window.location.href = '/' + userRole + '-dashboard'; 
+                        // 3. الانتقال يتم فقط بعد إغلاق الإشعار أو انتهاء المؤقت
+                        if (responseData.redirect) {
+                            window.location.replace(responseData.redirect);
+                        } else {
+                            // مسار احتياطي
+                            const userRole = responseData.accountData.role;
+                            const routes = {
+                                'developer': '/developer/dashboard',
+                                'employee': '/employee-dashboard',
+                                'user': '/home'
+                            };
+                            window.location.replace(routes[userRole] || '/home');
+                        }
                     });
 
                 } else {
-                    // إظهار إشعار SweetAlert للخطأ (مثل الحساب المحظور أو كلمة المرور الخاطئة)
+                    // إظهار الخطأ
                     Swal.fire({
                         icon: 'error',
                         title: 'Login Failed',
@@ -111,6 +122,7 @@
 
             } catch (error) {
                 // التعامل مع أخطاء الشبكة أو توقف الخادم
+                console.error('Login Error:', error); // طباعة الخطأ الفعلي في المتصفح لمعرفته
                 Swal.fire({
                     icon: 'error',
                     title: 'Network Error',

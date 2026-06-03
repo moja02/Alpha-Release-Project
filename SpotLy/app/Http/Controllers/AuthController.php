@@ -26,7 +26,7 @@ class AuthController extends Controller
             $inputEmail = $request->input('email');
             $inputPassword = $request->input('password');
 
-            // تعليق مضمن: البحث عن الحساب ومطابقة كلمة المرور
+            // البحث عن الحساب ومطابقة كلمة المرور
             $account = Account::where('email', $inputEmail)->first();
 
             if (!$account || !Hash::check($inputPassword, $account->password)) {
@@ -34,29 +34,52 @@ class AuthController extends Controller
             }
 
             $profileDetails = null;
+            $redirectUrl = '/home'; // مسار التوجيه الافتراضي
 
+            // تحديد التفاصيل ومسار التوجيه بناءً على الصلاحية
             if ($account->role === 'user') {
                 $profileDetails = User::where('account_id', $account->id)->first();
+                $redirectUrl = '/user-dashboard'; 
                 
-                // منع الدخول إذا كان الحساب محظوراً
                 if ($profileDetails && $profileDetails->status === 'blocked') {
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => 'Access Denied: Your account is blocked.'
-                    ], 403);
+                    return response()->json(['status' => 'error', 'message' => 'Access Denied: Your account is blocked.'], 403);
                 }
+
             } elseif ($account->role === 'employee') {
                 $profileDetails = Employee::where('account_id', $account->id)->first();
+                $redirectUrl = '/employee-dashboard';
+
+            } elseif ($account->role === 'developer') {
+                // توجيه المطور 
+                $profileDetails = null; 
+                $redirectUrl = '/developer/dashboard'; 
+
+            } elseif ($account->role === 'manager') {
+                //  توجيه المدير  
+                $profileDetails = \App\Models\Manager::where('account_id', $account->id)->first(); 
+                $redirectUrl = '/manager/dashboard'; 
+                
+                if ($profileDetails && $profileDetails->status === 'blocked') {
+                    return response()->json(['status' => 'error', 'message' => 'Access Denied: Your account is blocked.'], 403);
+                }
             }
 
+            // إنشاء التوكن
             $authToken = method_exists($account, 'createToken') 
                 ? $account->createToken('ApiAuthToken')->plainTextToken 
                 : 'stateless_session_active';
 
+            
+            \Illuminate\Support\Facades\Auth::guard('web')->login($account);
+            $request->session()->regenerate();
+
+            // إرسال رد موحد وشامل لكل أنواع الحسابات
             return response()->json([
                 'status' => 'success',
                 'message' => 'Logged in successfully.',
+                'redirect' => $redirectUrl, //  الواجهة ستستخدم هذا الرابط للتوجيه
                 'token' => $authToken,
+                'user' => $account,
                 'accountData' => [
                     'accountId' => $account->id,
                     'name' => $account->name,
@@ -68,7 +91,7 @@ class AuthController extends Controller
             ], 200);
 
         } catch (\Exception $exception) {
-            Log::error('Error in AuthController login: ' . $exception->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error in AuthController login: ' . $exception->getMessage());
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
         }
     }

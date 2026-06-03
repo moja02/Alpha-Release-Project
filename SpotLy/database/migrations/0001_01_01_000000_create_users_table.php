@@ -21,7 +21,7 @@ return new class extends Migration
                 $table->string('password');
                 
                 // تحديد نوع الحساب لتسهيل التوجيه في لوحات التحكم
-                $table->enum('role', ['user', 'employee', 'admin'])->default('user');
+                $table->enum('role', ['user', 'employee', 'admin', 'developer', 'manager'])->default('user');
                 
                 $table->timestamps();
             });

@@ -45,6 +45,7 @@ Route::post('/auth/forgot-password/reset', [App\Http\Controllers\AuthController:
 
 // مسارات المواقف والحجوزات الخاصة بالسائق 
 Route::get('/parkings/spots', [BookingController::class, 'getSpots']);
+Route::get('/parkings/recommend', [BookingController::class, 'getRecommendedSpots']);
 Route::get('/bookings/active', [BookingController::class, 'getActiveBooking']);
 Route::post('/bookings/create', [BookingController::class, 'createBooking']);
 Route::post('/bookings/cancel', [BookingController::class, 'cancelBooking']);
