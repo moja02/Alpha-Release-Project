@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SpotLy - لوحة تحكم المدير</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { 
@@ -154,6 +155,7 @@
                                     <th>الشاغرة حالياً</th>
                                     <th>الموظف المسؤول</th>
                                     <th>هاتف الموظف</th>
+                                    <th>الإجراءات</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -177,10 +179,15 @@
                                                 <span class="text-muted">-</span>
                                             @endif
                                         </td>
+                                        <td>
+                                            <button onclick="openCreateEmployeeModal({{ $parking->id }}, '{{ addslashes($parking->parking_name) }}')" class="btn btn-sm btn-primary rounded-pill px-3">
+                                                👤 إنشاء حساب موظف
+                                            </button>
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="text-muted py-4">لا توجد ساحات مسجلة باسمك حالياً.</td>
+                                        <td colspan="7" class="text-muted py-4">لا توجد ساحات مسجلة باسمك حالياً.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -189,6 +196,68 @@
                 </div>
             </div>
         </section>
+
+        <!-- مودال إنشاء حساب موظف -->
+        <div class="modal fade" id="createEmployeeModal" tabindex="-1" aria-labelledby="createEmployeeModalLabel" aria-hidden="true" dir="rtl">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 rounded-4 shadow">
+                    <div class="modal-header bg-primary text-white border-0 py-3 rounded-top-4">
+                        <h5 class="modal-title fw-bold" id="createEmployeeModalLabel">👤 إنشاء حساب موظف ميداني جديد</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <form id="createEmployeeForm">
+                            <input type="hidden" id="modalParkingId">
+                            
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-secondary">الساحة المستهدفة للتعيين</label>
+                                <input type="text" class="form-control bg-light text-muted border-0" id="modalParkingName" readonly>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-secondary">اسم الموظف الكامل</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">👤</span>
+                                    <input type="text" class="form-control" id="employeeNameInput" required placeholder="أدخل اسم الموظف">
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-secondary">البريد الإلكتروني</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">📧</span>
+                                    <input type="email" class="form-control" id="employeeEmailInput" required placeholder="name@example.com">
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-secondary">رقم الهاتف</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">📞</span>
+                                    <input type="text" class="form-control" id="employeePhoneInput" required placeholder="مثال: 0912345678">
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-secondary">رقم الحساب المصرفي (IBAN - اختياري)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">🏦</span>
+                                    <input type="text" class="form-control" id="employeeBankInput" placeholder="أدخل رقم الحساب المصرفي">
+                                </div>
+                            </div>
+
+                            <div class="alert alert-info border-0 rounded-3 mb-0 py-2 small">
+                                💡 سيقوم النظام تلقائياً بتوليد كلمة مرور عشوائية وإرسالها إلى البريد الإلكتروني للموظف الجديد.
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100 fw-bold py-2 mt-4 rounded-3" id="saveEmployeeBtn">
+                                حفظ وتعيين الموظف للساحة 🚀
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- تبويب: البيانات الشخصية -->
         <section id="profileTab" class="content-section d-none">
@@ -395,6 +464,76 @@
             }
         });
     }
+
+    let employeeModal;
+
+    function openCreateEmployeeModal(parkingId, parkingName) {
+        document.getElementById('modalParkingId').value = parkingId;
+        document.getElementById('modalParkingName').value = parkingName;
+        document.getElementById('createEmployeeForm').reset();
+        
+        if (!employeeModal) {
+            employeeModal = new bootstrap.Modal(document.getElementById('createEmployeeModal'));
+        }
+        employeeModal.show();
+    }
+
+    document.getElementById('createEmployeeForm').addEventListener('submit', async function(event) {
+        event.preventDefault();
+        
+        const parkingId = document.getElementById('modalParkingId').value;
+        const name = document.getElementById('employeeNameInput').value;
+        const email = document.getElementById('employeeEmailInput').value;
+        const phone = document.getElementById('employeePhoneInput').value;
+        const bankAccount = document.getElementById('employeeBankInput').value;
+        const submitBtn = document.getElementById('saveEmployeeBtn');
+
+        submitBtn.disabled = true;
+
+        try {
+            const response = await fetch('/manager/employees/store', {
+                method: 'POST',
+                headers: fetchHeaders,
+                body: JSON.stringify({
+                    name: name,
+                    email: email,
+                    phone: phone,
+                    bank_account_number: bankAccount || null,
+                    parking_id: parkingId
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.status === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'نجاح العملية',
+                    text: 'تم إنشاء حساب الموظف الميداني وتعيينه للساحة بنجاح.',
+                    confirmButtonColor: '#2c3e50'
+                }).then(() => {
+                    location.reload();
+                });
+                employeeModal.hide();
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'خطأ',
+                    text: result.message || 'فشل في إنشاء الحساب.',
+                    confirmButtonColor: '#d33'
+                });
+            }
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'خطأ اتصال',
+                text: 'فشل الاتصال بالخادم.',
+                confirmButtonColor: '#d33'
+            });
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
     </script>
 </body>
 </html>

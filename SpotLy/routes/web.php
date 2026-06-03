@@ -34,6 +34,9 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/manager/dashboard', [ManagerController::class, 'index'])
         ->middleware('role:manager')
         ->name('manager.dashboard');
+    Route::post('/manager/employees/store', [ManagerController::class, 'storeEmployee'])
+        ->middleware('role:manager')
+        ->name('manager.employee.store');
 });
 
 Route::post('/developer/parkings/store', [DeveloperController::class, 'storeParking'])->name('developer.parking.store');
