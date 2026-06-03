@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DeveloperController;
 use App\Http\Controllers\FieldController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\ManagerController;
 
 // 1. مسارات الدخول 
 Route::get('/', fn() => redirect('/login'));
@@ -28,6 +29,11 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/user-dashboard', function () {
         return view('dashboards.user');
     })->middleware('role:user');
+
+    // حماية لوحة المدير
+    Route::get('/manager/dashboard', [ManagerController::class, 'index'])
+        ->middleware('role:manager')
+        ->name('manager.dashboard');
 });
 
 Route::post('/developer/parkings/store', [DeveloperController::class, 'storeParking'])->name('developer.parking.store');
