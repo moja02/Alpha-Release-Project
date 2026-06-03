@@ -36,7 +36,23 @@ class ManagerController extends Controller
                 return redirect('/login')->with('error', 'تم حظر حسابك من قبل الإدارة!');
             }
 
-            return view('dashboards.manager');
+            // قائمة الساحات المدارة مع تفاصيل الموظف المسؤول
+            $parkingsList = DB::table('parkings')
+                ->leftJoin('employees', 'parkings.employee_id', '=', 'employees.id')
+                ->leftJoin('accounts', 'employees.account_id', '=', 'accounts.id')
+                ->select(
+                    'parkings.id',
+                    'parkings.name as parking_name',
+                    'parkings.location_park',
+                    'parkings.total_capacity',
+                    'parkings.available_capacity',
+                    'accounts.name as employee_name',
+                    'accounts.phone as employee_phone'
+                )
+                ->where('parkings.manager_id', $manager->id)
+                ->get();
+
+            return view('dashboards.manager', compact('parkingsList'));
 
         } catch (\Exception $exception) {
             abort(500, 'حدث خطأ داخلي أثناء تحميل لوحة تحكم المدير: ' . $exception->getMessage());

@@ -92,6 +92,9 @@
             <a class="nav-link active" onclick="switchTab('overviewTab', this)">
                 🏠 نظرة عامة
             </a>
+            <a class="nav-link" onclick="switchTab('parkingsTab', this)">
+                📍 الساحات المدارة
+            </a>
             <a class="nav-link" onclick="switchTab('profileTab', this)">
                 ⚙️ البيانات الشخصية
             </a>
@@ -122,6 +125,7 @@
                         <h5 class="fw-bold mb-3">📌 إرشادات تشغيلية سريعة</h5>
                         <ul>
                             <li class="mb-2">تأكد من تحديث أرقام هواتف الموظفين الميدانيين لتلقي الإشعارات الطارئة.</li>
+                            <li class="mb-2">يمكنك مراجعة كافة تفاصيل السعة التشغيلية والشواغر اللحظية عبر تبويب <strong>الساحات المدارة</strong>.</li>
 
                         </ul>
                     </div>
@@ -132,6 +136,59 @@
 
 
 
+
+        <!-- تبويب: الساحات المدارة -->
+        <section id="parkingsTab" class="content-section d-none">
+            <div class="card">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 text-dark fw-bold">📍 قائمة ساحات مواقف السيارات المدارة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive shadow-sm">
+                        <table class="table table-hover align-middle mb-0 text-center">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>اسم الساحة</th>
+                                    <th>وصف الموقع</th>
+                                    <th>السعة الكلية</th>
+                                    <th>الشاغرة حالياً</th>
+                                    <th>الموظف المسؤول</th>
+                                    <th>هاتف الموظف</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($parkingsList as $parking)
+                                    <tr>
+                                        <td class="fw-bold text-dark">{{ $parking->parking_name }}</td>
+                                        <td>{{ $parking->location_park }}</td>
+                                        <td><span class="badge bg-secondary px-3 py-1">{{ $parking->total_capacity }}</span></td>
+                                        <td>
+                                            @if($parking->available_capacity > 0)
+                                                <span class="badge bg-success px-3 py-1">{{ $parking->available_capacity }}</span>
+                                            @else
+                                                <span class="badge bg-danger px-3 py-1">ممتلئة بالكامل</span>
+                                            @endif
+                                        </td>
+                                        <td>{{ $parking->employee_name ?? 'غير معين' }}</td>
+                                        <td>
+                                            @if($parking->employee_phone)
+                                                <span dir="ltr">{{ $parking->employee_phone }}</span>
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6" class="text-muted py-4">لا توجد ساحات مسجلة باسمك حالياً.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
 
         <!-- تبويب: البيانات الشخصية -->
         <section id="profileTab" class="content-section d-none">
