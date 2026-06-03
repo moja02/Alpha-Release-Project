@@ -85,6 +85,8 @@ class DatabaseSeeder extends Seeder
             'updated_at' => now(),
         ]);
 
+        $this->call(ParkingSeeder::class);
+
         $this->command->info('تمت زراعة بيانات SpotLy وتطبيق الهيكلة الجديدة (الموظف-الموقف) بنجاح! 🚗✨');
     }
 }

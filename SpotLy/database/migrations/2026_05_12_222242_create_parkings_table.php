@@ -16,6 +16,9 @@ return new class extends Migration
                 $table->string('location_park'); // locationPark
                 $table->integer('total_capacity'); // totalCapacity
                 $table->integer('available_capacity'); // availableCapacity
+                $table->decimal('latitude', 10, 8)->nullable();
+                $table->decimal('longitude', 11, 8)->nullable();
+                $table->unsignedBigInteger('employee_id')->nullable();
                 $table->timestamps();
             });
         } catch (\Exception $exception) {

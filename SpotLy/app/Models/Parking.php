@@ -13,6 +13,8 @@ class Parking extends Model
         'location_park',
         'total_capacity',
         'available_capacity',
+        'latitude',
+        'longitude',
         'employee_id' 
     ];
 
