@@ -334,10 +334,8 @@ class BookingController extends Controller
                     ->increment('balance', $refundAmount);
             }
 
-            // تحديث حالة الحجز وزيادة السعة المتاحة في الساحة
-            \Illuminate\Support\Facades\DB::table('bookings')
-                ->where('id', $targetBookingId)
-                ->update(['status' => 'cancelled', 'updated_at' => now()]);
+            // تحديث حالة الحجز وزيادة السعة المتاحة في الساحة باستخدام نمط الحالة
+            $bookingRecord->cancelBooking();
 
             \Illuminate\Support\Facades\DB::table('parkings')
                 ->where('id', $bookingRecord->parking_id)
@@ -560,7 +558,7 @@ class BookingController extends Controller
                 $alreadyInside = DB::table('bookings')->where('plate_number', $plateNumber)->where('status', 'active')->exists();
                 if ($alreadyInside) return response()->json(['status' => 'error', 'message' => 'السيارة موجودة بالفعل.'], 400);
 
-                $booking = DB::table('bookings')->where('plate_number', $plateNumber)->where('status', 'confirmed')->first();
+                $booking = \App\Models\Booking::where('plate_number', $plateNumber)->where('status', 'confirmed')->first();
                 if (!$booking) return response()->json(['status' => 'error', 'message' => 'لا يوجد حجز مسبق مؤكد لهذه اللوحة.'], 404);
 
                 if ($booking->type === 'initial') {
@@ -586,20 +584,14 @@ class BookingController extends Controller
                         return response()->json(['status' => 'error', 'message' => 'رصيد غير كافٍ! (المطلوب: ' . $expectedCost . ')'], 400);
                     }
 
-                    // الدخول (حفظ وقت الخروج المتوقع في end_time لمقارنته عند الخروج الفعلي)
-                    DB::table('bookings')->where('id', $booking->id)->update([
-                        'status' => 'active',
-                        'end_time' => $expectedEndTime,
-                        'updated_at' => Carbon::now()
-                    ]);
+                    // الدخول (حفظ وقت الخروج المتوقع في end_time لمقارنته عند الخروج الفعلي) باستخدام نمط الحالة
+                    $booking->end_time = $expectedEndTime;
+                    $booking->enter();
                     $message = 'تم تأكيد الدخول المبدئي بنجاح. سيتم احتساب التكلفة الفعالية والعقوبات عند الخروج.';
 
                 } else {
-                    // إذا كان الحجز (actual) فعلي ومسبق الدفع
-                    DB::table('bookings')->where('id', $booking->id)->update([
-                        'status' => 'active',
-                        'updated_at' => Carbon::now()
-                    ]);
+                    // إذا كان الحجز (actual) فعلي ومسبق الدفع، يتم الدخول باستخدام نمط الحالة
+                    $booking->enter();
                     $message = 'تم تأكيد الدخول الفعلي بنجاح فوراً.';
                 }
 
@@ -607,8 +599,7 @@ class BookingController extends Controller
 
             } else {
                 // --- منطق الخروج (تطبيق العقوبات والخصم) ---
-                $booking = DB::table('bookings')
-                    ->where('plate_number', $plateNumber)
+                $booking = \App\Models\Booking::where('plate_number', $plateNumber)
                     ->where('status', 'active')
                     ->where('parking_id', $employeeParkingId)
                     ->first();
@@ -670,12 +661,8 @@ class BookingController extends Controller
                     }
                 }
 
-                // تحديث حالة الحجز إلى مكتمل
-                DB::table('bookings')->where('id', $booking->id)->update([
-                    'status' => 'completed',
-                    'end_time' => $exitTime,
-                    'updated_at' => Carbon::now()
-                ]);
+                // تحديث حالة الحجز إلى مكتمل باستخدام نمط الحالة
+                $booking->exitParking();
 
                 DB::table('parkings')->where('id', $employeeParkingId)->increment('available_capacity', 1);
             }
