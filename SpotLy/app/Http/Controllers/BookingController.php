@@ -282,8 +282,7 @@ class BookingController extends Controller
 
             \Illuminate\Support\Facades\DB::beginTransaction();
 
-            $bookingRecord = \Illuminate\Support\Facades\DB::table('bookings')
-                ->where('id', $targetBookingId)
+            $bookingRecord = \App\Models\Booking::where('id', $targetBookingId)
                 ->lockForUpdate()
                 ->first();
 
@@ -319,17 +318,16 @@ class BookingController extends Controller
 
             // حساب الاسترجاع المالي للحجز الفعلي فقط (لأن المبدئي لم يخصم منه نقاط)
             if ($bookingRecord->type === 'actual') {
-                $minutesToStart = $currentTime->diffInMinutes($bookingStartTime, false);
-                
-                if ($minutesToStart > 30) {
-                    $refundPercentage = 100;
-                } else {
-                    $refundPercentage = 50;
-                }
-
+                $minutesToStart = (int) $currentTime->diffInMinutes($bookingStartTime, false);
                 $totalHours = $bookingStartTime->diffInHours(\Carbon\Carbon::parse($bookingRecord->end_time)) ?: 1;
-                $originalCost = $totalHours * 2.5; // تسعيرة الساعة 2.5
-                $refundAmount = ($originalCost * $refundPercentage) / 100;
+                $originalCost = (float) ($totalHours * 2.5); // تسعيرة الساعة 2.5
+
+                // استخدام نمط الاستراتيجية (Strategy Pattern)
+                $strategy = \App\Strategies\Refund\RefundStrategyFactory::make($bookingRecord);
+                $context = new \App\Strategies\Refund\RefundContext($strategy);
+                $refundAmount = $context->calculateRefund($originalCost, $minutesToStart);
+
+                $refundPercentage = $originalCost > 0 ? (int) round(($refundAmount / $originalCost) * 100) : 0;
 
                 \Illuminate\Support\Facades\DB::table('wallets')
                     ->where('user_id', $bookingRecord->user_id)
