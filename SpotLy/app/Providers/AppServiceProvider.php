@@ -11,7 +11,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        try {
+            // ربط واجهة مستودع الحجوزات مع التطبيق الفعلي الخاص بها لنمط المستودع (Repository Pattern)
+            $this->app->bind(
+                \App\Repositories\BookingRepositoryInterface::class,
+                \App\Repositories\BookingRepository::class
+            );
+        } catch (\Exception $exception) {
+            \Illuminate\Support\Facades\Log::error("خطأ أثناء تسجيل مستودع الحجوزات: " . $exception->getMessage());
+            throw $exception;
+        }
     }
 
     /**

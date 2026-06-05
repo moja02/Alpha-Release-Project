@@ -15,6 +15,22 @@ use Carbon\Carbon;
 
 class BookingController extends Controller
 {
+    protected $bookingRepo;
+
+    /**
+     * مشيد المتحكم لتهيئة وحقن واجهة مستودع الحجوزات.
+     *
+     * @param \App\Repositories\BookingRepositoryInterface $bookingRepo
+     */
+    public function __construct(\App\Repositories\BookingRepositoryInterface $bookingRepo)
+    {
+        try {
+            $this->bookingRepo = $bookingRepo;
+        } catch (\Exception $exception) {
+            \Illuminate\Support\Facades\Log::error("خطأ في تهيئة BookingController: " . $exception->getMessage());
+            throw $exception;
+        }
+    }
      
      // جلب كافة ساحات الوقوف وسعتها المتاحة
 
@@ -140,14 +156,8 @@ class BookingController extends Controller
         try {
             $userId = $request->input('userId');
 
-            //  جلب الحجز "المؤكد" فقط
-            $activeBooking = \Illuminate\Support\Facades\DB::table('bookings')
-                ->join('parkings', 'bookings.parking_id', '=', 'parkings.id')
-                ->where('bookings.user_id', $userId)
-                ->where('bookings.status', 'confirmed') 
-                ->select('bookings.*', 'parkings.name as parking_name')
-                ->orderBy('bookings.id', 'desc')
-                ->first();
+            // جلب الحجز المؤكد النشط عبر واجهة مستودع الحجوزات (Repository Pattern)
+            $activeBooking = $this->bookingRepo->getActiveBookingForUser($userId);
 
             if ($activeBooking) {
                 return response()->json([
@@ -188,12 +198,8 @@ class BookingController extends Controller
 
             \Illuminate\Support\Facades\DB::beginTransaction();
 
-            // 2. منع الحجز المزدوج
-            $hasExistingBooking = \Illuminate\Support\Facades\DB::table('bookings')
-                ->where('user_id', $inputUserId)
-                ->where('status', 'confirmed')
-                ->sharedLock()
-                ->exists();
+            // 2. منع الحجز المزدوج عبر واجهة المستودع
+            $hasExistingBooking = $this->bookingRepo->hasActiveBookingForUser($inputUserId, true);
 
             if ($hasExistingBooking) {
                 return response()->json(['status' => 'error', 'message' => 'لديك حجز نشط بالفعل.'], 400);
@@ -240,8 +246,8 @@ class BookingController extends Controller
             // 5. إنقاص مكان واحد من الساحة المشغولة
             \Illuminate\Support\Facades\DB::table('parkings')->where('id', $inputParkingId)->decrement('available_capacity', 1);
 
-            // 6. إدراج الحجز في قاعدة البيانات
-            $insertedBookingId = \Illuminate\Support\Facades\DB::table('bookings')->insertGetId([
+            // 6. إدراج الحجز في قاعدة البيانات عبر واجهة المستودع
+            $insertedBookingId = $this->bookingRepo->createBooking([
                 'user_id' => $inputUserId,
                 'parking_id' => $inputParkingId,
                 'plate_number' => $driverPlateNumber,
@@ -282,9 +288,8 @@ class BookingController extends Controller
 
             \Illuminate\Support\Facades\DB::beginTransaction();
 
-            $bookingRecord = \App\Models\Booking::where('id', $targetBookingId)
-                ->lockForUpdate()
-                ->first();
+            // جلب الحجز باستخدام المستودع وتفعيل قفل التحديث (Repository Pattern)
+            $bookingRecord = $this->bookingRepo->getById($targetBookingId, true);
 
             if (!$bookingRecord || $bookingRecord->status !== 'confirmed') {
                 return response()->json(['status' => 'error', 'message' => 'الحجز غير موجود أو ملغي مسبقاً.'], 400);
@@ -381,7 +386,8 @@ class BookingController extends Controller
 
             \Illuminate\Support\Facades\DB::beginTransaction();
 
-            $oldBooking = \Illuminate\Support\Facades\DB::table('bookings')->where('id', $bookingId)->lockForUpdate()->first();
+            // جلب الحجز باستخدام المستودع وتفعيل قفل التحديث (Repository Pattern)
+            $oldBooking = $this->bookingRepo->getById($bookingId, true);
             $currentTime = now();
             
             //  فصل منطق الوقت للتبديل أيضاً
@@ -405,9 +411,8 @@ class BookingController extends Controller
             \Illuminate\Support\Facades\DB::table('parkings')->where('id', $oldBooking->parking_id)->increment('available_capacity', 1);
             \Illuminate\Support\Facades\DB::table('parkings')->where('id', $newParkingId)->decrement('available_capacity', 1);
 
-            \Illuminate\Support\Facades\DB::table('bookings')
-                ->where('id', $bookingId)
-                ->update(['parking_id' => $newParkingId, 'updated_at' => now()]);
+            // تحديث موقف الحجز عبر واجهة المستودع (Repository Pattern)
+            $this->bookingRepo->updateBooking($bookingId, ['parking_id' => $newParkingId, 'updated_at' => now()]);
 
             \Illuminate\Support\Facades\DB::commit();
 
@@ -426,13 +431,8 @@ class BookingController extends Controller
 
             $currentTime = now();
 
-            // 1. جلب كل الحجوزات المبدئية المؤكدة التي انتهت مهلة الـ 20 دقيقة الخاصة بها عبر موديل Booking
-            $expiredBookings = \App\Models\Booking::where('is_guest', false)
-                ->where('type', 'initial')
-                ->where('status', 'confirmed')
-                ->where('end_time', '<=', $currentTime)
-                ->lockForUpdate()
-                ->get();
+            // 1. جلب كل الحجوزات المبدئية المؤكدة التي انتهت مهلة الـ 20 دقيقة الخاصة بها عبر واجهة المستودع (Repository Pattern)
+            $expiredBookings = $this->bookingRepo->getExpiredInitialBookings($currentTime, true);
 
             $processedCount = 0;
 
@@ -494,10 +494,12 @@ class BookingController extends Controller
                 $parkingData = DB::table('parkings')->where('id', $employeeParkingId)->lockForUpdate()->first();
                 if ($parkingData->available_capacity <= 0) return response()->json(['status' => 'error', 'message' => 'الموقف ممتلئ!'], 400);
 
-                $alreadyInside = DB::table('bookings')->where('plate_number', $plateNumber)->where('status', 'active')->exists();
+                // التحقق من وجود السيارة بالداخل عبر واجهة المستودع (Repository Pattern)
+                $alreadyInside = $this->bookingRepo->getActiveBookingByPlate($plateNumber);
                 if ($alreadyInside) return response()->json(['status' => 'error', 'message' => 'السيارة موجودة بالفعل.'], 400);
 
-                $booking = \App\Models\Booking::where('plate_number', $plateNumber)->where('status', 'confirmed')->first();
+                // جلب الحجز المؤكد عبر واجهة المستودع (Repository Pattern)
+                $booking = $this->bookingRepo->getConfirmedBookingByPlate($plateNumber);
                 if (!$booking) return response()->json(['status' => 'error', 'message' => 'لا يوجد حجز مسبق مؤكد لهذه اللوحة.'], 404);
 
                 if ($booking->type === 'initial') {
@@ -538,10 +540,8 @@ class BookingController extends Controller
 
             } else {
                 // --- منطق الخروج (تطبيق العقوبات والخصم) ---
-                $booking = \App\Models\Booking::where('plate_number', $plateNumber)
-                    ->where('status', 'active')
-                    ->where('parking_id', $employeeParkingId)
-                    ->first();
+                // جلب الحجز النشط عبر واجهة المستودع (Repository Pattern)
+                $booking = $this->bookingRepo->getActiveBookingInParking($plateNumber, $employeeParkingId);
 
                 if (!$booking) return response()->json(['status' => 'error', 'message' => 'السيارة غير موجودة بالموقف.'], 404);
 
