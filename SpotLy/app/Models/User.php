@@ -46,6 +46,21 @@ class User extends Authenticatable
         return $this->hasOne(Wallet::class);
     }
 
+    /**
+     * علاقة الحصول على الحساب الأساسي للمستخدم.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function account()
+    {
+        try {
+            return $this->belongsTo(Account::class, 'account_id', 'id');
+        } catch (\Exception $exception) {
+            \Illuminate\Support\Facades\Log::error("خطأ في جلب علاقة الحساب للمستخدم: " . $exception->getMessage());
+            throw $exception;
+        }
+    }
+
     public function bookings()
     {
         return $this->hasMany(Booking::class);

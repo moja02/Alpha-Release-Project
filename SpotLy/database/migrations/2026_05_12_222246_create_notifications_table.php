@@ -15,6 +15,7 @@ return new class extends Migration
                 $table->foreignId('user_id')->constrained('users')->onDelete('cascade'); // userId
                 $table->text('message'); // message
                 $table->string('type')->nullable(); // notificationType
+                $table->string('sent_to_email')->nullable(); // sentToEmail
                 $table->timestamp('sent_at')->useCurrent(); // sentAt
                 $table->timestamps();
             });
