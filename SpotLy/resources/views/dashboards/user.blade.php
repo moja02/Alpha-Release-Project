@@ -1188,7 +1188,7 @@
                             <div class="form-check mb-3 p-3 bg-light rounded-3 border">
                                 <input class="form-check-input ms-2" type="radio" name="bookingType" id="typeInitial" value="initial" checked onchange="toggleTimeInputs(false)">
                                 <label class="form-check-label fw-bold text-primary" for="typeInitial">
-                                    ⏱️ حجز مبدئي (مهلة 20 دقيقة للوصول)
+                                    ⏱️ حجز مبدئي (مهلة 30 دقيقة للوصول)
                                 </label>
                                 <small class="d-block text-muted mt-1">يضمن لك مكاناً مؤقتاً لحين وصولك للموقع.</small>
                             </div>
@@ -1282,7 +1282,7 @@
                     Swal.fire({
                         icon: 'success',
                         title: 'تم الحجز بنجاح! 🎟️',
-                        text: bookingDataValues.type === 'initial' ? 'تم تأمين موقفك لـ 20 دقيقة القادمة.' : 'تم تأكيد حجزك الفعلي وخصم التكلفة.',
+                        text: bookingDataValues.type === 'initial' ? 'تم تأمين موقفك لـ 30 دقيقة القادمة.' : 'تم تأكيد حجزك الفعلي وخصم التكلفة.',
                         confirmButtonColor: '#2c3e50'
                     }).then(() => {
                         fetchWalletBalance();
