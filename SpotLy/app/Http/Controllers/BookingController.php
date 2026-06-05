@@ -15,6 +15,22 @@ use Carbon\Carbon;
 
 class BookingController extends Controller
 {
+    protected $bookingRepo;
+
+    /**
+     * مشيد المتحكم لتهيئة وحقن واجهة مستودع الحجوزات.
+     *
+     * @param \App\Repositories\BookingRepositoryInterface $bookingRepo
+     */
+    public function __construct(\App\Repositories\BookingRepositoryInterface $bookingRepo)
+    {
+        try {
+            $this->bookingRepo = $bookingRepo;
+        } catch (\Exception $exception) {
+            \Illuminate\Support\Facades\Log::error("خطأ في تهيئة BookingController: " . $exception->getMessage());
+            throw $exception;
+        }
+    }
      
      // جلب كافة ساحات الوقوف وسعتها المتاحة
 
@@ -140,14 +156,8 @@ class BookingController extends Controller
         try {
             $userId = $request->input('userId');
 
-            //  جلب الحجز "المؤكد" فقط
-            $activeBooking = \Illuminate\Support\Facades\DB::table('bookings')
-                ->join('parkings', 'bookings.parking_id', '=', 'parkings.id')
-                ->where('bookings.user_id', $userId)
-                ->where('bookings.status', 'confirmed') 
-                ->select('bookings.*', 'parkings.name as parking_name')
-                ->orderBy('bookings.id', 'desc')
-                ->first();
+            // جلب الحجز المؤكد النشط عبر واجهة مستودع الحجوزات (Repository Pattern)
+            $activeBooking = $this->bookingRepo->getActiveBookingForUser($userId);
 
             if ($activeBooking) {
                 return response()->json([
@@ -188,12 +198,8 @@ class BookingController extends Controller
 
             \Illuminate\Support\Facades\DB::beginTransaction();
 
-            // 2. منع الحجز المزدوج
-            $hasExistingBooking = \Illuminate\Support\Facades\DB::table('bookings')
-                ->where('user_id', $inputUserId)
-                ->where('status', 'confirmed')
-                ->sharedLock()
-                ->exists();
+            // 2. منع الحجز المزدوج عبر واجهة المستودع
+            $hasExistingBooking = $this->bookingRepo->hasActiveBookingForUser($inputUserId, true);
 
             if ($hasExistingBooking) {
                 return response()->json(['status' => 'error', 'message' => 'لديك حجز نشط بالفعل.'], 400);
@@ -240,8 +246,8 @@ class BookingController extends Controller
             // 5. إنقاص مكان واحد من الساحة المشغولة
             \Illuminate\Support\Facades\DB::table('parkings')->where('id', $inputParkingId)->decrement('available_capacity', 1);
 
-            // 6. إدراج الحجز في قاعدة البيانات
-            $insertedBookingId = \Illuminate\Support\Facades\DB::table('bookings')->insertGetId([
+            // 6. إدراج الحجز في قاعدة البيانات عبر واجهة المستودع
+            $insertedBookingId = $this->bookingRepo->createBooking([
                 'user_id' => $inputUserId,
                 'parking_id' => $inputParkingId,
                 'plate_number' => $driverPlateNumber,
@@ -282,10 +288,8 @@ class BookingController extends Controller
 
             \Illuminate\Support\Facades\DB::beginTransaction();
 
-            $bookingRecord = \Illuminate\Support\Facades\DB::table('bookings')
-                ->where('id', $targetBookingId)
-                ->lockForUpdate()
-                ->first();
+            // جلب الحجز باستخدام المستودع وتفعيل قفل التحديث (Repository Pattern)
+            $bookingRecord = $this->bookingRepo->getById($targetBookingId, true);
 
             if (!$bookingRecord || $bookingRecord->status !== 'confirmed') {
                 return response()->json(['status' => 'error', 'message' => 'الحجز غير موجود أو ملغي مسبقاً.'], 400);
@@ -319,27 +323,24 @@ class BookingController extends Controller
 
             // حساب الاسترجاع المالي للحجز الفعلي فقط (لأن المبدئي لم يخصم منه نقاط)
             if ($bookingRecord->type === 'actual') {
-                $minutesToStart = $currentTime->diffInMinutes($bookingStartTime, false);
-                
-                if ($minutesToStart > 30) {
-                    $refundPercentage = 100;
-                } else {
-                    $refundPercentage = 50;
-                }
-
+                $minutesToStart = (int) $currentTime->diffInMinutes($bookingStartTime, false);
                 $totalHours = $bookingStartTime->diffInHours(\Carbon\Carbon::parse($bookingRecord->end_time)) ?: 1;
-                $originalCost = $totalHours * 2.5; // تسعيرة الساعة 2.5
-                $refundAmount = ($originalCost * $refundPercentage) / 100;
+                $originalCost = (float) ($totalHours * 2.5); // تسعيرة الساعة 2.5
+
+                // استخدام نمط الاستراتيجية (Strategy Pattern)
+                $strategy = \App\Strategies\Refund\RefundStrategyFactory::make($bookingRecord);
+                $context = new \App\Strategies\Refund\RefundContext($strategy);
+                $refundAmount = $context->calculateRefund($originalCost, $minutesToStart);
+
+                $refundPercentage = $originalCost > 0 ? (int) round(($refundAmount / $originalCost) * 100) : 0;
 
                 \Illuminate\Support\Facades\DB::table('wallets')
                     ->where('user_id', $bookingRecord->user_id)
                     ->increment('balance', $refundAmount);
             }
 
-            // تحديث حالة الحجز وزيادة السعة المتاحة في الساحة
-            \Illuminate\Support\Facades\DB::table('bookings')
-                ->where('id', $targetBookingId)
-                ->update(['status' => 'cancelled', 'updated_at' => now()]);
+            // تحديث حالة الحجز وزيادة السعة المتاحة في الساحة باستخدام نمط الحالة
+            $bookingRecord->cancelBooking();
 
             \Illuminate\Support\Facades\DB::table('parkings')
                 ->where('id', $bookingRecord->parking_id)
@@ -385,7 +386,8 @@ class BookingController extends Controller
 
             \Illuminate\Support\Facades\DB::beginTransaction();
 
-            $oldBooking = \Illuminate\Support\Facades\DB::table('bookings')->where('id', $bookingId)->lockForUpdate()->first();
+            // جلب الحجز باستخدام المستودع وتفعيل قفل التحديث (Repository Pattern)
+            $oldBooking = $this->bookingRepo->getById($bookingId, true);
             $currentTime = now();
             
             //  فصل منطق الوقت للتبديل أيضاً
@@ -409,9 +411,8 @@ class BookingController extends Controller
             \Illuminate\Support\Facades\DB::table('parkings')->where('id', $oldBooking->parking_id)->increment('available_capacity', 1);
             \Illuminate\Support\Facades\DB::table('parkings')->where('id', $newParkingId)->decrement('available_capacity', 1);
 
-            \Illuminate\Support\Facades\DB::table('bookings')
-                ->where('id', $bookingId)
-                ->update(['parking_id' => $newParkingId, 'updated_at' => now()]);
+            // تحديث موقف الحجز عبر واجهة المستودع (Repository Pattern)
+            $this->bookingRepo->updateBooking($bookingId, ['parking_id' => $newParkingId, 'updated_at' => now()]);
 
             \Illuminate\Support\Facades\DB::commit();
 
@@ -430,88 +431,22 @@ class BookingController extends Controller
 
             $currentTime = now();
 
-            // 1. جلب كل الحجوزات المبدئية المؤكدة التي انتهت مهلة الـ 20 دقيقة الخاصة بها
-            $expiredBookings = \Illuminate\Support\Facades\DB::table('bookings')
-                ->where('is_guest', false)
-                ->where('type', 'initial')
-                ->where('status', 'confirmed')
-                ->where('end_time', '<=', $currentTime)
-                ->lockForUpdate()
-                ->get();
+            // 1. جلب كل الحجوزات المبدئية المؤكدة التي انتهت مهلة الـ 20 دقيقة الخاصة بها عبر واجهة المستودع (Repository Pattern)
+            $expiredBookings = $this->bookingRepo->getExpiredInitialBookings($currentTime, true);
 
             $processedCount = 0;
 
             foreach ($expiredBookings as $booking) {
-                // أ. تغيير حالة الحجز إلى 'cancelled'
-                \Illuminate\Support\Facades\DB::table('bookings')
-                    ->where('id', $booking->id)
-                    ->update(['status' => 'cancelled', 'updated_at' => $currentTime]);
+                // أ. تغيير حالة الحجز إلى 'cancelled' باستخدام نمط الحالة (State Pattern)
+                $booking->cancelBooking();
 
                 // ب. إرجاع السعة للساحة
                 \Illuminate\Support\Facades\DB::table('parkings')
                     ->where('id', $booking->parking_id)
                     ->increment('available_capacity', 1);
 
-                // ج. زيادة عداد المخالفات للسائق
-                \Illuminate\Support\Facades\DB::table('users')
-                    ->where('account_id', $booking->user_id)
-                    ->increment('fake_booking_count', 1);
-
-                // د. جلب بيانات السائق والحساب (للحصول على البريد الإلكتروني)
-                $driver = \Illuminate\Support\Facades\DB::table('users')
-                    ->where('account_id', $booking->user_id)
-                    ->first();
-
-                $account = \Illuminate\Support\Facades\DB::table('accounts')
-                    ->where('id', $booking->user_id)
-                    ->first();
-
-                // تجهيز الإيميل (إذا كان موجوداً)
-                $targetEmail = ($account && isset($account->email)) ? $account->email : null;
-
-                // هـ. التحقق من حالة الحظر وإرسال الإشعارات
-                if ($driver && $driver->fake_booking_count >= 3) {
-                    // تحديث حالة السائق إلى محظور
-                    \Illuminate\Support\Facades\DB::table('users')
-                        ->where('account_id', $booking->user_id)
-                        ->update(['status' => 'blocked']);
-
-                    // إدخال الإشعار في قاعدة البيانات مع حفظ الإيميل
-                    \Illuminate\Support\Facades\DB::table('notifications')->insert([
-                        'user_id' => $booking->user_id,
-                        'message' => 'تم حظر حسابك لتجاوز الحد الأقصى للمخالفات (3 مرات حجز وهمي دون حضور).',
-                        'type' => 'Account_Blocked',
-                        'sent_to_email' => $targetEmail, 
-                        'created_at' => $currentTime
-                    ]);
-
-                    // إرسال الإيميل الفوري
-                    if ($targetEmail) {
-                        $mailData = [
-                            'title' => 'تنبيه إداري: تم حظر حسابك 🚫',
-                            'body' => 'نعلمك بأنه تم حظر حسابك في نظام SpotLy لتجاوزك الحد الأقصى من المخالفات (3 مرات حجز مبدئي دون الحضور). يرجى مراجعة إدارة المواقف.'
-                        ];
-                        \Illuminate\Support\Facades\Mail::to($targetEmail)->send(new \App\Mail\SpotlyNotificationMail($mailData));
-                    }
-                } else {
-                    // إدخال الإشعار العادي في قاعدة البيانات مع حفظ الإيميل
-                    \Illuminate\Support\Facades\DB::table('notifications')->insert([
-                        'user_id' => $booking->user_id,
-                        'message' => 'انتهت مهلة الحجز المبدئي (20 دقيقة) دون حضورك. تم إلغاء الحجز وتسجيل مخالفة في سجلك.',
-                        'type' => 'Booking_Expired',
-                        'sent_to_email' => $targetEmail, 
-                        'created_at' => $currentTime
-                    ]);
-
-                    // إرسال الإيميل الفوري
-                    if ($targetEmail) {
-                        $mailData = [
-                            'title' => 'إشعار تسجيل مخالفة حجز وهمي ⚠️',
-                            'body' => "لقد انتهت مهلة الحجز المبدئي الخاصة بك دون تأكيد حضورك. تم تسجيل مخالفة في سجلك. نذكرك بأنه عند الوصول لـ 3 مخالفات سيتم حظر الحساب تلقائياً."
-                        ];
-                        \Illuminate\Support\Facades\Mail::to($targetEmail)->send(new \App\Mail\SpotlyNotificationMail($mailData));
-                    }
-                }
+                // ج. إطلاق حدث انتهاء الحجز لتنبيه المراقبين (Observer Pattern)
+                event(new \App\Events\BookingExpiredEvent($booking));
 
                 $processedCount++;
             }
@@ -559,10 +494,12 @@ class BookingController extends Controller
                 $parkingData = DB::table('parkings')->where('id', $employeeParkingId)->lockForUpdate()->first();
                 if ($parkingData->available_capacity <= 0) return response()->json(['status' => 'error', 'message' => 'الموقف ممتلئ!'], 400);
 
-                $alreadyInside = DB::table('bookings')->where('plate_number', $plateNumber)->where('status', 'active')->exists();
+                // التحقق من وجود السيارة بالداخل عبر واجهة المستودع (Repository Pattern)
+                $alreadyInside = $this->bookingRepo->getActiveBookingByPlate($plateNumber);
                 if ($alreadyInside) return response()->json(['status' => 'error', 'message' => 'السيارة موجودة بالفعل.'], 400);
 
-                $booking = DB::table('bookings')->where('plate_number', $plateNumber)->where('status', 'confirmed')->first();
+                // جلب الحجز المؤكد عبر واجهة المستودع (Repository Pattern)
+                $booking = $this->bookingRepo->getConfirmedBookingByPlate($plateNumber);
                 if (!$booking) return response()->json(['status' => 'error', 'message' => 'لا يوجد حجز مسبق مؤكد لهذه اللوحة.'], 404);
 
                 if ($booking->type === 'initial') {
@@ -588,20 +525,14 @@ class BookingController extends Controller
                         return response()->json(['status' => 'error', 'message' => 'رصيد غير كافٍ! (المطلوب: ' . $expectedCost . ')'], 400);
                     }
 
-                    // الدخول (حفظ وقت الخروج المتوقع في end_time لمقارنته عند الخروج الفعلي)
-                    DB::table('bookings')->where('id', $booking->id)->update([
-                        'status' => 'active',
-                        'end_time' => $expectedEndTime,
-                        'updated_at' => Carbon::now()
-                    ]);
+                    // الدخول (حفظ وقت الخروج المتوقع في end_time لمقارنته عند الخروج الفعلي) باستخدام نمط الحالة
+                    $booking->end_time = $expectedEndTime;
+                    $booking->enter();
                     $message = 'تم تأكيد الدخول المبدئي بنجاح. سيتم احتساب التكلفة الفعالية والعقوبات عند الخروج.';
 
                 } else {
-                    // إذا كان الحجز (actual) فعلي ومسبق الدفع
-                    DB::table('bookings')->where('id', $booking->id)->update([
-                        'status' => 'active',
-                        'updated_at' => Carbon::now()
-                    ]);
+                    // إذا كان الحجز (actual) فعلي ومسبق الدفع، يتم الدخول باستخدام نمط الحالة
+                    $booking->enter();
                     $message = 'تم تأكيد الدخول الفعلي بنجاح فوراً.';
                 }
 
@@ -609,11 +540,8 @@ class BookingController extends Controller
 
             } else {
                 // --- منطق الخروج (تطبيق العقوبات والخصم) ---
-                $booking = DB::table('bookings')
-                    ->where('plate_number', $plateNumber)
-                    ->where('status', 'active')
-                    ->where('parking_id', $employeeParkingId)
-                    ->first();
+                // جلب الحجز النشط عبر واجهة المستودع (Repository Pattern)
+                $booking = $this->bookingRepo->getActiveBookingInParking($plateNumber, $employeeParkingId);
 
                 if (!$booking) return response()->json(['status' => 'error', 'message' => 'السيارة غير موجودة بالموقف.'], 404);
 
@@ -672,12 +600,8 @@ class BookingController extends Controller
                     }
                 }
 
-                // تحديث حالة الحجز إلى مكتمل
-                DB::table('bookings')->where('id', $booking->id)->update([
-                    'status' => 'completed',
-                    'end_time' => $exitTime,
-                    'updated_at' => Carbon::now()
-                ]);
+                // تحديث حالة الحجز إلى مكتمل باستخدام نمط الحالة
+                $booking->exitParking();
 
                 DB::table('parkings')->where('id', $employeeParkingId)->increment('available_capacity', 1);
             }
