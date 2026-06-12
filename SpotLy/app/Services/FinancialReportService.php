@@ -68,6 +68,51 @@ class FinancialReportService
                 $systemCompensationPercentage = round(($systemTotalRefundedPoints / $systemTotalRevenue) * 100, 2);
             }
 
+            // 8. حساب حركة شحن النقاط والإيرادات اليومية لآخر 30 يوماً
+            $dailyStats = [];
+            for ($dayIndex = 29; $dayIndex >= 0; $dayIndex--) {
+                $targetDate = now()->subDays($dayIndex)->format('Y-m-d');
+                $dailyStats[$targetDate] = [
+                    'revenue' => 0.00,
+                    'count' => 0
+                ];
+            }
+
+            if (!empty($parkingIds)) {
+                // جلب مجموع الإيرادات وعدد العمليات اليومية من قاعدة البيانات لساحات المدير
+                $rechargeData = DB::table('recharge_requests')
+                    ->whereIn('parking_id', $parkingIds)
+                    ->where('status', 'Approved')
+                    ->where('created_at', '>=', now()->subDays(30)->startOfDay())
+                    ->select(
+                        DB::raw('DATE(created_at) as recharge_date'),
+                        DB::raw('SUM(requested_points) as daily_revenue'),
+                        DB::raw('COUNT(id) as daily_count')
+                    )
+                    ->groupBy(DB::raw('DATE(created_at)'))
+                    ->get();
+
+                // ملء البيانات المستخرجة في المصفوفة الزمنية الافتراضية
+                foreach ($rechargeData as $row) {
+                    if (isset($dailyStats[$row->recharge_date])) {
+                        $dailyStats[$row->recharge_date]['revenue'] = (float) $row->daily_revenue;
+                        $dailyStats[$row->recharge_date]['count'] = (int) $row->daily_count;
+                    }
+                }
+            }
+
+            $dailyLabels = [];
+            $dailyRevenueValues = [];
+            $dailyCountValues = [];
+
+            // إعادة صياغة وهيكلة البيانات لتكون جاهزة للمخطط البياني (Chart.js)
+            foreach ($dailyStats as $dateKey => $statsValues) {
+                // تنسيق التاريخ ليكون بالشكل "Month-Day" مثلاً "06-12"
+                $dailyLabels[] = \Carbon\Carbon::parse($dateKey)->format('m-d');
+                $dailyRevenueValues[] = $statsValues['revenue'];
+                $dailyCountValues[] = $statsValues['count'];
+            }
+
             // إرجاع مصفوفة البيانات المالية مرتبة ومتوافقة مع التسميات القياسية المطلوبة
             return [
                 'totalRevenue' => $totalRevenue,
@@ -76,6 +121,9 @@ class FinancialReportService
                 'systemTotalRevenue' => $systemTotalRevenue,
                 'systemTotalRefundedPoints' => $systemTotalRefundedPoints,
                 'systemCompensationPercentage' => $systemCompensationPercentage,
+                'dailyLabels' => $dailyLabels,
+                'dailyRevenue' => $dailyRevenueValues,
+                'dailyCount' => $dailyCountValues,
             ];
 
         } catch (Exception $exception) {
