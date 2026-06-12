@@ -99,6 +99,9 @@
             <a class="nav-link" onclick="switchTab('violationsTab', this)">
                 🚫 إدارة الحظر والمخالفات
             </a>
+            <a class="nav-link" onclick="switchTab('financialReportTab', this)">
+                📊 التقرير المالي
+            </a>
             <a class="nav-link" onclick="switchTab('profileTab', this)">
                 ⚙️ البيانات الشخصية
             </a>
@@ -350,6 +353,90 @@
                                         <td colspan="7" class="text-muted py-4">لا يوجد سائقون محظورون حالياً.</td>
                                     </tr>
                                 @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- تبويب: التقرير المالي -->
+        <section id="financialReportTab" class="content-section d-none">
+            <!-- كروت الإحصاءات المالية بتصميم جمالي راقٍ وتدرجات لونية ممتازة -->
+            <div class="row g-4 mb-4">
+                <!-- كرت إجمالي الإيرادات -->
+                <div class="col-md-4">
+                    <div class="card border-0 text-white shadow-lg p-4" style="background: linear-gradient(135deg, #11998e, #38ef7d); border-radius: 16px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50 fw-bold mb-1">💰 إجمالي إيرادات الساحات</h6>
+                                <h2 class="fw-bold mb-0 text-white stat-card-value">{{ number_format($financialData['totalRevenue'], 2) }} <span class="fs-6 fw-normal text-white-50">نقطة</span></h2>
+                            </div>
+                            <span class="fs-1 opacity-75">📥</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- كرت إجمالي التعويضات عند الإلغاء -->
+                <div class="col-md-4">
+                    <div class="card border-0 text-white shadow-lg p-4" style="background: linear-gradient(135deg, #ff9900, #ff5500); border-radius: 16px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50 fw-bold mb-1">🔄 إجمالي النقاط المسترجعة</h6>
+                                <h2 class="fw-bold mb-0 text-white stat-card-value">{{ number_format($financialData['totalRefundedPoints'], 2) }} <span class="fs-6 fw-normal text-white-50">نقطة</span></h2>
+                            </div>
+                            <span class="fs-1 opacity-75">📤</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- كرت نسبة التعويضات الإجمالية -->
+                <div class="col-md-4">
+                    <div class="card border-0 text-white shadow-lg p-4" style="background: linear-gradient(135deg, #8a2387, #e94057, #f27121); border-radius: 16px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50 fw-bold mb-1">📈 نسبة التعويضات الإجمالية</h6>
+                                <h2 class="fw-bold mb-0 text-white stat-card-value">{{ $financialData['compensationPercentage'] }} <span class="fs-6 fw-normal text-white-50">%</span></h2>
+                            </div>
+                            <span class="fs-1 opacity-75">📊</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- جدول المقارنة المالية مع إجمالي أداء النظام بالكامل لتقديم رؤية شاملة للمدير -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white py-3 border-0">
+                    <h5 class="mb-0 text-dark fw-bold">📊 مقارنة الأداء المالي مع إجمالي النظام</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive shadow-sm rounded-3">
+                        <table class="table table-hover align-middle mb-0 text-center">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>نطاق التقرير المالي</th>
+                                    <th>إجمالي الإيرادات (نقاط معتمدة)</th>
+                                    <th>إجمالي التعويضات المسترجعة (عند الإلغاء)</th>
+                                    <th>نسبة التعويضات الإجمالية</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="table-success fw-bold">
+                                    <td class="text-dark">📍 الساحات المدارة التابعة لك</td>
+                                    <td class="text-success">{{ number_format($financialData['totalRevenue'], 2) }} نقطة</td>
+                                    <td class="text-danger">{{ number_format($financialData['totalRefundedPoints'], 2) }} نقطة</td>
+                                    <td>
+                                        <span class="badge bg-success px-3 py-2 rounded-pill">{{ $financialData['compensationPercentage'] }} %</span>
+                                    </td>
+                                </tr>
+                                <tr class="table-light">
+                                    <td class="text-muted">🌐 إجمالي النظام بالكامل</td>
+                                    <td class="text-muted">{{ number_format($financialData['systemTotalRevenue'], 2) }} نقطة</td>
+                                    <td class="text-muted">{{ number_format($financialData['systemTotalRefundedPoints'], 2) }} نقطة</td>
+                                    <td>
+                                        <span class="badge bg-secondary px-3 py-2 rounded-pill">{{ $financialData['systemCompensationPercentage'] }} %</span>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>

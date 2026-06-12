@@ -86,7 +86,11 @@ class ManagerController extends Controller
                 ->where('users.status', 'blocked')
                 ->get();
 
-            return view('dashboards.manager', compact('parkingsList', 'unassignedEmployees', 'blockedUsers'));
+            // جلب بيانات التقرير المالي للمدير الحالي باستخدام الخدمة المالية المستحدثة
+            $financialReportService = new \App\Services\FinancialReportService();
+            $financialData = $financialReportService->getFinancialReportData($manager->id);
+
+            return view('dashboards.manager', compact('parkingsList', 'unassignedEmployees', 'blockedUsers', 'financialData'));
 
         } catch (\Exception $exception) {
             abort(500, 'حدث خطأ داخلي أثناء تحميل لوحة تحكم المدير: ' . $exception->getMessage());
