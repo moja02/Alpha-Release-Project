@@ -217,6 +217,9 @@ class BookingController extends Controller
             $driverProfile = \Illuminate\Support\Facades\DB::table('users')->where('account_id', $inputUserId)->first();
             $driverPlateNumber = $driverProfile ? $driverProfile->plate_number : 'غير محدد';
 
+            // تهيئة متغير تكلفة الحجز بقيمة صفرية بشكل افتراضي (لنوع الحجز المبدئي)
+            $bookingCost = 0.00;
+
             // 4. معالجة الأوقات والخصم المالي بناءً على السيناريو الخاص بك
             if ($inputType === 'initial') {
                 // الحجز المبدئي: يبدأ الآن وينتهي بعد 30 دقيقة (المهلة)
@@ -255,6 +258,7 @@ class BookingController extends Controller
                 'end_time' => $endTime,
                 'type' => $inputType,
                 'status' => 'confirmed',
+                'cost' => $bookingCost, // حفظ تكلفة الحجز الفعلي في قاعدة البيانات
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
@@ -338,6 +342,9 @@ class BookingController extends Controller
                     ->where('user_id', $bookingRecord->user_id)
                     ->increment('balance', $refundAmount);
             }
+
+            // تخزين قيمة النقاط المسترجعة كتعويض للمستخدم في قاعدة البيانات
+            $bookingRecord->refund_amount = $refundAmount;
 
             // تحديث حالة الحجز وزيادة السعة المتاحة في الساحة باستخدام نمط الحالة
             $bookingRecord->cancelBooking();
