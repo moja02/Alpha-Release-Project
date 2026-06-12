@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { 
             background-color: #f4f6f9; 
@@ -400,6 +401,18 @@
                             </div>
                             <span class="fs-1 opacity-75">📊</span>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- قسم الرسم البياني الخطي لحركة شحن النقاط والإيرادات اليومية في آخر 30 يوماً -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white py-3 border-0">
+                    <h5 class="mb-0 text-dark fw-bold">📈 منحنى حركة شحن النقاط والإيرادات اليومية (آخر 30 يوماً)</h5>
+                </div>
+                <div class="card-body">
+                    <div style="position: relative; height: 350px; width: 100%;">
+                        <canvas id="financialLineChart"></canvas>
                     </div>
                 </div>
             </div>
@@ -886,6 +899,116 @@
             }
         });
     }
+
+    // تهيئة الرسم البياني الخطي باستخدام مكتبة Chart.js لآخر 30 يوماً
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            const chartCanvas = document.getElementById('financialLineChart');
+            if (chartCanvas) {
+                // قراءة البيانات الممررة من الواجهة الخلفية
+                const chartLabels = {!! json_encode($financialData['dailyLabels']) !!};
+                const revenueData = {!! json_encode($financialData['dailyRevenue']) !!};
+                const countData = {!! json_encode($financialData['dailyCount']) !!};
+
+                const ctx = chartCanvas.getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [
+                            {
+                                label: '💰 الإيرادات اليومية (نقاط)',
+                                data: revenueData,
+                                borderColor: '#38ef7d',
+                                backgroundColor: 'rgba(56, 239, 125, 0.1)',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4
+                            },
+                            {
+                                label: '🔄 عدد عمليات الشحن المعتمدة',
+                                data: countData,
+                                borderColor: '#ff9900',
+                                backgroundColor: 'rgba(255, 153, 0, 0.1)',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4,
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    font: {
+                                        family: 'system-ui, sans-serif',
+                                        weight: 'bold'
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        family: 'system-ui, sans-serif'
+                                    }
+                                }
+                            },
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'قيمة النقاط (💰)',
+                                    font: {
+                                        family: 'system-ui, sans-serif',
+                                        weight: 'bold'
+                                    }
+                                },
+                                grid: {
+                                    color: '#f0f2f5'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'عدد العمليات (🔄)',
+                                    font: {
+                                        family: 'system-ui, sans-serif',
+                                        weight: 'bold'
+                                    }
+                                },
+                                grid: {
+                                    drawOnChartArea: false,
+                                },
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        } catch (exception) {
+            console.error("خطأ أثناء تهيئة الرسم البياني الخطي للتقرير المالي:", exception);
+        }
+    });
     </script>
 </body>
 </html>
