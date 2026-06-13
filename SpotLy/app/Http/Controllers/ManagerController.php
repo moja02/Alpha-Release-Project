@@ -302,4 +302,83 @@ class ManagerController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * تصدير التقرير المالي للمدير بصيغتي CSV أو JSON باستخدام نمط الاستراتيجية.
+     *
+     * @param \Illuminate\Http\Request $request Request
+     * @return \Symfony\Component\HttpFoundation\Response Response
+     */
+    public function exportReport(Request $request)
+    {
+        try {
+            $user = auth()->user();
+
+            if (!$user || $user->role !== 'manager') {
+                abort(403, 'غير مصرح لك بالدخول!');
+            }
+
+            // جلب سجل المدير من جدول managers
+            $manager = DB::table('managers')->where('account_id', $user->id)->first();
+
+            if (!$manager) {
+                abort(403, 'لا يوجد ملف تعريف مدير مرتبط بهذا الحساب!');
+            }
+
+            // جلب بيانات التقرير المالي للمدير الحالي
+            $financialReportService = new \App\Services\FinancialReportService();
+            $financialData = $financialReportService->getFinancialReportData($manager->id);
+
+            // تحديد اسم الملف المصدّر وتاريخ اليوم
+            $fileName = 'spotly_financial_report_' . date('Y_m_d');
+
+            // استقبال الصيغة المطلوبة وتوجيه الطلب للاستراتيجية المناسبة
+            $exportFormat = $request->query('format', 'csv');
+
+            if ($exportFormat === 'json') {
+                // استخدام استراتيجية تصدير JSON
+                $strategy = new \App\Strategies\Export\JsonExportStrategy();
+                $exportData = $financialData;
+            } else {
+                // استخدام استراتيجية تصدير CSV
+                $strategy = new \App\Strategies\Export\CsvExportStrategy();
+                
+                // تنسيق البيانات لتكون على هيئة صفوف ملائمة لملفات CSV
+                $exportData = [
+                    ['التقرير المالي لساحات المدير', $user->name],
+                    ['تاريخ التصدير', date('Y-m-d H:i:s')],
+                    ['', ''],
+                    ['البيان المالي الكلي لساحاتك المدارة', 'القيمة'],
+                    ['إجمالي الإيرادات (مجموع شحنات النقاط المعتمدة)', $financialData['totalRevenue']],
+                    ['إجمالي النقاط المسترجعة (التعويضات عند الإلغاء)', $financialData['totalRefundedPoints']],
+                    ['نسبة التعويضات الإجمالية لساحاتك المدارة (%)', $financialData['compensationPercentage'] . '%'],
+                    ['', ''],
+                    ['مقارنة الأداء المالي مع إجمالي النظام الكلي', ''],
+                    ['إجمالي إيرادات النظام الكلية (نقاط)', $financialData['systemTotalRevenue']],
+                    ['إجمالي النقاط المسترجعة للنظام الكلية (نقاط)', $financialData['systemTotalRefundedPoints']],
+                    ['نسبة تعويضات النظام الكلية (%)', $financialData['systemCompensationPercentage'] . '%'],
+                    ['', ''],
+                    ['حركة شحن النقاط والإيرادات اليومية في آخر 30 يوماً', ''],
+                    ['التاريخ', 'الإيرادات بالنقاط (💰)', 'عدد عمليات الشحن المعتمدة (🔄)']
+                ];
+
+                // إضافة إحصاءات الـ 30 يوماً الأخيرة صفاً بصف
+                for ($indexValue = 0; $indexValue < count($financialData['dailyLabels']); $indexValue++) {
+                    $exportData[] = [
+                        $financialData['dailyLabels'][$indexValue],
+                        $financialData['dailyRevenue'][$indexValue],
+                        $financialData['dailyCount'][$indexValue]
+                    ];
+                }
+            }
+
+            // تنفيذ التصدير وإرجاع استجابة التحميل
+            return $strategy->export($exportData, $fileName);
+
+        } catch (\Exception $exception) {
+            // توثيق الاستثناء لمتابعة الصيانة
+            \Illuminate\Support\Facades\Log::error('خطأ أثناء تصدير التقرير المالي للمدير: ' . $exception->getMessage());
+            abort(500, 'حدث خطأ داخلي أثناء تصدير التقرير المالي: ' . $exception->getMessage());
+        }
+    }
 }

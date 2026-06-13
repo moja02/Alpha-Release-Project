@@ -43,6 +43,9 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::post('/manager/users/unblock', [ManagerController::class, 'unblockUser'])
         ->middleware('role:manager')
         ->name('manager.users.unblock');
+    Route::get('/manager/reports/export', [ManagerController::class, 'exportReport'])
+        ->middleware('role:manager')
+        ->name('manager.reports.export');
 });
 
 Route::post('/developer/parkings/store', [DeveloperController::class, 'storeParking'])->name('developer.parking.store');

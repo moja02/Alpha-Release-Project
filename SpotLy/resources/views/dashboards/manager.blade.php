@@ -363,6 +363,22 @@
 
         <!-- تبويب: التقرير المالي -->
         <section id="financialReportTab" class="content-section d-none">
+            <!-- عنوان التبويب وأزرار تصدير البيانات بتصميم متميز -->
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3 bg-white p-4 rounded-4 shadow-sm border-0">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">📊 التقارير المالية والإحصائية للساحات</h5>
+                    <p class="text-muted mb-0 small">تتبع وحلل الإيرادات والتعويضات اليومية لساحاتك بشكل دقيق</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ route('manager.reports.export', ['format' => 'csv']) }}" class="btn btn-success btn-sm fw-bold px-3 py-2 rounded-pill shadow-sm d-flex align-items-center gap-2">
+                        <span>📥</span> تحميل التقرير بصيغة CSV
+                    </a>
+                    <a href="{{ route('manager.reports.export', ['format' => 'json']) }}" class="btn btn-dark btn-sm fw-bold px-3 py-2 rounded-pill shadow-sm d-flex align-items-center gap-2" style="background-color: #2c3e50; border-color: #2c3e50;">
+                        <span>📥</span> تحميل التقرير بصيغة JSON
+                    </a>
+                </div>
+            </div>
+
             <!-- كروت الإحصاءات المالية بتصميم جمالي راقٍ وتدرجات لونية ممتازة -->
             <div class="row g-4 mb-4">
                 <!-- كرت إجمالي الإيرادات -->
@@ -405,10 +421,10 @@
                 </div>
             </div>
 
-            <!-- قسم الرسم البياني الخطي لحركة شحن النقاط والإيرادات اليومية في آخر 30 يوماً -->
+            <!-- قسم الرسم البياني العمودي لحركة شحن النقاط والإيرادات اليومية في آخر 30 يوماً -->
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-header bg-white py-3 border-0">
-                    <h5 class="mb-0 text-dark fw-bold">📈 منحنى حركة شحن النقاط والإيرادات اليومية (آخر 30 يوماً)</h5>
+                    <h5 class="mb-0 text-dark fw-bold">📊 أعمدة حركة شحن النقاط والإيرادات اليومية (آخر 30 يوماً)</h5>
                 </div>
                 <div class="card-body">
                     <div style="position: relative; height: 350px; width: 100%;">
@@ -912,7 +928,7 @@
 
                 const ctx = chartCanvas.getContext('2d');
                 new Chart(ctx, {
-                    type: 'line',
+                    type: 'bar',
                     data: {
                         labels: chartLabels,
                         datasets: [
@@ -920,19 +936,15 @@
                                 label: '💰 الإيرادات اليومية (نقاط)',
                                 data: revenueData,
                                 borderColor: '#38ef7d',
-                                backgroundColor: 'rgba(56, 239, 125, 0.1)',
-                                borderWidth: 3,
-                                fill: true,
-                                tension: 0.4
+                                backgroundColor: 'rgba(56, 239, 125, 0.7)',
+                                borderWidth: 1
                             },
                             {
                                 label: '🔄 عدد عمليات الشحن المعتمدة',
                                 data: countData,
                                 borderColor: '#ff9900',
-                                backgroundColor: 'rgba(255, 153, 0, 0.1)',
-                                borderWidth: 3,
-                                fill: true,
-                                tension: 0.4,
+                                backgroundColor: 'rgba(255, 153, 0, 0.7)',
+                                borderWidth: 1,
                                 yAxisID: 'y1'
                             }
                         ]
