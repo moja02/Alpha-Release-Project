@@ -17,8 +17,14 @@ class AppServiceProvider extends ServiceProvider
                 \App\Repositories\BookingRepositoryInterface::class,
                 \App\Repositories\BookingRepository::class
             );
+
+            // ربط واجهة مستودع التقارير مع التطبيق الفعلي الخاص بها لنمط المستودع (Repository Pattern)
+            $this->app->bind(
+                \App\Repositories\ReportRepositoryInterface::class,
+                \App\Repositories\ReportRepository::class
+            );
         } catch (\Exception $exception) {
-            \Illuminate\Support\Facades\Log::error("خطأ أثناء تسجيل مستودع الحجوزات: " . $exception->getMessage());
+            \Illuminate\Support\Facades\Log::error("خطأ أثناء تسجيل مستودعات التطبيق: " . $exception->getMessage());
             throw $exception;
         }
     }
