@@ -13,6 +13,7 @@ return new class extends Migration
             Schema::create('recharge_requests', function (Blueprint $table) {
                 $table->id(); // requestId
                 $table->foreignId('user_id')->constrained('users')->onDelete('cascade'); // userId
+                $table->unsignedBigInteger('parking_id')->nullable(); // parkingId
                 $table->integer('requested_points'); // requestedPoints
                 $table->string('receipt_file'); // receiptFile
                 $table->enum('status', ['Pending', 'Approved', 'Rejected'])->default('Pending'); // status
