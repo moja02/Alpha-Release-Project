@@ -75,6 +75,18 @@ class FieldController extends Controller
 
             DB::table('parkings')->where('id', $employeeParkingId)->decrement('available_capacity', 1);
 
+            // تسجيل العملية في سجل التدقيق المالي الميداني
+            DB::table('activity_cash_audit_logs')->insert([
+                'employee_id' => $employee->id,
+                'parking_id' => $employeeParkingId,
+                'operation_type' => 'entry',
+                'plate_number' => $plateNumber,
+                'cash_value' => 0.00,
+                'driver_account_id' => null,
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ]);
+
             DB::commit();
             return response()->json(['status' => 'success', 'message' => 'تم تسجيل دخول الزائر وفتح تذكرة بنجاح.']);
 
@@ -147,6 +159,18 @@ class FieldController extends Controller
             ]);
 
             DB::table('parkings')->where('id', $employeeParkingId)->increment('available_capacity', 1);
+
+            // تسجيل العملية في سجل التدقيق المالي الميداني
+            DB::table('activity_cash_audit_logs')->insert([
+                'employee_id' => $employee->id,
+                'parking_id' => $employeeParkingId,
+                'operation_type' => 'exit',
+                'plate_number' => $plateNumber,
+                'cash_value' => $totalCost, // كاش فعلي مستلم من الزائر
+                'driver_account_id' => null,
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ]);
 
             DB::commit();
             
