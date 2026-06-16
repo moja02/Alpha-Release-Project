@@ -90,10 +90,111 @@ class ManagerController extends Controller
             $financialReportService = new \App\Services\FinancialReportService();
             $financialData = $financialReportService->getFinancialReportData($manager->id);
 
-            return view('dashboards.manager', compact('parkingsList', 'unassignedEmployees', 'blockedUsers', 'financialData'));
+            // قائمة الموظفين التابعين للمدير لغرض فلترة سجل العمليات والتدقيق
+            $managerParkingIds = $parkingsList->pluck('id')->toArray();
+            $managerEmployees = DB::table('employees')
+                ->join('accounts', 'employees.account_id', '=', 'accounts.id')
+                ->where(function($q) use ($managerParkingIds, $manager) {
+                    $q->whereIn('employees.id', function ($query) use ($managerParkingIds) {
+                        $query->select('employee_id')
+                              ->from('activity_cash_audit_logs')
+                              ->whereIn('parking_id', $managerParkingIds);
+                    })
+                    ->orWhereIn('employees.id', function ($query) use ($manager) {
+                        $query->select('employee_id')
+                              ->from('parkings')
+                              ->where('manager_id', $manager->id)
+                              ->whereNotNull('employee_id');
+                    });
+                })
+                ->select('employees.id', 'accounts.name as employee_name')
+                ->distinct()
+                ->get();
+
+            return view('dashboards.manager', compact('parkingsList', 'unassignedEmployees', 'blockedUsers', 'financialData', 'managerEmployees'));
 
         } catch (\Exception $exception) {
             abort(500, 'حدث خطأ داخلي أثناء تحميل لوحة تحكم المدير: ' . $exception->getMessage());
+        }
+    }
+
+    /**
+     * جلب سجل العمليات والتدقيق المالي للموظفين الميدانيين
+     */
+    public function getAuditLogsData(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            if (!$user || $user->role !== 'manager') {
+                return response()->json(['status' => 'error', 'message' => 'غير مصرح!'], 403);
+            }
+
+            $manager = DB::table('managers')->where('account_id', $user->id)->first();
+            if (!$manager) {
+                return response()->json(['status' => 'error', 'message' => 'الملف غير موجود!'], 403);
+            }
+
+            $managerParkingIds = DB::table('parkings')
+                ->where('manager_id', $manager->id)
+                ->pluck('id')
+                ->toArray();
+
+            $query = DB::table('activity_cash_audit_logs')
+                ->join('employees', 'activity_cash_audit_logs.employee_id', '=', 'employees.id')
+                ->join('accounts as employee_accounts', 'employees.account_id', '=', 'employee_accounts.id')
+                ->join('parkings', 'activity_cash_audit_logs.parking_id', '=', 'parkings.id')
+                ->leftJoin('accounts as driver_accounts', 'activity_cash_audit_logs.driver_account_id', '=', 'driver_accounts.id')
+                ->whereIn('activity_cash_audit_logs.parking_id', $managerParkingIds)
+                ->select(
+                    'activity_cash_audit_logs.*',
+                    'employee_accounts.name as employee_name',
+                    'parkings.name as parking_name',
+                    'driver_accounts.name as driver_name'
+                )
+                ->orderBy('activity_cash_audit_logs.created_at', 'desc');
+
+            if ($request->filled('employee_id')) {
+                $query->where('activity_cash_audit_logs.employee_id', $request->employee_id);
+            }
+
+            if ($request->filled('operation_type')) {
+                $query->where('activity_cash_audit_logs.operation_type', $request->operation_type);
+            }
+
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function($q) use ($search) {
+                    $q->where('activity_cash_audit_logs.plate_number', 'like', "%{$search}%")
+                      ->orWhere('employee_accounts.name', 'like', "%{$search}%")
+                      ->orWhere('driver_accounts.name', 'like', "%{$search}%");
+                });
+            }
+
+            $logs = $query->get();
+
+            // حساب الإجماليات للمطابقة المالية والتدقيق
+            $totalGuestExitCash = 0;
+            $totalRechargeCash = 0;
+            foreach ($logs as $log) {
+                if ($log->operation_type === 'exit') {
+                    $totalGuestExitCash += (float)$log->cash_value;
+                } elseif ($log->operation_type === 'recharge') {
+                    $totalRechargeCash += (float)$log->cash_value;
+                }
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $logs,
+                'summary' => [
+                    'totalGuestExitCash' => $totalGuestExitCash,
+                    'totalRechargeCash' => $totalRechargeCash,
+                    'totalCash' => $totalGuestExitCash + $totalRechargeCash
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
 
