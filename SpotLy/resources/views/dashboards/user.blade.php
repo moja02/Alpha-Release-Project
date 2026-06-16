@@ -80,6 +80,8 @@
             <a class="nav-link active" onclick="switchTab('overviewTab', this)">🏠 نظرة عامة</a>
             <a class="nav-link" onclick="switchTab('bookingTab', this)">🚗 حجز موقف تفاعلي</a>
             <a class="nav-link" onclick="switchTab('walletTab', this)">💳 المحفظة وطلب الشحن</a>
+            <a class="nav-link" onclick="switchTab('invoicesTab', this)">🧾 فواتير الشحن</a>
+            <a class="nav-link" onclick="switchTab('historyTab', this)">📜 سجل الحجوزات</a>
             <a class="nav-link" onclick="switchTab('profileTab', this)">⚙️ الإعدادات الشخصية</a>
         </nav>
     </aside>
@@ -336,6 +338,102 @@
                                 </table>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- فواتير الشحن المباشر (الضمان) -->
+        <section id="invoicesTab" class="content-section d-none">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+                <div class="card-header bg-gradient bg-success text-white p-4 border-0 d-flex align-items-center justify-content-between">
+                    <h5 class="fw-bold mb-0">💵 فواتير الشحن المباشر (إيصالات البوابة)</h5>
+                    <button onclick="loadUserDirectRechargeInvoices()" class="btn btn-sm btn-light rounded-pill px-3">تحديث الفواتير</button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle text-center">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>رقم الإيصال</th>
+                                    <th>الساحة</th>
+                                    <th>الموظف</th>
+                                    <th>القيمة (كاش)</th>
+                                    <th>تاريخ الشحن</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="directRechargeInvoicesTableBody">
+                                <tr>
+                                    <td colspan="6" class="text-muted py-5">جاري تحميل الفواتير...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- سجل الحجوزات التصفية الشهرية -->
+        <section id="historyTab" class="content-section d-none">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="fw-bold text-dark mb-0">📜 سجل الحجوزات التاريخي</h5>
+                </div>
+                <div class="card-body bg-light">
+                    <!-- فلاتر التصفية -->
+                    <div class="row g-3 align-items-end mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-secondary">الشهر</label>
+                            <select class="form-select shadow-none" id="historyMonthSelect">
+                                <option value="">كل الأشهر</option>
+                                <option value="1">يناير (1)</option>
+                                <option value="2">فبراير (2)</option>
+                                <option value="3">مارس (3)</option>
+                                <option value="4">أبريل (4)</option>
+                                <option value="5">مايو (5)</option>
+                                <option value="6">يونيو (6)</option>
+                                <option value="7">يوليو (7)</option>
+                                <option value="8">أغسطس (8)</option>
+                                <option value="9">سبتمبر (9)</option>
+                                <option value="10">أكتوبر (10)</option>
+                                <option value="11">نوفمبر (11)</option>
+                                <option value="12">ديسمبر (12)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-secondary">السنة</label>
+                            <select class="form-select shadow-none" id="historyYearSelect">
+                                <!-- سيتم تعبئتها ديناميكياً بالجافا سكربت -->
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button onclick="loadUserBookingHistory()" class="btn btn-primary w-100 fw-bold py-2 rounded-3">
+                                تصفية وتحديث 🔍
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- جدول الحجوزات -->
+                    <div class="table-responsive bg-white rounded-3 shadow-sm">
+                        <table class="table table-hover mb-0 align-middle text-center">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>رقم الحجز</th>
+                                    <th>الساحة</th>
+                                    <th>نوع الحجز</th>
+                                    <th>تاريخ الدخول</th>
+                                    <th>تاريخ الخروج</th>
+                                    <th>الحالة</th>
+                                    <th>تاريخ الحجز</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bookingHistoryTableBody">
+                                <tr>
+                                    <td colspan="7" class="text-muted py-5">جاري تحميل سجل الحجوزات...</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -638,6 +736,11 @@
                 } else if (sectionIdValue === 'walletTab') {
                     loadUserRechargeHistory();
                     loadParkingOptionsForRecharge();
+                } else if (sectionIdValue === 'invoicesTab') {
+                    loadUserDirectRechargeInvoices();
+                } else if (sectionIdValue === 'historyTab') {
+                    initializeHistoryYearSelect();
+                    loadUserBookingHistory();
                 }
 
             } catch (exception) {
@@ -1554,6 +1657,223 @@
                 }
             } catch (exception) {
                 console.error("خطأ في جلب سجل التنبيهات", exception);
+            }
+        }
+
+        // --- سجل الحجوزات والشحن المباشر ---
+        function initializeHistoryYearSelect() {
+            const yearSelect = document.getElementById('historyYearSelect');
+            if (yearSelect && yearSelect.options.length === 0) {
+                const currentYear = new Date().getFullYear();
+                for (let y = currentYear; y >= currentYear - 5; y--) {
+                    const opt = document.createElement('option');
+                    opt.value = y;
+                    opt.textContent = y;
+                    yearSelect.appendChild(opt);
+                }
+            }
+        }
+
+        async function loadUserBookingHistory() {
+            try {
+                if (!currentUserData || !currentUserData.accountId) return;
+
+                const monthVal = document.getElementById('historyMonthSelect').value;
+                const yearVal = document.getElementById('historyYearSelect').value;
+
+                let url = `/api/bookings/history?userId=${currentUserData.accountId}`;
+                if (monthVal) url += `&month=${monthVal}`;
+                if (yearVal) url += `&year=${yearVal}`;
+
+                const response = await fetch(url);
+                const resultData = await response.json();
+                const tableBody = document.getElementById('bookingHistoryTableBody');
+
+                if (tableBody && response.ok && resultData.status === 'success') {
+                    tableBody.innerHTML = '';
+
+                    if (resultData.data.length > 0) {
+                        resultData.data.forEach(booking => {
+                            let typeLabel = booking.type === 'initial' ? '⏱️ مبدئي' : '✅ فعلي';
+                            let statusBadgeClass = 'bg-secondary';
+                            let statusLabel = booking.status;
+
+                            if (booking.status === 'Pending') {
+                                statusBadgeClass = 'bg-warning text-dark';
+                                statusLabel = 'قيد الانتظار';
+                            } else if (booking.status === 'Active') {
+                                statusBadgeClass = 'bg-success text-white';
+                                statusLabel = 'نشط';
+                            } else if (booking.status === 'Cancelled') {
+                                statusBadgeClass = 'bg-danger text-white';
+                                statusLabel = 'ملغي';
+                            } else if (booking.status === 'Completed') {
+                                statusBadgeClass = 'bg-info text-white';
+                                statusLabel = 'مكتمل';
+                            } else if (booking.status === 'Expired') {
+                                statusBadgeClass = 'bg-dark text-white';
+                                statusLabel = 'منتهي الصلاحية';
+                            }
+
+                            const startDate = booking.start_time 
+                                ? new Date(booking.start_time).toLocaleString('ar-LY', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' })
+                                : '--';
+                            const endDate = booking.end_time 
+                                ? new Date(booking.end_time).toLocaleString('ar-LY', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' })
+                                : '--';
+                            const createdAt = new Date(booking.created_at).toLocaleString('ar-LY', {
+                                year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                            });
+
+                            tableBody.innerHTML += `
+                                <tr>
+                                    <td class="fw-bold">#${booking.id}</td>
+                                    <td>${booking.parking_name}</td>
+                                    <td class="fw-bold">${typeLabel}</td>
+                                    <td class="small text-muted">${startDate}</td>
+                                    <td class="small text-muted">${endDate}</td>
+                                    <td><span class="badge ${statusBadgeClass} rounded-pill px-3 py-1">${statusLabel}</span></td>
+                                    <td class="small text-muted">${createdAt}</td>
+                                </tr>
+                            `;
+                        });
+                    } else {
+                        tableBody.innerHTML = '<tr><td colspan="7" class="text-muted py-5">لا توجد حجوزات تطابق خيارات التصفية المحددة.</td></tr>';
+                    }
+                }
+            } catch (exception) {
+                console.error("خطأ أثناء جلب سجل الحجوزات", exception);
+            }
+        }
+
+        async function loadUserDirectRechargeInvoices() {
+            try {
+                if (!currentUserData || !currentUserData.accountId) return;
+
+                const response = await fetch(`/api/recharges/invoices?userId=${currentUserData.accountId}`);
+                const resultData = await response.json();
+                const tableBody = document.getElementById('directRechargeInvoicesTableBody');
+
+                if (tableBody && response.ok && resultData.status === 'success') {
+                    tableBody.innerHTML = '';
+
+                    if (resultData.data.length > 0) {
+                        resultData.data.forEach(invoice => {
+                            const dateValue = new Date(invoice.created_at).toLocaleString('ar-LY', {
+                                year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                            });
+
+                            const invoiceJson = JSON.stringify(invoice).replace(/"/g, '&quot;');
+
+                            tableBody.innerHTML += `
+                                <tr>
+                                    <td class="fw-bold text-dark">#${invoice.id}</td>
+                                    <td>${invoice.parking_name}</td>
+                                    <td>${invoice.employee_name}</td>
+                                    <td class="fw-bold text-success">${invoice.cash_value} د.ل</td>
+                                    <td class="small text-muted">${dateValue}</td>
+                                    <td>
+                                        <button onclick="showInvoiceDetail('${invoiceJson}')" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1">
+                                            📄 عرض وتفاصيل
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                    } else {
+                        tableBody.innerHTML = '<tr><td colspan="6" class="text-muted py-5">لا توجد إيصالات شحن نقدي مباشر عند البوابة في سجلك.</td></tr>';
+                    }
+                }
+            } catch (exception) {
+                console.error("خطأ أثناء جلب فواتير الشحن المباشر", exception);
+            }
+        }
+
+        window.showInvoiceDetail = function(invoiceJsonStr) {
+            try {
+                const invoice = JSON.parse(invoiceJsonStr.replace(/&quot;/g, '"'));
+                const formattedDate = new Date(invoice.created_at).toLocaleString('ar-LY', {
+                    year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+
+                Swal.fire({
+                    title: '🧾 إيصال شحن رصيد نقدي (ضمان مالي)',
+                    html: `
+                        <div id="printable-receipt" style="font-family: 'Courier New', Courier, monospace; border: 1px dashed #ccc; padding: 20px; background-color: #fff; text-align: right; direction: rtl;">
+                            <div style="text-align: center; margin-bottom: 15px;">
+                                <h4 style="margin: 0; font-weight: bold; color: #1a1a1a;">🚗 تطبيق SpotLy</h4>
+                                <p style="margin: 5px 0; font-size: 0.85rem; color: #666;">إيصال شحن رصيد بوابة (نقدي)</p>
+                                <p style="margin: 0; font-size: 0.85rem; color: #666;">--------------------------------</p>
+                            </div>
+                            <div style="font-size: 0.9rem; line-height: 1.6; color: #333;">
+                                <p style="margin: 5px 0;"><b>رقم الفاتورة:</b> <span style="font-weight: bold;">#${invoice.id}</span></p>
+                                <p style="margin: 5px 0;"><b>الساحة / الموقف:</b> ${invoice.parking_name}</p>
+                                <p style="margin: 5px 0;"><b>الموظف المسؤول:</b> ${invoice.employee_name}</p>
+                                <p style="margin: 5px 0;"><b>رقم لوحة المركبة:</b> ${invoice.plate_number || '--'}</p>
+                                <p style="margin: 5px 0;"><b>تاريخ العملية:</b> ${formattedDate}</p>
+                                <p style="margin: 0; font-size: 0.85rem; color: #666;">--------------------------------</p>
+                                <div style="text-align: center; margin-top: 15px; margin-bottom: 10px; background-color: #f9f9f9; padding: 10px; border-radius: 5px;">
+                                    <h5 style="margin: 0; color: #2ecc71; font-weight: bold; font-size: 1.15rem;">
+                                        القيمة المستلمة: ${invoice.cash_value} د.ل
+                                    </h5>
+                                </div>
+                                <p style="margin: 0; font-size: 0.85rem; color: #666; text-align: center;">شكراً لاستخدامكم SpotLy!</p>
+                            </div>
+                        </div>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: '🖨️ طباعة الإيصال',
+                    cancelButtonText: 'إغلاق',
+                    confirmButtonColor: '#27ae60',
+                    cancelButtonColor: '#7f8c8d'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const printWindow = window.open('', '_blank');
+                        printWindow.document.write(`
+                            <html>
+                            <head>
+                                <title>طباعة إيصال شحن #${invoice.id}</title>
+                                <style>
+                                    body { font-family: sans-serif; direction: rtl; text-align: right; padding: 20px; }
+                                    #printable-receipt { border: 1px dashed #ccc; padding: 20px; max-width: 400px; margin: auto; }
+                                    h3 { margin: 0; }
+                                    @media print {
+                                        body { padding: 0; }
+                                        #printable-receipt { border: none; max-width: 100%; }
+                                    }
+                                </style>
+                            </head>
+                            <body onload="window.print(); window.close();">
+                                <div id="printable-receipt">
+                                    <div style="text-align: center; margin-bottom: 15px;">
+                                        <h3 style="margin: 0;">🚗 تطبيق SpotLy</h3>
+                                        <p style="margin: 5px 0; font-size: 0.85rem;">إيصال شحن رصيد بوابة (نقدي)</p>
+                                        <p style="margin: 0;">--------------------------------</p>
+                                    </div>
+                                    <div style="font-size: 0.9rem; line-height: 1.6;">
+                                        <p style="margin: 5px 0;"><b>رقم الفاتورة:</b> #${invoice.id}</p>
+                                        <p style="margin: 5px 0;"><b>الساحة / الموقف:</b> ${invoice.parking_name}</p>
+                                        <p style="margin: 5px 0;"><b>الموظف المسؤول:</b> ${invoice.employee_name}</p>
+                                        <p style="margin: 5px 0;"><b>رقم لوحة المركبة:</b> ${invoice.plate_number || '--'}</p>
+                                        <p style="margin: 5px 0;"><b>تاريخ العملية:</b> ${formattedDate}</p>
+                                        <p style="margin: 0;">--------------------------------</p>
+                                        <div style="text-align: center; margin-top: 15px; margin-bottom: 10px; background-color: #f9f9f9; padding: 10px; border-radius: 5px;">
+                                            <h4 style="margin: 0; color: #2ecc71;">
+                                                القيمة المستلمة: ${invoice.cash_value} د.ل
+                                            </h4>
+                                        </div>
+                                        <p style="margin: 0; text-align: center;">شكراً لاستخدامكم SpotLy!</p>
+                                    </div>
+                                </div>
+                            </body>
+                            </html>
+                        `);
+                        printWindow.document.close();
+                    }
+                });
+            } catch (err) {
+                console.error(err);
+                Swal.fire('خطأ', 'فشل في تحميل تفاصيل الإيصال.', 'error');
             }
         }
         // --- مشغل أوتوماتيكي صامت لتنظيف الحجوزات المنتهية (يعمل كل دقيقة) ---
