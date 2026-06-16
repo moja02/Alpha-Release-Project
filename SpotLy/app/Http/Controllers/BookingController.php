@@ -613,6 +613,18 @@ class BookingController extends Controller
                 DB::table('parkings')->where('id', $employeeParkingId)->increment('available_capacity', 1);
             }
 
+            // تسجيل العملية في سجل التدقيق المالي الميداني
+            DB::table('activity_cash_audit_logs')->insert([
+                'employee_id' => $employee->id,
+                'parking_id' => $employeeParkingId,
+                'operation_type' => $actionType, // 'entry' or 'exit'
+                'plate_number' => $plateNumber,
+                'cash_value' => 0.00, // السائق المشترك يدفع بالنقاط الرقمية، لا يوجد كاش مستلم عند البوابة
+                'driver_account_id' => $booking->user_id,
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ]);
+
             DB::commit();
             return response()->json(['status' => 'success', 'message' => $message]);
 

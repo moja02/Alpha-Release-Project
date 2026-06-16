@@ -969,7 +969,8 @@
                             },
                             body: JSON.stringify({
                                 userId: targetUserIdValue,
-                                amount: pointsAmountValue
+                                amount: pointsAmountValue,
+                                employee_id: getValidEmployeeId()
                             })
                         });
 

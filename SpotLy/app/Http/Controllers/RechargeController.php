@@ -77,6 +77,30 @@ class RechargeController extends Controller
                 'updated_at' => now()
             ]);
 
+            // تسجيل حركة الشحن النقدي الفوري في سجل التدقيق والعمليات
+            $employeeAccountId = auth()->id() ?? $request->input('employee_id');
+            if ($employeeAccountId) {
+                $employee = \Illuminate\Support\Facades\DB::table('employees')->where('account_id', $employeeAccountId)->first();
+                if ($employee) {
+                    $parking = \Illuminate\Support\Facades\DB::table('parkings')->where('employee_id', $employee->id)->first();
+                    if ($parking) {
+                        $driverUser = \Illuminate\Support\Facades\DB::table('users')->where('account_id', $targetUserId)->first();
+                        $plateNumber = $driverUser ? $driverUser->plate_number : null;
+
+                        \Illuminate\Support\Facades\DB::table('activity_cash_audit_logs')->insert([
+                            'employee_id' => $employee->id,
+                            'parking_id' => $parking->id,
+                            'operation_type' => 'recharge',
+                            'plate_number' => $plateNumber,
+                            'cash_value' => $rechargeAmount, // قيمة الكاش المستلمة للشحن
+                            'driver_account_id' => $targetUserId,
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ]);
+                    }
+                }
+            }
+
             \Illuminate\Support\Facades\DB::commit();
 
             return response()->json([
