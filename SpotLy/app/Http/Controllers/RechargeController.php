@@ -308,4 +308,45 @@ class RechargeController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * جلب فواتير وإيصالات الشحن المباشر (كاش) التي تمت عند البوابة للسائق.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getDirectRechargeInvoices(Request $request)
+    {
+        try {
+            $request->validate([
+                'userId' => 'required|integer'
+            ]);
+            $inputUserId = $request->input('userId');
+
+            $invoices = \Illuminate\Support\Facades\DB::table('activity_cash_audit_logs')
+                ->join('parkings', 'activity_cash_audit_logs.parking_id', '=', 'parkings.id')
+                ->join('employees', 'activity_cash_audit_logs.employee_id', '=', 'employees.id')
+                ->join('accounts', 'employees.account_id', '=', 'accounts.id')
+                ->where('activity_cash_audit_logs.operation_type', 'recharge')
+                ->where('activity_cash_audit_logs.driver_account_id', $inputUserId)
+                ->select(
+                    'activity_cash_audit_logs.*',
+                    'parkings.name as parking_name',
+                    'accounts.name as employee_name'
+                )
+                ->orderBy('activity_cash_audit_logs.id', 'desc')
+                ->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $invoices
+            ], 200);
+        } catch (\Exception $exception) {
+            \Illuminate\Support\Facades\Log::error('Error in getDirectRechargeInvoices: ' . $exception->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء جلب فواتير الشحن المباشر: ' . $exception->getMessage()
+            ], 500);
+        }
+    }
 }

@@ -649,5 +649,48 @@ class BookingController extends Controller
         return response()->json(['capacity' => $parking->available_capacity]);
     }
 
+    /**
+     * جلب سجل الحجوزات الكامل للسائق مع إمكانية التصفية الشهرية.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getBookingHistory(Request $request)
+    {
+        try {
+            // التحقق من وجود معرف العميل كمدخل أساسي
+            $request->validate([
+                'userId' => 'required|integer',
+                'month' => 'nullable|integer|min:1|max:12',
+                'year' => 'nullable|integer'
+            ]);
+            $inputUserId = $request->input('userId');
+            $filterMonth = $request->input('month');
+            $filterYear = $request->input('year', \Carbon\Carbon::now()->year);
+            // استعلام الحجوزات مع ربط جدول parkings لجلب اسم الساحة
+            $query = \Illuminate\Support\Facades\DB::table('bookings')
+                ->join('parkings', 'bookings.parking_id', '=', 'parkings.id')
+                ->where('bookings.user_id', $inputUserId)
+                ->select('bookings.*', 'parkings.name as parking_name')
+                ->orderBy('bookings.id', 'desc');
+            // تطبيق فلتر الشهر والسنة إذا تم إرسالهما من الواجهة
+            if ($filterMonth) {
+                $query->whereMonth('bookings.created_at', $filterMonth)
+                      ->whereYear('bookings.created_at', $filterYear);
+            }
+            $bookingHistory = $query->get();
+            return response()->json([
+                'status' => 'success',
+                'data' => $bookingHistory
+            ], 200);
+        } catch (\Exception $exception) {
+            \Illuminate\Support\Facades\Log::error('Error in getBookingHistory: ' . $exception->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء جلب سجل الحجوزات: ' . $exception->getMessage()
+            ], 500);
+        }
+    }
+
 }
 
