@@ -52,3 +52,8 @@ Route::post('/bookings/cancel', [BookingController::class, 'cancelBooking']);
 Route::post('/bookings/change-spot', [BookingController::class, 'changeSpot']);
 
 Route::get('/notifications', [App\Http\Controllers\AccountController::class, 'getUserNotifications']);
+
+// مسار جلب سجل الحجوزات الكامل للسائق (مع إمكانية التصفية الشهرية)
+Route::get('/bookings/history', [BookingController::class, 'getBookingHistory']);
+// مسار جلب فواتير وإيصالات الشحن المباشر (كاش) التي تمت عند البوابة
+Route::get('/recharges/invoices', [RechargeController::class, 'getDirectRechargeInvoices']);

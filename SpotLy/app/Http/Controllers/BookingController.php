@@ -217,6 +217,9 @@ class BookingController extends Controller
             $driverProfile = \Illuminate\Support\Facades\DB::table('users')->where('account_id', $inputUserId)->first();
             $driverPlateNumber = $driverProfile ? $driverProfile->plate_number : 'غير محدد';
 
+            // تهيئة متغير تكلفة الحجز بقيمة صفرية بشكل افتراضي (لنوع الحجز المبدئي)
+            $bookingCost = 0.00;
+
             // 4. معالجة الأوقات والخصم المالي بناءً على السيناريو الخاص بك
             if ($inputType === 'initial') {
                 // الحجز المبدئي: يبدأ الآن وينتهي بعد 30 دقيقة (المهلة)
@@ -255,6 +258,7 @@ class BookingController extends Controller
                 'end_time' => $endTime,
                 'type' => $inputType,
                 'status' => 'confirmed',
+                'cost' => $bookingCost, // حفظ تكلفة الحجز الفعلي في قاعدة البيانات
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
@@ -338,6 +342,9 @@ class BookingController extends Controller
                     ->where('user_id', $bookingRecord->user_id)
                     ->increment('balance', $refundAmount);
             }
+
+            // تخزين قيمة النقاط المسترجعة كتعويض للمستخدم في قاعدة البيانات
+            $bookingRecord->refund_amount = $refundAmount;
 
             // تحديث حالة الحجز وزيادة السعة المتاحة في الساحة باستخدام نمط الحالة
             $bookingRecord->cancelBooking();
@@ -606,6 +613,18 @@ class BookingController extends Controller
                 DB::table('parkings')->where('id', $employeeParkingId)->increment('available_capacity', 1);
             }
 
+            // تسجيل العملية في سجل التدقيق المالي الميداني
+            DB::table('activity_cash_audit_logs')->insert([
+                'employee_id' => $employee->id,
+                'parking_id' => $employeeParkingId,
+                'operation_type' => $actionType, // 'entry' or 'exit'
+                'plate_number' => $plateNumber,
+                'cash_value' => 0.00, // السائق المشترك يدفع بالنقاط الرقمية، لا يوجد كاش مستلم عند البوابة
+                'driver_account_id' => $booking->user_id,
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ]);
+
             DB::commit();
             return response()->json(['status' => 'success', 'message' => $message]);
 
@@ -628,6 +647,49 @@ class BookingController extends Controller
         if (!$parking) return response()->json(['capacity' => 0]);
 
         return response()->json(['capacity' => $parking->available_capacity]);
+    }
+
+    /**
+     * جلب سجل الحجوزات الكامل للسائق مع إمكانية التصفية الشهرية.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getBookingHistory(Request $request)
+    {
+        try {
+            // التحقق من وجود معرف العميل كمدخل أساسي
+            $request->validate([
+                'userId' => 'required|integer',
+                'month' => 'nullable|integer|min:1|max:12',
+                'year' => 'nullable|integer'
+            ]);
+            $inputUserId = $request->input('userId');
+            $filterMonth = $request->input('month');
+            $filterYear = $request->input('year', \Carbon\Carbon::now()->year);
+            // استعلام الحجوزات مع ربط جدول parkings لجلب اسم الساحة
+            $query = \Illuminate\Support\Facades\DB::table('bookings')
+                ->join('parkings', 'bookings.parking_id', '=', 'parkings.id')
+                ->where('bookings.user_id', $inputUserId)
+                ->select('bookings.*', 'parkings.name as parking_name')
+                ->orderBy('bookings.id', 'desc');
+            // تطبيق فلتر الشهر والسنة إذا تم إرسالهما من الواجهة
+            if ($filterMonth) {
+                $query->whereMonth('bookings.created_at', $filterMonth)
+                      ->whereYear('bookings.created_at', $filterYear);
+            }
+            $bookingHistory = $query->get();
+            return response()->json([
+                'status' => 'success',
+                'data' => $bookingHistory
+            ], 200);
+        } catch (\Exception $exception) {
+            \Illuminate\Support\Facades\Log::error('Error in getBookingHistory: ' . $exception->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء جلب سجل الحجوزات: ' . $exception->getMessage()
+            ], 500);
+        }
     }
 
 }

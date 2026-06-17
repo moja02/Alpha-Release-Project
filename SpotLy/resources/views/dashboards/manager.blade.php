@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { 
             background-color: #f4f6f9; 
@@ -79,6 +80,35 @@
             font-weight: 700;
             background-color: #f8f9fa;
         }
+        /* تصميم الجدول الزمني للتدقيق والعمليات */
+        .timeline-container {
+            position: relative;
+            padding-right: 30px;
+            border-right: 3px solid #dee2e6;
+        }
+        .timeline-item {
+            position: relative;
+            margin-bottom: 25px;
+        }
+        .timeline-badge {
+            position: absolute;
+            right: -46px;
+            top: 5px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            z-index: 2;
+        }
+        .bg-entry { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+        .bg-exit { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+        .bg-recharge { background: linear-gradient(135deg, #f1c40f, #f39c12); }
     </style>
 </head>
 <body>
@@ -99,8 +129,14 @@
             <a class="nav-link" onclick="switchTab('violationsTab', this)">
                 🚫 إدارة الحظر والمخالفات
             </a>
+            <a class="nav-link" onclick="switchTab('financialReportTab', this)">
+                📊 التقرير المالي
+            </a>
             <a class="nav-link" onclick="switchTab('profileTab', this)">
                 ⚙️ البيانات الشخصية
+            </a>
+            <a class="nav-link" onclick="switchTab('auditLogTab', this)">
+                📜 سجل العمليات والتدقيق المالي
             </a>
         </nav>
     </aside>
@@ -357,6 +393,118 @@
             </div>
         </section>
 
+        <!-- تبويب: التقرير المالي -->
+        <section id="financialReportTab" class="content-section d-none">
+            <!-- عنوان التبويب وأزرار تصدير البيانات بتصميم متميز -->
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3 bg-white p-4 rounded-4 shadow-sm border-0">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">📊 التقارير المالية والإحصائية للساحات</h5>
+                    <p class="text-muted mb-0 small">تتبع وحلل الإيرادات والتعويضات اليومية لساحاتك بشكل دقيق</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ route('manager.reports.export', ['format' => 'csv']) }}" class="btn btn-success btn-sm fw-bold px-3 py-2 rounded-pill shadow-sm d-flex align-items-center gap-2">
+                        <span>📥</span> تحميل التقرير بصيغة CSV
+                    </a>
+                    <a href="{{ route('manager.reports.export', ['format' => 'json']) }}" class="btn btn-dark btn-sm fw-bold px-3 py-2 rounded-pill shadow-sm d-flex align-items-center gap-2" style="background-color: #2c3e50; border-color: #2c3e50;">
+                        <span>📥</span> تحميل التقرير بصيغة JSON
+                    </a>
+                </div>
+            </div>
+
+            <!-- كروت الإحصاءات المالية بتصميم جمالي راقٍ وتدرجات لونية ممتازة -->
+            <div class="row g-4 mb-4">
+                <!-- كرت إجمالي الإيرادات -->
+                <div class="col-md-4">
+                    <div class="card border-0 text-white shadow-lg p-4" style="background: linear-gradient(135deg, #11998e, #38ef7d); border-radius: 16px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50 fw-bold mb-1">💰 إجمالي إيرادات الساحات</h6>
+                                <h2 class="fw-bold mb-0 text-white stat-card-value">{{ number_format($financialData['totalRevenue'], 2) }} <span class="fs-6 fw-normal text-white-50">نقطة</span></h2>
+                            </div>
+                            <span class="fs-1 opacity-75">📥</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- كرت إجمالي التعويضات عند الإلغاء -->
+                <div class="col-md-4">
+                    <div class="card border-0 text-white shadow-lg p-4" style="background: linear-gradient(135deg, #ff9900, #ff5500); border-radius: 16px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50 fw-bold mb-1">🔄 إجمالي النقاط المسترجعة</h6>
+                                <h2 class="fw-bold mb-0 text-white stat-card-value">{{ number_format($financialData['totalRefundedPoints'], 2) }} <span class="fs-6 fw-normal text-white-50">نقطة</span></h2>
+                            </div>
+                            <span class="fs-1 opacity-75">📤</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- كرت نسبة التعويضات الإجمالية -->
+                <div class="col-md-4">
+                    <div class="card border-0 text-white shadow-lg p-4" style="background: linear-gradient(135deg, #8a2387, #e94057, #f27121); border-radius: 16px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50 fw-bold mb-1">📈 نسبة التعويضات الإجمالية</h6>
+                                <h2 class="fw-bold mb-0 text-white stat-card-value">{{ $financialData['compensationPercentage'] }} <span class="fs-6 fw-normal text-white-50">%</span></h2>
+                            </div>
+                            <span class="fs-1 opacity-75">📊</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- قسم الرسم البياني العمودي لحركة شحن النقاط والإيرادات اليومية في آخر 30 يوماً -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white py-3 border-0">
+                    <h5 class="mb-0 text-dark fw-bold">📊 أعمدة حركة شحن النقاط والإيرادات اليومية (آخر 30 يوماً)</h5>
+                </div>
+                <div class="card-body">
+                    <div style="position: relative; height: 350px; width: 100%;">
+                        <canvas id="financialLineChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- جدول المقارنة المالية مع إجمالي أداء النظام بالكامل لتقديم رؤية شاملة للمدير -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white py-3 border-0">
+                    <h5 class="mb-0 text-dark fw-bold">📊 مقارنة الأداء المالي مع إجمالي النظام</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive shadow-sm rounded-3">
+                        <table class="table table-hover align-middle mb-0 text-center">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>نطاق التقرير المالي</th>
+                                    <th>إجمالي الإيرادات (نقاط معتمدة)</th>
+                                    <th>إجمالي التعويضات المسترجعة (عند الإلغاء)</th>
+                                    <th>نسبة التعويضات الإجمالية</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="table-success fw-bold">
+                                    <td class="text-dark">📍 الساحات المدارة التابعة لك</td>
+                                    <td class="text-success">{{ number_format($financialData['totalRevenue'], 2) }} نقطة</td>
+                                    <td class="text-danger">{{ number_format($financialData['totalRefundedPoints'], 2) }} نقطة</td>
+                                    <td>
+                                        <span class="badge bg-success px-3 py-2 rounded-pill">{{ $financialData['compensationPercentage'] }} %</span>
+                                    </td>
+                                </tr>
+                                <tr class="table-light">
+                                    <td class="text-muted">🌐 إجمالي النظام بالكامل</td>
+                                    <td class="text-muted">{{ number_format($financialData['systemTotalRevenue'], 2) }} نقطة</td>
+                                    <td class="text-muted">{{ number_format($financialData['systemTotalRefundedPoints'], 2) }} نقطة</td>
+                                    <td>
+                                        <span class="badge bg-secondary px-3 py-2 rounded-pill">{{ $financialData['systemCompensationPercentage'] }} %</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- تبويب: البيانات الشخصية -->
         <section id="profileTab" class="content-section d-none">
             <div class="row justify-content-center">
@@ -403,6 +551,92 @@
                                 </button>
                             </form>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- تبويب: سجل العمليات والتدقيق المالي -->
+        <section id="auditLogTab" class="content-section d-none">
+            <!-- كروت الإحصاءات النقدية السريعة -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-4">
+                    <div class="card border-0 text-white shadow-lg p-4" style="background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); border-radius: 16px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50 fw-bold mb-1">🪙 إجمالي النقدية المستلمة (كاش)</h6>
+                                <h2 class="fw-bold mb-0 text-white"><span id="summaryTotalCash">0.00</span> <span class="fs-6 fw-normal text-white-50">د.ل</span></h2>
+                            </div>
+                            <span class="fs-1 opacity-75">💼</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 text-white shadow-lg p-4" style="background: linear-gradient(135deg, #11998e, #38ef7d); border-radius: 16px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50 fw-bold mb-1">🚗 كاش الزوار غير المشتركين (Guests)</h6>
+                                <h2 class="fw-bold mb-0 text-white"><span id="summaryGuestCash">0.00</span> <span class="fs-6 fw-normal text-white-50">د.ل</span></h2>
+                            </div>
+                            <span class="fs-1 opacity-75">🎫</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 text-white shadow-lg p-4" style="background: linear-gradient(135deg, #f39c12, #d35400); border-radius: 16px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50 fw-bold mb-1">⚡ كاش عمليات الشحن المباشر</h6>
+                                <h2 class="fw-bold mb-0 text-white"><span id="summaryRechargeCash">0.00</span> <span class="fs-6 fw-normal text-white-50">د.ل</span></h2>
+                            </div>
+                            <span class="fs-1 opacity-75">💳</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- فلاتر البحث والتدقيق -->
+            <div class="card mb-4 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold text-dark mb-3">🔍 أدوات فحص وتصفية سجل العمليات والتدقيق</h5>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-secondary small">تصفية حسب الموظف</label>
+                            <select id="filterEmployee" class="form-select border-2 shadow-none" onchange="loadAuditLogs()">
+                                <option value="">جميع الموظفين</option>
+                                @foreach($managerEmployees as $emp)
+                                    <option value="{{ $emp->id }}">{{ $emp->employee_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-secondary small">نوع العملية</label>
+                            <select id="filterOperation" class="form-select border-2 shadow-none" onchange="loadAuditLogs()">
+                                <option value="">جميع العمليات</option>
+                                <option value="entry">دخول مركبة ⬇️</option>
+                                <option value="exit">خروج مركبة ⬆️</option>
+                                <option value="recharge">شحن كاش فوري ⚡</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-secondary small">البحث النصي</label>
+                            <input type="text" id="searchPlate" class="form-control border-2 shadow-none" placeholder="ابحث برقم اللوحة أو اسم السائق/الموظف..." oninput="loadAuditLogs()">
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button class="btn btn-secondary w-100 fw-bold py-2 rounded-3 shadow-none" onclick="resetFilters()">❌ إعادة تعيين</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- قسم الجدول الزمني (Timeline) التفاعلي -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 text-dark fw-bold">📜 سجل الحركات التشغيلية والمالية الفوري</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="timeline-container mx-4" id="auditTimeline">
+                        <!-- جاري تحميل السجلات برمجياً -->
                     </div>
                 </div>
             </div>
@@ -461,9 +695,136 @@
             if (sectionId === 'profileTab') {
                 loadProfileData();
             }
+            if (sectionId === 'auditLogTab') {
+                loadAuditLogs();
+            }
         } catch (exception) {
             console.error("خطأ أثناء التبديل بين التبويبات", exception);
         }
+    }
+
+    // --- جلب وعرض سجل العمليات والتدقيق المالي للمدير ---
+    async function loadAuditLogs() {
+        const employeeId = document.getElementById('filterEmployee').value;
+        const operationType = document.getElementById('filterOperation').value;
+        const search = document.getElementById('searchPlate').value;
+
+        const timelineElement = document.getElementById('auditTimeline');
+        timelineElement.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">جاري التحميل...</span>
+                </div>
+                <p class="text-muted mt-2">جاري جلب السجلات والتدقيق المالي...</p>
+            </div>
+        `;
+
+        try {
+            let url = `/manager/audit-logs/data?employee_id=${employeeId}&operation_type=${operationType}&search=${encodeURIComponent(search)}`;
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: fetchHeaders
+            });
+            const result = await response.json();
+
+            if (response.ok && result.status === 'success') {
+                // تحديث بطاقات إجمالي النقدية
+                document.getElementById('summaryTotalCash').innerText = parseFloat(result.summary.totalCash).toFixed(2);
+                document.getElementById('summaryGuestCash').innerText = parseFloat(result.summary.totalGuestExitCash).toFixed(2);
+                document.getElementById('summaryRechargeCash').innerText = parseFloat(result.summary.totalRechargeCash).toFixed(2);
+
+                timelineElement.innerHTML = '';
+                
+                if (result.data.length === 0) {
+                    timelineElement.innerHTML = `
+                        <div class="alert alert-warning text-center border-0 py-5">
+                            🔍 لا توجد سجلات مطابقة للخيارات المحددة في هذا الموقف.
+                        </div>
+                    `;
+                    return;
+                }
+
+                result.data.forEach(log => {
+                    let badgeClass = 'bg-entry';
+                    let opName = 'دخول سيارة ⬇️';
+                    let opColor = 'text-success';
+                    let icon = '⬇️';
+                    
+                    if (log.operation_type === 'exit') {
+                        badgeClass = 'bg-exit';
+                        opName = 'خروج سيارة ⬆️';
+                        opColor = 'text-danger';
+                        icon = '⬆️';
+                    } else if (log.operation_type === 'recharge') {
+                        badgeClass = 'bg-recharge';
+                        opName = 'شحن كاش فوري ⚡';
+                        opColor = 'text-warning text-dark';
+                        icon = '⚡';
+                    }
+
+                    let cashDisplay = '';
+                    if (parseFloat(log.cash_value) > 0) {
+                        cashDisplay = `<span class="badge bg-success fs-6 fw-bold px-3 py-2">المبلغ المستلم: ${parseFloat(log.cash_value).toFixed(2)} د.ل</span>`;
+                    } else {
+                        cashDisplay = `<span class="badge bg-secondary px-2 py-1">لا توجد قيمة نقدية</span>`;
+                    }
+
+                    let plateDisplay = log.plate_number ? `<span class="badge bg-dark px-2 py-1 fs-6">${log.plate_number}</span>` : `<span class="text-muted">غير محدد</span>`;
+                    
+                    let driverDisplay = '';
+                    if (log.driver_name) {
+                        driverDisplay = `<div class="small text-muted mt-1">👤 السائق: <b>${log.driver_name}</b> (حساب ID: ${log.driver_account_id})</div>`;
+                    }
+
+                    let formattedDate = new Date(log.created_at).toLocaleString('ar-LY', {
+                        year: 'numeric', month: 'long', day: 'numeric',
+                        hour: '2-digit', minute: '2-digit', second: '2-digit'
+                    });
+
+                    timelineElement.innerHTML += `
+                        <div class="timeline-item">
+                            <div class="timeline-badge ${badgeClass}">${icon}</div>
+                            <div class="card shadow-sm border-0 mb-3 overflow-hidden">
+                                <div class="card-body p-3">
+                                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <div>
+                                            <h6 class="fw-bold mb-1 ${opColor}">${opName}</h6>
+                                            <div class="small text-dark">👮 الموظف: <b>${log.employee_name}</b> | 📍 الموقف: <b>${log.parking_name}</b></div>
+                                        </div>
+                                        <div class="text-end">
+                                            <div class="small text-muted mb-1">${formattedDate}</div>
+                                            ${cashDisplay}
+                                        </div>
+                                    </div>
+                                    <hr class="my-2 border-opacity-10">
+                                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <div>
+                                            <span class="small text-muted">🏷️ رقم اللوحة:</span> ${plateDisplay}
+                                            ${driverDisplay}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                throw new Error(result.message || 'فشل جلب البيانات.');
+            }
+        } catch (error) {
+            timelineElement.innerHTML = `
+                <div class="alert alert-danger text-center border-0 py-4">
+                    ⚠️ خطأ: ${error.message}
+                </div>
+            `;
+        }
+    }
+
+    function resetFilters() {
+        document.getElementById('filterEmployee').value = '';
+        document.getElementById('filterOperation').value = '';
+        document.getElementById('searchPlate').value = '';
+        loadAuditLogs();
     }
 
     // تعبئة البيانات الشخصية من التخزين المحلي
@@ -799,6 +1160,112 @@
             }
         });
     }
+
+    // تهيئة الرسم البياني الخطي باستخدام مكتبة Chart.js لآخر 30 يوماً
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            const chartCanvas = document.getElementById('financialLineChart');
+            if (chartCanvas) {
+                // قراءة البيانات الممررة من الواجهة الخلفية
+                const chartLabels = {!! json_encode($financialData['dailyLabels']) !!};
+                const revenueData = {!! json_encode($financialData['dailyRevenue']) !!};
+                const countData = {!! json_encode($financialData['dailyCount']) !!};
+
+                const ctx = chartCanvas.getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [
+                            {
+                                label: '💰 الإيرادات اليومية (نقاط)',
+                                data: revenueData,
+                                borderColor: '#38ef7d',
+                                backgroundColor: 'rgba(56, 239, 125, 0.7)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: '🔄 عدد عمليات الشحن المعتمدة',
+                                data: countData,
+                                borderColor: '#ff9900',
+                                backgroundColor: 'rgba(255, 153, 0, 0.7)',
+                                borderWidth: 1,
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    font: {
+                                        family: 'system-ui, sans-serif',
+                                        weight: 'bold'
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        family: 'system-ui, sans-serif'
+                                    }
+                                }
+                            },
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'قيمة النقاط (💰)',
+                                    font: {
+                                        family: 'system-ui, sans-serif',
+                                        weight: 'bold'
+                                    }
+                                },
+                                grid: {
+                                    color: '#f0f2f5'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'عدد العمليات (🔄)',
+                                    font: {
+                                        family: 'system-ui, sans-serif',
+                                        weight: 'bold'
+                                    }
+                                },
+                                grid: {
+                                    drawOnChartArea: false,
+                                },
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        } catch (exception) {
+            console.error("خطأ أثناء تهيئة الرسم البياني الخطي للتقرير المالي:", exception);
+        }
+    });
     </script>
 </body>
 </html>

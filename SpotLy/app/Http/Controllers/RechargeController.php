@@ -77,6 +77,30 @@ class RechargeController extends Controller
                 'updated_at' => now()
             ]);
 
+            // تسجيل حركة الشحن النقدي الفوري في سجل التدقيق والعمليات
+            $employeeAccountId = auth()->id() ?? $request->input('employee_id');
+            if ($employeeAccountId) {
+                $employee = \Illuminate\Support\Facades\DB::table('employees')->where('account_id', $employeeAccountId)->first();
+                if ($employee) {
+                    $parking = \Illuminate\Support\Facades\DB::table('parkings')->where('employee_id', $employee->id)->first();
+                    if ($parking) {
+                        $driverUser = \Illuminate\Support\Facades\DB::table('users')->where('account_id', $targetUserId)->first();
+                        $plateNumber = $driverUser ? $driverUser->plate_number : null;
+
+                        \Illuminate\Support\Facades\DB::table('activity_cash_audit_logs')->insert([
+                            'employee_id' => $employee->id,
+                            'parking_id' => $parking->id,
+                            'operation_type' => 'recharge',
+                            'plate_number' => $plateNumber,
+                            'cash_value' => $rechargeAmount, // قيمة الكاش المستلمة للشحن
+                            'driver_account_id' => $targetUserId,
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ]);
+                    }
+                }
+            }
+
             \Illuminate\Support\Facades\DB::commit();
 
             return response()->json([
@@ -281,6 +305,47 @@ class RechargeController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => $exception->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * جلب فواتير وإيصالات الشحن المباشر (كاش) التي تمت عند البوابة للسائق.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getDirectRechargeInvoices(Request $request)
+    {
+        try {
+            $request->validate([
+                'userId' => 'required|integer'
+            ]);
+            $inputUserId = $request->input('userId');
+
+            $invoices = \Illuminate\Support\Facades\DB::table('activity_cash_audit_logs')
+                ->join('parkings', 'activity_cash_audit_logs.parking_id', '=', 'parkings.id')
+                ->join('employees', 'activity_cash_audit_logs.employee_id', '=', 'employees.id')
+                ->join('accounts', 'employees.account_id', '=', 'accounts.id')
+                ->where('activity_cash_audit_logs.operation_type', 'recharge')
+                ->where('activity_cash_audit_logs.driver_account_id', $inputUserId)
+                ->select(
+                    'activity_cash_audit_logs.*',
+                    'parkings.name as parking_name',
+                    'accounts.name as employee_name'
+                )
+                ->orderBy('activity_cash_audit_logs.id', 'desc')
+                ->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $invoices
+            ], 200);
+        } catch (\Exception $exception) {
+            \Illuminate\Support\Facades\Log::error('Error in getDirectRechargeInvoices: ' . $exception->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء جلب فواتير الشحن المباشر: ' . $exception->getMessage()
             ], 500);
         }
     }

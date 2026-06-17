@@ -86,10 +86,115 @@ class ManagerController extends Controller
                 ->where('users.status', 'blocked')
                 ->get();
 
-            return view('dashboards.manager', compact('parkingsList', 'unassignedEmployees', 'blockedUsers'));
+            // جلب بيانات التقرير المالي للمدير الحالي باستخدام الخدمة المالية المستحدثة
+            $financialReportService = new \App\Services\FinancialReportService();
+            $financialData = $financialReportService->getFinancialReportData($manager->id);
+
+            // قائمة الموظفين التابعين للمدير لغرض فلترة سجل العمليات والتدقيق
+            $managerParkingIds = $parkingsList->pluck('id')->toArray();
+            $managerEmployees = DB::table('employees')
+                ->join('accounts', 'employees.account_id', '=', 'accounts.id')
+                ->where(function($q) use ($managerParkingIds, $manager) {
+                    $q->whereIn('employees.id', function ($query) use ($managerParkingIds) {
+                        $query->select('employee_id')
+                              ->from('activity_cash_audit_logs')
+                              ->whereIn('parking_id', $managerParkingIds);
+                    })
+                    ->orWhereIn('employees.id', function ($query) use ($manager) {
+                        $query->select('employee_id')
+                              ->from('parkings')
+                              ->where('manager_id', $manager->id)
+                              ->whereNotNull('employee_id');
+                    });
+                })
+                ->select('employees.id', 'accounts.name as employee_name')
+                ->distinct()
+                ->get();
+
+            return view('dashboards.manager', compact('parkingsList', 'unassignedEmployees', 'blockedUsers', 'financialData', 'managerEmployees'));
 
         } catch (\Exception $exception) {
             abort(500, 'حدث خطأ داخلي أثناء تحميل لوحة تحكم المدير: ' . $exception->getMessage());
+        }
+    }
+
+    /**
+     * جلب سجل العمليات والتدقيق المالي للموظفين الميدانيين
+     */
+    public function getAuditLogsData(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            if (!$user || $user->role !== 'manager') {
+                return response()->json(['status' => 'error', 'message' => 'غير مصرح!'], 403);
+            }
+
+            $manager = DB::table('managers')->where('account_id', $user->id)->first();
+            if (!$manager) {
+                return response()->json(['status' => 'error', 'message' => 'الملف غير موجود!'], 403);
+            }
+
+            $managerParkingIds = DB::table('parkings')
+                ->where('manager_id', $manager->id)
+                ->pluck('id')
+                ->toArray();
+
+            $query = DB::table('activity_cash_audit_logs')
+                ->join('employees', 'activity_cash_audit_logs.employee_id', '=', 'employees.id')
+                ->join('accounts as employee_accounts', 'employees.account_id', '=', 'employee_accounts.id')
+                ->join('parkings', 'activity_cash_audit_logs.parking_id', '=', 'parkings.id')
+                ->leftJoin('accounts as driver_accounts', 'activity_cash_audit_logs.driver_account_id', '=', 'driver_accounts.id')
+                ->whereIn('activity_cash_audit_logs.parking_id', $managerParkingIds)
+                ->select(
+                    'activity_cash_audit_logs.*',
+                    'employee_accounts.name as employee_name',
+                    'parkings.name as parking_name',
+                    'driver_accounts.name as driver_name'
+                )
+                ->orderBy('activity_cash_audit_logs.created_at', 'desc');
+
+            if ($request->filled('employee_id')) {
+                $query->where('activity_cash_audit_logs.employee_id', $request->employee_id);
+            }
+
+            if ($request->filled('operation_type')) {
+                $query->where('activity_cash_audit_logs.operation_type', $request->operation_type);
+            }
+
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function($q) use ($search) {
+                    $q->where('activity_cash_audit_logs.plate_number', 'like', "%{$search}%")
+                      ->orWhere('employee_accounts.name', 'like', "%{$search}%")
+                      ->orWhere('driver_accounts.name', 'like', "%{$search}%");
+                });
+            }
+
+            $logs = $query->get();
+
+            // حساب الإجماليات للمطابقة المالية والتدقيق
+            $totalGuestExitCash = 0;
+            $totalRechargeCash = 0;
+            foreach ($logs as $log) {
+                if ($log->operation_type === 'exit') {
+                    $totalGuestExitCash += (float)$log->cash_value;
+                } elseif ($log->operation_type === 'recharge') {
+                    $totalRechargeCash += (float)$log->cash_value;
+                }
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $logs,
+                'summary' => [
+                    'totalGuestExitCash' => $totalGuestExitCash,
+                    'totalRechargeCash' => $totalRechargeCash,
+                    'totalCash' => $totalGuestExitCash + $totalRechargeCash
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
 
@@ -296,6 +401,85 @@ class ManagerController extends Controller
                 'status' => 'error',
                 'message' => 'خطأ داخلي: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * تصدير التقرير المالي للمدير بصيغتي CSV أو JSON باستخدام نمط الاستراتيجية.
+     *
+     * @param \Illuminate\Http\Request $request Request
+     * @return \Symfony\Component\HttpFoundation\Response Response
+     */
+    public function exportReport(Request $request)
+    {
+        try {
+            $user = auth()->user();
+
+            if (!$user || $user->role !== 'manager') {
+                abort(403, 'غير مصرح لك بالدخول!');
+            }
+
+            // جلب سجل المدير من جدول managers
+            $manager = DB::table('managers')->where('account_id', $user->id)->first();
+
+            if (!$manager) {
+                abort(403, 'لا يوجد ملف تعريف مدير مرتبط بهذا الحساب!');
+            }
+
+            // جلب بيانات التقرير المالي للمدير الحالي
+            $financialReportService = new \App\Services\FinancialReportService();
+            $financialData = $financialReportService->getFinancialReportData($manager->id);
+
+            // تحديد اسم الملف المصدّر وتاريخ اليوم
+            $fileName = 'spotly_financial_report_' . date('Y_m_d');
+
+            // استقبال الصيغة المطلوبة وتوجيه الطلب للاستراتيجية المناسبة
+            $exportFormat = $request->query('format', 'csv');
+
+            if ($exportFormat === 'json') {
+                // استخدام استراتيجية تصدير JSON
+                $strategy = new \App\Strategies\Export\JsonExportStrategy();
+                $exportData = $financialData;
+            } else {
+                // استخدام استراتيجية تصدير CSV
+                $strategy = new \App\Strategies\Export\CsvExportStrategy();
+                
+                // تنسيق البيانات لتكون على هيئة صفوف ملائمة لملفات CSV
+                $exportData = [
+                    ['التقرير المالي لساحات المدير', $user->name],
+                    ['تاريخ التصدير', date('Y-m-d H:i:s')],
+                    ['', ''],
+                    ['البيان المالي الكلي لساحاتك المدارة', 'القيمة'],
+                    ['إجمالي الإيرادات (مجموع شحنات النقاط المعتمدة)', $financialData['totalRevenue']],
+                    ['إجمالي النقاط المسترجعة (التعويضات عند الإلغاء)', $financialData['totalRefundedPoints']],
+                    ['نسبة التعويضات الإجمالية لساحاتك المدارة (%)', $financialData['compensationPercentage'] . '%'],
+                    ['', ''],
+                    ['مقارنة الأداء المالي مع إجمالي النظام الكلي', ''],
+                    ['إجمالي إيرادات النظام الكلية (نقاط)', $financialData['systemTotalRevenue']],
+                    ['إجمالي النقاط المسترجعة للنظام الكلية (نقاط)', $financialData['systemTotalRefundedPoints']],
+                    ['نسبة تعويضات النظام الكلية (%)', $financialData['systemCompensationPercentage'] . '%'],
+                    ['', ''],
+                    ['حركة شحن النقاط والإيرادات اليومية في آخر 30 يوماً', ''],
+                    ['التاريخ', 'الإيرادات بالنقاط (💰)', 'عدد عمليات الشحن المعتمدة (🔄)']
+                ];
+
+                // إضافة إحصاءات الـ 30 يوماً الأخيرة صفاً بصف
+                for ($indexValue = 0; $indexValue < count($financialData['dailyLabels']); $indexValue++) {
+                    $exportData[] = [
+                        $financialData['dailyLabels'][$indexValue],
+                        $financialData['dailyRevenue'][$indexValue],
+                        $financialData['dailyCount'][$indexValue]
+                    ];
+                }
+            }
+
+            // تنفيذ التصدير وإرجاع استجابة التحميل
+            return $strategy->export($exportData, $fileName);
+
+        } catch (\Exception $exception) {
+            // توثيق الاستثناء لمتابعة الصيانة
+            \Illuminate\Support\Facades\Log::error('خطأ أثناء تصدير التقرير المالي للمدير: ' . $exception->getMessage());
+            abort(500, 'حدث خطأ داخلي أثناء تصدير التقرير المالي: ' . $exception->getMessage());
         }
     }
 }
