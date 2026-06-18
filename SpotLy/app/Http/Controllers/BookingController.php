@@ -24,12 +24,7 @@ class BookingController extends Controller
      */
     public function __construct(\App\Repositories\BookingRepositoryInterface $bookingRepo)
     {
-        try {
-            $this->bookingRepo = $bookingRepo;
-        } catch (\Exception $exception) {
-            \Illuminate\Support\Facades\Log::error("خطأ في تهيئة BookingController: " . $exception->getMessage());
-            throw $exception;
-        }
+        $this->bookingRepo = $bookingRepo;
     }
      
      // جلب كافة ساحات الوقوف وسعتها المتاحة
@@ -127,10 +122,9 @@ class BookingController extends Controller
                         $ratioB = $b->total_capacity > 0 ? ($b->available_capacity / $b->total_capacity) : 0;
                         return $ratioB <=> $ratioA;
                     } else {
-                        if ($a->distance_km === null && $b->distance_km === null) return 0;
-                        if ($a->distance_km === null) return 1;
-                        if ($b->distance_km === null) return -1;
-                        return $a->distance_km <=> $b->distance_km;
+                        $distA = $a->distance_km ?? 99999;
+                        $distB = $b->distance_km ?? 99999;
+                        return $distA <=> $distB;
                     }
                 });
             }
@@ -233,7 +227,7 @@ class BookingController extends Controller
                 
                 // حساب عدد الساعات ( تكلفة الساعة 2.5 نقاط)
                 $hoursDifference = $startTime->diffInHours($endTime);
-                $totalHours = $hoursDifference > 0 ? $hoursDifference : 1; // كحد أدنى ساعة واحدة
+                $totalHours = $hoursDifference >= 1 ? $hoursDifference : 1; // كحد أدنى ساعة واحدة
                 $bookingCost = $totalHours * 2.5;
 
                 // التحقق من الرصيد والخصم
@@ -336,7 +330,7 @@ class BookingController extends Controller
                 $context = new \App\Strategies\Refund\RefundContext($strategy);
                 $refundAmount = $context->calculateRefund($originalCost, $minutesToStart);
 
-                $refundPercentage = $originalCost > 0 ? (int) round(($refundAmount / $originalCost) * 100) : 0;
+                $refundPercentage = (int) round(($refundAmount / $originalCost) * 100);
 
                 \Illuminate\Support\Facades\DB::table('wallets')
                     ->where('user_id', $bookingRecord->user_id)
@@ -523,7 +517,7 @@ class BookingController extends Controller
                     $expectedEndTime = Carbon::createFromFormat('H:i', $expectedTimeStr);
                     if ($expectedEndTime->isPast()) $expectedEndTime->addDay();
                     
-                    $durationMinutes = Carbon::now()->diffInMinutes($expectedEndTime);
+                    $durationMinutes = Carbon::now()->diffInMinutes($expectedEndTime, true);
                     $durationHours = ceil($durationMinutes / 60) == 0 ? 1 : ceil($durationMinutes / 60);
                     $expectedCost = $durationHours * 2.5; // التسعيرة الأساسية
 
@@ -561,7 +555,7 @@ class BookingController extends Controller
                 // قاعدة العقوبة المشتركة للمبدئي والفعلي
                 // إذا تجاوز الوقت الحالي وقت الخروج المتوقع
                 if ($exitTime->gt($expectedExitTime)) {
-                    $delayMinutes = $exitTime->diffInMinutes($expectedExitTime);
+                    $delayMinutes = $exitTime->diffInMinutes($expectedExitTime, true);
                     $penaltyPoints = ceil($delayMinutes / 30); // نقطة واحدة لكل 30 دقيقة أو كسرها
                     $hasDelay = true;
                 }
@@ -569,7 +563,7 @@ class BookingController extends Controller
                 if ($booking->type === 'initial') {
                     // --- حساب التكلفة للحجز المبدئي ---
                     $entryTime = Carbon::parse($booking->start_time);
-                    $actualMinutes = $entryTime->diffInMinutes($exitTime);
+                    $actualMinutes = $entryTime->diffInMinutes($exitTime, true);
                     $actualHours = ceil($actualMinutes / 60) == 0 ? 1 : ceil($actualMinutes / 60);
                     
                     // التكلفة الإجمالية = الساعات الفعلية * 2.5 + نقاط العقوبة
@@ -594,7 +588,7 @@ class BookingController extends Controller
 
                 // إرسال إشعار البريد الإلكتروني في حالة وجود تأخير
                 if ($hasDelay) {
-                    $user = DB::table('users')->where('id', $booking->user_id)->first();
+                    $user = DB::table('accounts')->where('id', $booking->user_id)->first();
                     if ($user && !empty($user->email)) {
                         try {
                             \Illuminate\Support\Facades\Mail::to($user->email)->send(
