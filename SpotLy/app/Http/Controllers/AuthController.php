@@ -71,7 +71,9 @@ class AuthController extends Controller
 
             
             \Illuminate\Support\Facades\Auth::guard('web')->login($account);
-            $request->session()->regenerate();
+            if ($request->hasSession()) {
+                $request->session()->regenerate();
+            }
 
             // إرسال رد موحد وشامل لكل أنواع الحسابات
             return response()->json([
@@ -90,6 +92,8 @@ class AuthController extends Controller
                 ]
             ], 200);
 
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            throw $exception;
         } catch (\Exception $exception) {
             \Illuminate\Support\Facades\Log::error('Error in AuthController login: ' . $exception->getMessage());
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 500);
@@ -136,6 +140,8 @@ class AuthController extends Controller
                 'message' => 'تم إرسال رمز التحقق إلى بريدك الإلكتروني بنجاح.'
             ], 200);
 
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            throw $exception;
         } catch (\Exception $exception) {
             Log::error('Error sending OTP: ' . $exception->getMessage());
             return response()->json([
@@ -201,6 +207,8 @@ class AuthController extends Controller
                 'message' => 'تم إعادة تعيين كلمة المرور بنجاح.'
             ], 200);
 
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            throw $exception;
         } catch (\Exception $exception) {
             \Illuminate\Support\Facades\DB::rollBack();
             Log::error('Error resetting password: ' . $exception->getMessage());
