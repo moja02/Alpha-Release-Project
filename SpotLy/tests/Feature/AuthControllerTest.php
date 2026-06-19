@@ -365,4 +365,139 @@ class AuthControllerTest extends TestCase
             return $mail->hasTo('user@test.com') && str_contains($mail->mailDetails['title'], 'تغيير كلمة السر');
         });
     }
+
+    /**
+     * اختبار معالجة الاستثناءات العامة في تسجيل الدخول.
+     */
+    public function test_login_throws_exception()
+    {
+        // توليد كلمة مرور مشفرة مسبقاً لمنع استدعاء HashManager أثناء الإدراج
+        $passwordHash = bcrypt('secret123');
+
+        // إدراج حساب
+        DB::table('accounts')->insert([
+            'name' => 'Test User',
+            'email' => 'exception@test.com',
+            'phone' => '0912345678',
+            'password' => $passwordHash,
+            'role' => 'user',
+        ]);
+
+        // محاكاة رمي استثناء عند مطابقة كلمة المرور لتفعيل catch (\Exception)
+        Hash::shouldReceive('check')
+            ->andThrow(new \Exception('Test generic login exception'));
+
+        $response = $this->postJson('/api/accounts/login', [
+            'email' => 'exception@test.com',
+            'password' => 'secret123'
+        ]);
+
+        $response->assertStatus(500)
+                 ->assertJsonPath('status', 'error')
+                 ->assertJsonPath('message', 'Test generic login exception');
+    }
+
+    /**
+     * اختبار نجاح تسجيل الدخول مع تفعيل الجلسة وتجديدها (Session Regeneration).
+     */
+    public function test_login_success_with_session_regeneration()
+    {
+        $accountId = DB::table('accounts')->insertGetId([
+            'name' => 'Session User',
+            'email' => 'session@test.com',
+            'phone' => '0912345678',
+            'password' => bcrypt('secret123'),
+            'role' => 'user',
+        ]);
+
+        DB::table('users')->insert([
+            'account_id' => $accountId,
+            'plate_number' => 'PLATE-333',
+            'status' => 'active'
+        ]);
+
+        // نرسل الطلب إلى مسار الـ Web ليكون هناك جلسة مرافقة للطلب
+        $response = $this->post('/web-login', [
+            'email' => 'session@test.com',
+            'password' => 'secret123'
+        ]);
+
+        $response->assertStatus(200)
+                 ->assertJsonPath('status', 'success');
+    }
+
+    /**
+     * اختبار معالجة الاستثناءات العامة في إرسال الرمز.
+     */
+    public function test_send_otp_throws_exception()
+    {
+        DB::table('accounts')->insert([
+            'name' => 'User Test',
+            'email' => 'user@test.com',
+            'phone' => '0912345678',
+            'password' => bcrypt('secret123'),
+            'role' => 'user',
+        ]);
+
+        // نقوم بمحاكاة خطأ عند إرسال الإيميل لتفعيل catch (\Exception) دون التأثير على قاعدة البيانات
+        Mail::shouldReceive('to')
+            ->andThrow(new \Exception('Mail service failure'));
+
+        $response = $this->postJson('/api/auth/forgot-password/send-otp', [
+            'email' => 'user@test.com'
+        ]);
+
+        $response->assertStatus(500)
+                 ->assertJsonPath('status', 'error')
+                 ->assertJsonPath('message', 'حدث خطأ أثناء إرسال الرمز: Mail service failure');
+    }
+
+    /**
+     * اختبار أخطاء التحقق من المدخلات في إعادة تعيين كلمة المرور.
+     */
+    public function test_reset_password_validation_errors()
+    {
+        $response = $this->postJson('/api/auth/forgot-password/reset', [
+            'email' => 'not-an-email',
+            'otpCode' => '',
+            'newPassword' => '123' // قصيرة جداً (أقل من 6 أحرف)
+        ]);
+
+        $response->assertStatus(422)
+                 ->assertJsonValidationErrors(['email', 'otpCode', 'newPassword']);
+    }
+
+    /**
+     * اختبار معالجة الاستثناءات العامة في إعادة تعيين كلمة المرور.
+     */
+    public function test_reset_password_throws_exception()
+    {
+        DB::table('accounts')->insert([
+            'name' => 'User Test',
+            'email' => 'user@test.com',
+            'phone' => '0912345678',
+            'password' => bcrypt('old_password'),
+            'role' => 'user',
+        ]);
+
+        DB::table('otp_codes')->insert([
+            'email' => 'user@test.com',
+            'otp_code' => bcrypt('123456'),
+            'expires_at' => now()->addMinutes(15)
+        ]);
+
+        // محاكاة خطأ عند إرسال إيميل التأكيد لتفعيل catch (\Exception) والـ DB::rollBack دون تدمير DB schema
+        Mail::shouldReceive('to')
+            ->andThrow(new \Exception('Mail service failure on reset confirmation'));
+
+        $response = $this->postJson('/api/auth/forgot-password/reset', [
+            'email' => 'user@test.com',
+            'otpCode' => '123456',
+            'newPassword' => 'new_secret123'
+        ]);
+
+        $response->assertStatus(500)
+                 ->assertJsonPath('status', 'error')
+                 ->assertJsonPath('message', 'حدث خطأ أثناء إعادة تعيين كلمة المرور.');
+    }
 }

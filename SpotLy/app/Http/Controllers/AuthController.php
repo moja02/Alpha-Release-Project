@@ -65,9 +65,7 @@ class AuthController extends Controller
             }
 
             // إنشاء التوكن
-            $authToken = method_exists($account, 'createToken') 
-                ? $account->createToken('ApiAuthToken')->plainTextToken 
-                : 'stateless_session_active';
+            $authToken = method_exists($account, 'createToken') ? $account->createToken('ApiAuthToken')->plainTextToken : 'stateless_session_active';
 
             
             \Illuminate\Support\Facades\Auth::guard('web')->login($account);
