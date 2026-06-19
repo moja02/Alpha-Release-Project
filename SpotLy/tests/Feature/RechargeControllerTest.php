@@ -502,4 +502,139 @@ class RechargeControllerTest extends TestCase
         $response->assertJsonPath('data.0.parking_name', 'Al-Ahly Yard');
         $response->assertJsonPath('data.0.employee_name', 'Employee User');
     }
+
+    public function test_verify_request_approve_without_existing_wallet()
+    {
+        $driver = $this->createDriver(['email' => 'd12_no_wallet@test.com']);
+
+        $this->assertDatabaseMissing('wallets', [
+            'user_id' => $driver->id,
+        ]);
+
+        $requestId = DB::table('recharge_requests')->insertGetId([
+            'user_id' => $driver->id,
+            'parking_id' => null,
+            'requested_points' => 300,
+            'receipt_file' => 'receipts/rec_no_wallet.jpg',
+            'status' => 'Pending',
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+
+        $response = $this->postJson("/api/recharges/verify", [
+            'requestId' => $requestId,
+            'action' => 'approve'
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('status', 'success');
+
+        $this->assertDatabaseHas('wallets', [
+            'user_id' => $driver->id,
+            'balance' => 300.00
+        ]);
+    }
+
+    public function test_verify_request_throws_exception()
+    {
+        $driver = $this->createDriver(['email' => 'd13_ex@test.com']);
+
+        $requestId = DB::table('recharge_requests')->insertGetId([
+            'user_id' => $driver->id,
+            'parking_id' => null,
+            'requested_points' => 100,
+            'receipt_file' => 'receipts/rec_ex.jpg',
+            'status' => 'Pending',
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+
+        $db = DB::getFacadeRoot();
+        $originalConnection = DB::connection();
+
+        $mockConnection = \Mockery::mock($originalConnection)->makePartial();
+        $mockConnection->shouldReceive('table')
+            ->with('wallets')
+            ->andThrow(new \Exception('Database failure during verification'));
+
+        $ref = new \ReflectionProperty(get_class($db), 'connections');
+        $ref->setAccessible(true);
+        $connections = $ref->getValue($db);
+        $connections['sqlite'] = $mockConnection;
+        $ref->setValue($db, $connections);
+
+        try {
+            $response = $this->postJson("/api/recharges/verify", [
+                'requestId' => $requestId,
+                'action' => 'approve'
+            ]);
+        } finally {
+            $connections['sqlite'] = $originalConnection;
+            $ref->setValue($db, $connections);
+        }
+
+        $response->assertStatus(500);
+        $response->assertJsonPath('status', 'error');
+        $response->assertJsonPath('message', 'Database failure during verification');
+    }
+
+    public function test_get_user_recharge_requests_throws_exception()
+    {
+        $driver = $this->createDriver(['email' => 'd14_ex@test.com']);
+
+        $db = DB::getFacadeRoot();
+        $originalConnection = DB::connection();
+
+        $mockConnection = \Mockery::mock($originalConnection)->makePartial();
+        $mockConnection->shouldReceive('table')
+            ->with('recharge_requests')
+            ->andThrow(new \Exception('Database error fetching requests'));
+
+        $ref = new \ReflectionProperty(get_class($db), 'connections');
+        $ref->setAccessible(true);
+        $connections = $ref->getValue($db);
+        $connections['sqlite'] = $mockConnection;
+        $ref->setValue($db, $connections);
+
+        try {
+            $response = $this->getJson("/api/recharges/user-requests?userId=" . $driver->id);
+        } finally {
+            $connections['sqlite'] = $originalConnection;
+            $ref->setValue($db, $connections);
+        }
+
+        $response->assertStatus(500);
+        $response->assertJsonPath('status', 'error');
+        $response->assertJsonPath('message', 'Database error fetching requests');
+    }
+
+    public function test_get_direct_recharge_invoices_throws_exception()
+    {
+        $driver = $this->createDriver(['email' => 'd15_ex@test.com']);
+
+        $db = DB::getFacadeRoot();
+        $originalConnection = DB::connection();
+
+        $mockConnection = \Mockery::mock($originalConnection)->makePartial();
+        $mockConnection->shouldReceive('table')
+            ->with('activity_cash_audit_logs')
+            ->andThrow(new \Exception('Database error fetching invoices'));
+
+        $ref = new \ReflectionProperty(get_class($db), 'connections');
+        $ref->setAccessible(true);
+        $connections = $ref->getValue($db);
+        $connections['sqlite'] = $mockConnection;
+        $ref->setValue($db, $connections);
+
+        try {
+            $response = $this->getJson("/api/recharges/invoices?userId=" . $driver->id);
+        } finally {
+            $connections['sqlite'] = $originalConnection;
+            $ref->setValue($db, $connections);
+        }
+
+        $response->assertStatus(500);
+        $response->assertJsonPath('status', 'error');
+        $response->assertJsonPath('message', 'حدث خطأ أثناء جلب فواتير الشحن المباشر: Database error fetching invoices');
+    }
 }
