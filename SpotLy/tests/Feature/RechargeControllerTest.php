@@ -232,6 +232,24 @@ class RechargeControllerTest extends TestCase
         $response->assertJsonPath('status', 'error');
     }
 
+    public function test_direct_recharge_fails_for_non_driver_roles()
+    {
+        $employee = $this->createEmployee(['email' => 'e_target@test.com']);
+        $actingEmpDetails = $this->createEmployee(['email' => 'e_acting@test.com']);
+
+        $this->actingAs($actingEmpDetails['account']);
+
+        $response = $this->postJson("/api/recharges/direct", [
+            'userId' => $employee['account']->id,
+            'amount' => 50,
+            'employee_id' => $actingEmpDetails['account']->id
+        ]);
+
+        $response->assertStatus(400);
+        $response->assertJsonPath('status', 'error');
+        $response->assertJsonPath('message', 'عذراً، لا يمكن شحن المحفظة إلا لحسابات السائقين فقط.');
+    }
+
     /*
     |--------------------------------------------------------------------------
     | verifyRequest Tests
