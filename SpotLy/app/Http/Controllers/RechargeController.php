@@ -50,6 +50,18 @@ class RechargeController extends Controller
             $targetUserId = $request->input('userId');
             $rechargeAmount = $request->input('amount');
 
+            // التحقق من أن الحساب المستهدف هو حساب سائق (دوره user)
+            $targetAccount = \Illuminate\Support\Facades\DB::table('accounts')
+                ->where('id', $targetUserId)
+                ->first();
+
+            if (!$targetAccount || $targetAccount->role !== 'user') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'عذراً، لا يمكن شحن المحفظة إلا لحسابات السائقين فقط.'
+                ], 400);
+            }
+
             \Illuminate\Support\Facades\DB::beginTransaction();
 
             //  البحث عن محفظة السائق، وإنشاؤها إن لم تكن موجودة

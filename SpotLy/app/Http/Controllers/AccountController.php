@@ -68,14 +68,16 @@ class AccountController extends Controller
             }
 
             // 3. إدخال الإشعار في قاعدة البيانات (بدون كلمة المرور لأسباب أمنية)
-            \Illuminate\Support\Facades\DB::table('notifications')->insert([
-                'user_id' => $insertedAccountId,
-                'message' => "مرحباً بك في SpotLy! تم إنشاء حسابك بنجاح. يرجى مراجعة بريدك الإلكتروني للحصول على بيانات الدخول.",
-                'type' => 'Account_Created',
-                'sent_to_email' => $inputEmail, // توثيق الإيميل الذي أرسلنا له
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
+            if ($inputRole === 'user') {
+                \Illuminate\Support\Facades\DB::table('notifications')->insert([
+                    'user_id' => $insertedAccountId,
+                    'message' => "مرحباً بك في SpotLy! تم إنشاء حسابك بنجاح. يرجى مراجعة بريدك الإلكتروني للحصول على بيانات الدخول.",
+                    'type' => 'Account_Created',
+                    'sent_to_email' => $inputEmail, // توثيق الإيميل الذي أرسلنا له
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            }
 
             // 4. إرسال البريد الإلكتروني الفعلي بكلمة المرور للسائق
             if ($inputEmail) {
