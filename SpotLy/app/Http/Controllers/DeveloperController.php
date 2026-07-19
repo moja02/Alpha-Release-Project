@@ -12,7 +12,7 @@ class DeveloperController extends Controller
     public function index()
     {
         try {
-            if (auth()->user()->role !== 'developer') {
+            if (!in_array(auth()->user()->role, ['developer', 'manager'])) {
                 abort(403, 'غير مصرح لك!');
             }
             // جلب الإحصائيات من قاعدة البيانات لعرضها في قسم "نظرة عامة"
@@ -65,6 +65,13 @@ class DeveloperController extends Controller
     // 2. استقبال بيانات الخريطة وحفظ الموقف الجديد
     public function storeParking(Request $request)
     {
+        if (!in_array(auth()->user()->role, ['developer', 'manager'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'غير مصرح لك!'
+            ], 403);
+        }
+
         try {
             // التحقق من صحة البيانات 
             $request->validate([
@@ -112,7 +119,7 @@ class DeveloperController extends Controller
     // 3. إنشاء حساب مدير جديد
     public function storeManager(Request $request)
     {
-        if (auth()->user()->role !== 'developer') {
+        if (!in_array(auth()->user()->role, ['developer', 'manager'])) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'غير مصرح لك!'
@@ -183,7 +190,7 @@ class DeveloperController extends Controller
     // 4. تغيير حالة تفعيل المدير (تنشيط / تعطيل)
     public function toggleManagerStatus($id)
     {
-        if (auth()->user()->role !== 'developer') {
+        if (!in_array(auth()->user()->role, ['developer', 'manager'])) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'غير مصرح لك!'
@@ -240,7 +247,7 @@ class DeveloperController extends Controller
     // 5. جلب ساحات المدير والساحات غير المربوطة
     public function getManagerParkings($id)
     {
-        if (auth()->user()->role !== 'developer') {
+        if (!in_array(auth()->user()->role, ['developer', 'manager'])) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'غير مصرح لك!'
@@ -291,7 +298,7 @@ class DeveloperController extends Controller
     // 6. تحديث ساحات المدير
     public function updateManagerParkings(Request $request, $id)
     {
-        if (auth()->user()->role !== 'developer') {
+        if (!in_array(auth()->user()->role, ['developer', 'manager'])) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'غير مصرح لك!'

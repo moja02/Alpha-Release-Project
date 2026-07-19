@@ -8,10 +8,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CheckRole
 {
-    public function handle(Request $request, Closure $next, $role)
+    public function handle(Request $request, Closure $next, ...$roles)
     {
-        // نتأكد أن المستخدم مسجل دخول وصلاحيته تطابق الدور المطلوب
-        if (auth()->check() && auth()->user()->role === $role) {
+        // نتأكد أن المستخدم مسجل دخول وصلاحيته تطابق أحد الأدوار المطلوبة
+        if (auth()->check() && in_array(auth()->user()->role, $roles)) {
             return $next($request);
         }
 

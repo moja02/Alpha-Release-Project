@@ -48,6 +48,8 @@ class ManagerController extends Controller
                     'parkings.location_park',
                     'parkings.total_capacity',
                     'parkings.available_capacity',
+                    'parkings.latitude',
+                    'parkings.longitude',
                     'parkings.employee_id',
                     'accounts.name as employee_name',
                     'accounts.phone as employee_phone'
@@ -475,11 +477,76 @@ class ManagerController extends Controller
 
             // تنفيذ التصدير وإرجاع استجابة التحميل
             return $strategy->export($exportData, $fileName);
-
+ 
         } catch (\Exception $exception) {
             // توثيق الاستثناء لمتابعة الصيانة
             \Illuminate\Support\Facades\Log::error('خطأ أثناء تصدير التقرير المالي للمدير: ' . $exception->getMessage());
             abort(500, 'حدث خطأ داخلي أثناء تصدير التقرير المالي: ' . $exception->getMessage());
+        }
+    }
+
+    /**
+     * حفظ ساحة وقوف جديدة وربطها بالمدير تلقائياً
+     */
+    public function storeParking(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            if (!$user || $user->role !== 'manager') {
+                return response()->json(['status' => 'error', 'message' => 'غير مصرح لك!'], 403);
+            }
+
+            $manager = DB::table('managers')->where('account_id', $user->id)->first();
+            if (!$manager) {
+                return response()->json(['status' => 'error', 'message' => 'الملف الشخصي غير موجود!'], 403);
+            }
+
+            // التحقق من صحة البيانات
+            $request->validate([
+                'name' => 'required|string|max:191',
+                'location_park' => 'required|string|max:191',
+                'total_capacity' => 'required|integer|min:1',
+                'latitude' => 'required|numeric',
+                'longitude' => 'required|numeric',
+            ]);
+
+            // إدراج الموقف في قاعدة البيانات وربطه بالمدير تلقائياً
+            $insertedId = DB::table('parkings')->insertGetId([
+                'name' => $request->name,
+                'location_park' => $request->location_park,
+                'total_capacity' => $request->total_capacity,
+                'available_capacity' => $request->total_capacity,
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
+                'employee_id' => null,
+                'manager_id' => $manager->id,
+                'created_at' => \Carbon\Carbon::now(),
+                'updated_at' => \Carbon\Carbon::now(),
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'تم حفظ الموقف بنجاح وربطه بحسابك كمدير.',
+                'parking' => [
+                    'id' => $insertedId,
+                    'name' => $request->name,
+                    'total_capacity' => $request->total_capacity,
+                    'available_capacity' => $request->total_capacity,
+                    'latitude' => $request->latitude,
+                    'longitude' => $request->longitude
+                ]
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->validator->errors()->first()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'خطأ داخلي: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

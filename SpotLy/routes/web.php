@@ -15,10 +15,15 @@ Route::post('/web-login', [AuthController::class, 'login']);
 // 2. مسارات لوحات التحكم (Dashboards)
 Route::middleware(['web', 'auth'])->group(function () {
     
-    // حماية لوحة المطور
-    Route::get('/developer/dashboard', [DeveloperController::class, 'index'])
-        ->middleware('role:developer')
-        ->name('developer.dashboard');
+    // حماية لوحة المطور والعمليات الخاصة بها (متاحة للمطور والمدير)
+    Route::middleware('role:developer,manager')->group(function () {
+        Route::get('/developer/dashboard', [DeveloperController::class, 'index'])->name('developer.dashboard');
+        Route::post('/developer/parkings/store', [DeveloperController::class, 'storeParking'])->name('developer.parking.store');
+        Route::post('/developer/managers/store', [DeveloperController::class, 'storeManager'])->name('developer.manager.store');
+        Route::post('/developer/managers/{id}/toggle-status', [DeveloperController::class, 'toggleManagerStatus'])->name('developer.manager.toggle-status');
+        Route::get('/developer/managers/{id}/parkings', [DeveloperController::class, 'getManagerParkings'])->name('developer.manager.parkings');
+        Route::post('/developer/managers/{id}/parkings', [DeveloperController::class, 'updateManagerParkings'])->name('developer.manager.parkings.update');
+    });
 
     // حماية لوحة الموظف
     Route::get('/employee-dashboard', function () {
@@ -34,6 +39,9 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/manager/dashboard', [ManagerController::class, 'index'])
         ->middleware('role:manager')
         ->name('manager.dashboard');
+    Route::post('/manager/parkings/store', [ManagerController::class, 'storeParking'])
+        ->middleware('role:manager')
+        ->name('manager.parking.store');
     Route::post('/manager/employees/store', [ManagerController::class, 'storeEmployee'])
         ->middleware('role:manager')
         ->name('manager.employee.store');
@@ -50,12 +58,6 @@ Route::middleware(['web', 'auth'])->group(function () {
         ->middleware('role:manager')
         ->name('manager.audit-logs.data');
 });
-
-Route::post('/developer/parkings/store', [DeveloperController::class, 'storeParking'])->name('developer.parking.store');
-Route::post('/developer/managers/store', [DeveloperController::class, 'storeManager'])->name('developer.manager.store');
-Route::post('/developer/managers/{id}/toggle-status', [DeveloperController::class, 'toggleManagerStatus'])->name('developer.manager.toggle-status');
-Route::get('/developer/managers/{id}/parkings', [DeveloperController::class, 'getManagerParkings'])->name('developer.manager.parkings');
-Route::post('/developer/managers/{id}/parkings', [DeveloperController::class, 'updateManagerParkings'])->name('developer.manager.parkings.update');
     
 
 // 3. مسارات الخدمات (خلفية)

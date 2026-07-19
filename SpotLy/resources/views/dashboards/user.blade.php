@@ -6,156 +6,459 @@
     <title>SpotLy - بوابة السائق التفاعلية</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
+        :root {
+            --bg-gradient-1: #e2e8f0;
+            --bg-gradient-2: #cbd5e1;
+            --glass-bg: rgba(255, 255, 255, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --glass-shadow: rgba(31, 38, 135, 0.05);
+            --text-color: #1d1d1f;
+            --text-muted: #6e6e73;
+            --card-radius: 24px;
+            --primary-color: #0071e3;
+            --primary-gradient: linear-gradient(135deg, #0071e3, #00a4ff);
+            --input-bg: rgba(255, 255, 255, 0.6);
+            --input-border: rgba(0, 0, 0, 0.08);
+            --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-gradient-1: #0a0a0c;
+                --bg-gradient-2: #16161a;
+                --glass-bg: rgba(28, 28, 30, 0.5);
+                --glass-border: rgba(255, 255, 255, 0.08);
+                --glass-shadow: rgba(0, 0, 0, 0.4);
+                --text-color: #f5f5f7;
+                --text-muted: #86868b;
+                --primary-color: #2997ff;
+                --primary-gradient: linear-gradient(135deg, #2997ff, #0071e3);
+                --input-bg: rgba(255, 255, 255, 0.04);
+                --input-border: rgba(255, 255, 255, 0.08);
+            }
+        }
+
         body { 
-            background-color: #f4f6f9; 
-            font-family: system-ui, -apple-system, sans-serif; 
+            background-color: var(--bg-gradient-2); 
+            color: var(--text-color);
+            font-family: var(--font-family); 
             overflow-x: hidden;
+            min-height: 100vh;
+            margin: 0;
         }
-        .sidebar {
-            height: 100vh;
-            background-color: #1e293b;
-            color: white;
+
+        /* Ambient Fluid Background */
+        .ambient-bg {
             position: fixed;
-            right: 0;
             top: 0;
-            width: 260px;
-            padding-top: 20px;
-            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -2;
+            overflow: hidden;
+            background: linear-gradient(180deg, var(--bg-gradient-1), var(--bg-gradient-2));
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.4;
+            animation: move 24s infinite alternate ease-in-out;
+        }
+
+        .blob-1 {
+            width: 600px;
+            height: 600px;
+            background: #ff007f;
+            top: -150px;
+            left: -100px;
+        }
+
+        .blob-2 {
+            width: 700px;
+            height: 700px;
+            background: #0071e3;
+            bottom: -200px;
+            right: -100px;
+            animation-duration: 32s;
+        }
+
+        .blob-3 {
+            width: 400px;
+            height: 400px;
+            background: #00f6ff;
+            top: 20%;
+            left: 40%;
+            animation-duration: 20s;
+        }
+
+        @keyframes move {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(100px, 80px) scale(1.2); }
+            100% { transform: translate(-50px, -40px) scale(0.95); }
+        }
+
+        /* Sidebar Glass Styling */
+        .sidebar {
+            height: calc(100vh - 40px);
+            background: var(--glass-bg);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--card-radius);
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            width: 280px;
+            padding: 30px 20px;
+            box-shadow: 0 15px 35px var(--glass-shadow);
             z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
+
+        .sidebar .brand-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, var(--text-color) 30%, var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
         .sidebar .nav-link {
-            color: #94a3b8;
-            padding: 12px 20px;
-            margin: 4px 10px;
-            border-radius: 8px;
-            transition: all 0.3s;
+            color: var(--text-color);
+            opacity: 0.7;
+            padding: 14px 20px;
+            margin: 6px 0;
+            border-radius: 16px;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             cursor: pointer;
+            font-weight: 500;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
+
         .sidebar .nav-link:hover, .sidebar .nav-link.active {
-            color: white;
-            background-color: #334155;
-            font-weight: bold;
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 4px 10px rgba(0, 0, 0, 0.03);
+            font-weight: 600;
+            transform: translateX(-4px);
         }
+
         .main-content {
-            margin-right: 260px;
-            padding: 25px;
+            margin-right: 320px;
+            padding: 20px 40px 40px 20px;
+            min-height: 100vh;
         }
+
+        /* Glass Header */
         .dashboard-header {
-            background-color: #ffffff;
-            padding: 15px 25px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-            margin-bottom: 25px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border);
+            padding: 20px 30px;
+            border-radius: var(--card-radius);
+            box-shadow: 0 10px 30px var(--glass-shadow);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .spot-card:hover {
-            transform: translateY(-5px);
+
+        /* Glass Cards */
+        .card { 
+            background: var(--glass-bg);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--card-radius); 
+            box-shadow: 0 10px 30px var(--glass-shadow);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        #booking-tabs .nav-link {
-            color: rgba(255, 255, 255, 0.75);
-            transition: all 0.2s ease-in-out;
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px var(--glass-shadow);
+        }
+
+        .card-header { 
+            font-weight: 700; 
+            background: transparent; 
+            border-bottom: 1px solid var(--glass-border); 
+            padding: 20px 25px;
+            color: var(--text-color);
+        }
+
+        /* Parking Spot Cards */
+        .spot-card {
+            overflow: hidden;
+            position: relative;
+        }
+
+        .spot-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: var(--primary-gradient);
+        }
+
+        /* Inputs and controls */
+        .form-control, .form-select {
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 14px;
+            color: var(--text-color);
+            padding: 12px 18px;
+            font-size: 0.95rem;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .form-control:focus, .form-select:focus {
+            background: var(--input-bg);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.15);
+            color: var(--text-color);
+        }
+
+        /* Interactive Map */
+        #wsmMap {
+            box-shadow: 0 10px 30px var(--glass-shadow);
+            border: 1px solid var(--glass-border);
+        }
+
+        /* Table design */
+        .table {
+            color: var(--text-color);
+            margin-bottom: 0;
+        }
+
+        .table > :not(caption) > * > * {
+            background: transparent !important;
+            border-bottom-color: var(--glass-border) !important;
+            padding: 16px 20px;
+            color: var(--text-color);
+        }
+
+        /* Navigation pills */
+        .nav-pills {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 6px;
+            border-radius: 30px;
+        }
+
+        .nav-pills .nav-link {
+            border-radius: 24px;
+            color: var(--text-color);
+            font-weight: 600;
+            padding: 10px 24px;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .nav-pills .nav-link.active {
+            background: white !important;
+            color: #1d1d1f !important;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06);
+        }
+
+        /* Custom buttons */
+        .btn {
+            border-radius: 14px;
+            padding: 12px 24px;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .btn-primary {
+            background: var(--primary-gradient);
+            border: none;
+            box-shadow: 0 8px 20px rgba(0, 113, 227, 0.2);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(0, 113, 227, 0.3);
+        }
+
+        /* Badges */
+        .badge {
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 30px;
+        }
+
+        /* Responsive hamburger menu for mobile */
+        .menu-toggle {
+            display: none;
+            font-size: 1.5rem;
             cursor: pointer;
+            color: var(--text-color);
         }
-        #booking-tabs .nav-link:hover {
-            color: #fff;
-            background-color: rgba(255, 255, 255, 0.15);
-        }
-        #booking-tabs .nav-link.active {
-            color: #1e293b !important;
-            background-color: #ffffff !important;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+
+        @media (max-width: 991px) {
+            .sidebar {
+                transform: translateX(320px);
+                right: 0;
+                top: 0;
+                height: 100vh;
+                border-radius: 0;
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-right: 0;
+                padding: 20px;
+            }
+            .menu-toggle {
+                display: block;
+            }
         }
     </style>
 </head>
 <body>
 
-    <aside class="sidebar">
+    <!-- Ambient animated background blobs -->
+    <div class="ambient-bg">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <!-- Right-aligned Floating Sidebar -->
+    <aside class="sidebar" id="dashboardSidebar">
         <div class="text-center mb-4">
-            <h4 class="text-white fw-bold">🚗 SpotLy</h4>
+            <h2 class="brand-title">🚗 SpotLy</h2>
             <span class="badge bg-primary text-white px-3 py-1 rounded-pill">بوابة السائق</span>
         </div>
-        <hr class="border-secondary border-opacity-50 mx-3">
-        <nav class="nav flex-column">
-            <a class="nav-link active" onclick="switchTab('overviewTab', this)">🏠 نظرة عامة</a>
-            <a class="nav-link" onclick="switchTab('bookingTab', this)">🚗 حجز موقف تفاعلي</a>
-            <a class="nav-link" onclick="switchTab('walletTab', this)">💳 المحفظة وطلب الشحن</a>
-            <a class="nav-link" onclick="switchTab('invoicesTab', this)">🧾 فواتير الشحن</a>
-            <a class="nav-link" onclick="switchTab('historyTab', this)">📜 سجل الحجوزات</a>
-            <a class="nav-link" onclick="switchTab('profileTab', this)">⚙️ الإعدادات الشخصية</a>
+        <hr class="border-secondary border-opacity-25 my-3">
+        <nav class="nav flex-column flex-grow-1">
+            <a class="nav-link active" onclick="switchTab('overviewTab', this)"><i class="fas fa-home"></i> نظرة عامة</a>
+            <a class="nav-link" onclick="switchTab('bookingTab', this)"><i class="fas fa-parking"></i> حجز موقف تفاعلي</a>
+            <a class="nav-link" onclick="switchTab('walletTab', this)"><i class="fas fa-wallet"></i> المحفظة والشحن</a>
+            <a class="nav-link" onclick="switchTab('invoicesTab', this)"><i class="fas fa-file-invoice-dollar"></i> فواتير الشحن</a>
+            <a class="nav-link" onclick="switchTab('historyTab', this)"><i class="fas fa-history"></i> سجل الحجوزات</a>
+            <a class="nav-link" onclick="switchTab('profileTab', this)"><i class="fas fa-user-cog"></i> الإعدادات الشخصية</a>
         </nav>
     </aside>
 
     <main class="main-content">
-        <header class="dashboard-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 text-secondary fw-bold" id="pageTitleDisplay">🏠 نظرة عامة</h5>
-            <div>
-                <span id="userNameDisplay" class="me-3 fw-bold text-dark"></span>
-                <button onclick="logoutUser()" class="btn btn-sm btn-outline-danger px-3 rounded-pill">تسجيل الخروج</button>
+        <!-- Dashboard Glass Header -->
+        <header class="dashboard-header">
+            <div class="d-flex align-items-center gap-3">
+                <i class="fas fa-bars menu-toggle" onclick="toggleSidebarMenu()"></i>
+                <h5 class="mb-0 fw-bold" id="pageTitleDisplay">🏠 نظرة عامة</h5>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <span id="userNameDisplay" class="fw-bold text-dark-emphasis"></span>
+                <button onclick="logoutUser()" class="btn btn-sm btn-outline-danger px-4 rounded-pill">تسجيل الخروج</button>
             </div>
         </header>
 
+        <!-- Tab Content Sections -->
+        
+        <!-- SECTION 1: Overview Dashboard -->
         <section id="overviewTab" class="content-section">
-            <div class="row g-3 mb-4">
+            <div class="row g-4 mb-4">
+                <!-- Wallet Card -->
                 <div class="col-md-4">
-                    <div class="card p-3 text-center border-0 shadow-sm rounded-4 border-start border-success border-4">
-                        <h6 class="text-muted mb-1">حالة الحساب</h6>
-                        <p class="fs-5 fw-bold mb-0 text-success" id="statusDisplay">نشط</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card p-3 text-center border-0 shadow-sm rounded-4 border-start border-warning border-4 position-relative">
-                        <h6 class="text-muted mb-1">رصيد المحفظة</h6>
-                        <p class="fs-5 fw-bold mb-0 text-warning">
-                            <span id="balanceDisplay">0</span> نقطة
-                            <button onclick="fetchWalletBalance()" class="btn btn-sm btn-link text-warning p-0 ms-2" title="تحديث الرصيد">
-                                🔄
+                    <div class="card p-4 border-start border-warning border-4 position-relative">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="text-muted mb-1">رصيد المحفظة</h6>
+                                <h3 class="fw-bold mb-0 text-warning">
+                                    <span id="balanceDisplay">0</span> <span style="font-size: 1rem;">نقطة</span>
+                                </h3>
+                            </div>
+                            <button onclick="fetchWalletBalance()" class="btn btn-sm btn-light rounded-circle p-2 shadow-sm" title="تحديث الرصيد">
+                                <i class="fas fa-sync-alt text-warning"></i>
                             </button>
-                        </p>
+                        </div>
                     </div>
                 </div>
+                <!-- Statistics Card: Status -->
                 <div class="col-md-4">
-                    <div class="card p-3 text-center border-0 shadow-sm rounded-4 border-start border-danger border-4">
+                    <div class="card p-4 border-start border-success border-4">
+                        <h6 class="text-muted mb-1">حالة الحساب</h6>
+                        <h3 class="fw-bold mb-0 text-success" id="statusDisplay">نشط</h3>
+                    </div>
+                </div>
+                <!-- Statistics Card: Violations -->
+                <div class="col-md-4">
+                    <div class="card p-4 border-start border-danger border-4">
                         <h6 class="text-muted mb-1">مخالفات عدم الحضور</h6>
-                        <p class="fs-5 fw-bold mb-0 text-danger"><span id="fakeBookingDisplay">0</span> / 3</p>
+                        <h3 class="fw-bold mb-0 text-danger"><span id="fakeBookingDisplay">0</span> / 3</h3>
                     </div>
                 </div>
             </div>
 
-            <div id="quickActiveTicketAlert" class="alert alert-primary border-0 shadow-sm rounded-4 d-none mb-4">
-                <div class="d-flex align-items-center">
-                    <span class="fs-3 me-3">🎟️</span>
-                    <div>
-                        <h6 class="fw-bold mb-1">لديك حجز نشط حالياً!</h6>
-                        <p class="mb-0 small">يمكنك عرض تفاصيل التذكرة من تبويب "حجز موقف".</p>
+            <!-- Active Booking Notification Alert -->
+            <div id="quickActiveTicketAlert" class="alert alert-primary border-0 shadow-sm rounded-4 d-none mb-4 p-4">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div class="d-flex align-items-center">
+                        <span class="fs-2 me-3">🎟️</span>
+                        <div>
+                            <h6 class="fw-bold mb-1">لديك حجز نشط حالياً!</h6>
+                            <p class="mb-0 small text-muted">يمكنك عرض تفاصيل التذكرة من تبويب "حجز موقف".</p>
+                        </div>
+                    </div>
+                    <button onclick="switchTab('bookingTab', document.querySelector('[onclick*=\'bookingTab\']'))" class="btn btn-sm btn-primary rounded-pill">عرض التذكرة</button>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <!-- Vehicle Info Widget -->
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header"><i class="fas fa-car-side me-2"></i> معلومات المركبة المسجلة</div>
+                        <div class="card-body p-4 d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="text-muted d-block small mb-1">رقم اللوحة التشغيلية</span>
+                                <h3 class="fw-bold text-primary mb-0" id="plateDisplay">--</h3>
+                            </div>
+                            <span class="fs-1 text-muted opacity-25"><i class="fas fa-id-card"></i></span>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                <div class="card-header bg-white py-3 fw-bold">🏷️ معلومات المركبة المسجلة</div>
-                <div class="card-body">
-                    <p class="mb-0 fs-5 text-dark">رقم اللوحة التشغيلية: <span id="plateDisplay" class="text-primary fw-bold ms-2">--</span></p>
-                </div>
-            </div>
-
-            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mt-4">
-                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                    <span class="fw-bold">🔔 سجل الإشعارات والتنبيهات الأخير</span>
-                    <button onclick="loadDashboardNotifications()" class="btn btn-sm btn-link text-decoration-none p-0">تحديث السجل 🔄</button>
-                </div>
-                <div class="card-body p-0">
-                    <div id="dashboardNotificationLog" class="list-group list-group-flush" style="max-height: 350px; overflow-y: auto;">
-                        <div class="text-center py-5 text-muted">جاري جلب آخر التنبيهات...</div>
+                <!-- Recent Activity Widget -->
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-bell me-2"></i> سجل الإشعارات والتنبيهات الأخير</span>
+                            <button onclick="loadDashboardNotifications()" class="btn btn-sm btn-link text-decoration-none p-0 text-primary fw-bold">تحديث 🔄</button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="dashboardNotificationLog" class="list-group list-group-flush p-3" style="max-height: 350px; overflow-y: auto;">
+                                <div class="text-center py-5 text-muted">جاري جلب آخر التنبيهات...</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
 
+        <!-- SECTION 2: Booking Spots Grid & Map -->
         <section id="bookingTab" class="content-section d-none">
-            
-            <div id="activeTicketSection" class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 d-none" style="display: none;">
-                <div class="card-body p-4 bg-white">
+            <!-- Active Ticket Card -->
+            <div id="activeTicketSection" class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 d-none">
+                <div class="card-body p-4 bg-white bg-opacity-75">
                     <div class="row align-items-center text-center text-md-start g-3">
                         <div class="col-md-4 border-end-md">
                             <span class="text-muted d-block mb-1">رقم الموقف المحجوز</span>
@@ -167,7 +470,7 @@
                         </div>
                         <div class="col-md-4 text-center">
                             <span class="text-muted d-block mb-2">حالة التذكرة</span>
-                            <span class="badge bg-success rounded-pill px-4 py-2 fs-6 pb-1 animate-pulse">نشط وقيد الانتظار</span>
+                            <span class="badge bg-success rounded-pill px-4 py-2 fs-6 animate-pulse">نشط وقيد الانتظار</span>
                         </div>
                     </div>
                     <hr class="my-4 border-light">
@@ -178,58 +481,60 @@
                 </div>
             </div>
 
-            <div id="bookingSpotsGridSection" class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                <div class="card-header bg-gradient bg-primary text-white p-4 border-0">
+            <!-- Booking Section Grid / Tabs -->
+            <div id="bookingSpotsGridSection" class="card">
+                <div class="card-header bg-gradient p-4 border-0">
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
                         <div>
-                            <h5 class="fw-bold mb-1">📍 حجز موقف سيارات تفاعلي</h5>
-                            <p class="fs-6 mb-0 text-white text-opacity-75">اختر طريقة الحجز المفضلة لديك بالأسفل</p>
+                            <h5 class="fw-bold mb-1"><i class="fas fa-map-marker-alt"></i> حجز موقف سيارات تفاعلي</h5>
+                            <p class="fs-6 mb-0 text-muted">اختر طريقة الحجز المفضلة لديك بالأسفل</p>
                         </div>
-                        <ul class="nav nav-pills nav-fill gap-2 border p-1 rounded-pill bg-white bg-opacity-10" id="booking-tabs" style="min-width: 320px;">
+                        <ul class="nav nav-pills nav-fill gap-2 bg-light border p-1 rounded-pill" id="booking-tabs" style="min-width: 320px;">
                             <li class="nav-item">
-                                <button class="nav-link active fw-bold text-white rounded-pill px-4 py-2 border-0" id="tab-manual" type="button" onclick="switchBookingSubTab('manual')">
+                                <button class="nav-link active fw-bold rounded-pill px-4 py-2 border-0" id="tab-manual" type="button" onclick="switchBookingSubTab('manual')">
                                     🔍 بحث يدوي
                                 </button>
                             </li>
                             <li class="nav-item">
-                                <button class="nav-link fw-bold text-white rounded-pill px-4 py-2 border-0" id="tab-smart" type="button" onclick="switchBookingSubTab('smart')">
-                                    🧠 ترشيح ذكي (API)
+                                <button class="nav-link fw-bold rounded-pill px-4 py-2 border-0" id="tab-smart" type="button" onclick="switchBookingSubTab('smart')">
+                                    🧠 ترشيح ذكي
                                 </button>
                             </li>
                         </ul>
                     </div>
                 </div>
 
-                <!-- 1. محتوى البحث اليدوي -->
+                <!-- 1. Manual Grid Search Content -->
                 <div id="booking-manual-content" style="display: block;">
-                    <div class="card-body p-4 bg-light">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="card-body p-4 bg-light bg-opacity-25">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
                             <span class="fw-bold text-secondary">🗺️ خريطة المواقف المباشرة في النظام</span>
                             <div class="d-flex gap-2">
                                 <span class="badge bg-success px-3 py-2 rounded-pill">متاح</span>
-                                <span class="badge bg-danger px-3 py-2 rounded-pill">محجوز</span>
+                                <span class="badge bg-danger px-3 py-2 rounded-pill">ممتلئ</span>
                             </div>
                         </div>
-                        <div class="row g-3" id="spotsGridContainer">
+                        <!-- Responsive card list -->
+                        <div class="row g-4" id="spotsGridContainer">
                             <div class="text-center py-5 text-muted">جاري تحميل خريطة المواقف المباشرة...</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 2. محتوى الترشيح الذكي (واجهة المطور API) -->
+                <!-- 2. Smart Recommendations (WSM API) -->
                 <div id="booking-smart-content" style="display: none;">
-                    <div class="card-body p-4 bg-light">
-                        <!-- مقابض التحكم بالوزن -->
-                        <div class="card border-0 shadow-sm rounded-4 mb-4">
-                            <div class="card-header bg-white py-3 border-bottom">
-                                <h6 class="fw-bold text-dark mb-0">🧠 تفضيلات الترشيح الذكي (Weighted Sum Model)</h6>
+                    <div class="card-body p-4 bg-light bg-opacity-25">
+                        <!-- WSM Slider Inputs -->
+                        <div class="card mb-4">
+                            <div class="card-header border-bottom">
+                                <h6 class="fw-bold mb-0">🧠 تفضيلات الترشيح الذكي (Weighted Sum Model)</h6>
                             </div>
-                            <div class="card-body bg-white p-4">
-                                <div class="alert alert-light border border-info border-opacity-25 text-dark rounded-3 mb-4 py-2">
+                            <div class="card-body p-4">
+                                <div class="alert alert-info py-2 rounded-3 mb-4">
                                     💡 <strong>تفاعلي:</strong> قم بسحب أوزان التفضيل حسب رغبتك بالأسفل (المجموع الكلي 100%). وانقر على الخريطة لتحديد مكان وجهتك لتعديل المسافة الجغرافية.
                                 </div>
-                                <div class="row align-items-center">
-                                    <div class="col-md-6 mb-3 mb-md-0">
+                                <div class="row align-items-center g-4">
+                                    <div class="col-md-6">
                                         <label class="form-label fw-bold text-secondary d-flex justify-content-between mb-2">
                                             <span>📏 القرب الجغرافي للوجهة (المسافة):</span>
                                             <span class="text-primary fw-bold" id="lblDistWeight">50%</span>
@@ -244,69 +549,85 @@
                                         <input type="range" class="form-range" id="wsmAvailabilitySlider" min="0" max="100" value="50" oninput="adjustWsmSliders('availability')">
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- الخريطة التفاعلية وقائمة التوصيات الجانبية -->
-                        <div class="row g-4 mb-4">
-                            <!-- حاوية الخريطة -->
-                            <div class="col-lg-8">
-                                <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
-                                    <div class="card-header bg-white py-3 fw-bold border-bottom">
-                                        🗺️ خريطة المواقف الذكية (انقر لتحديد وجهتك 📍)
+                                <div class="mt-4">
+                                    <label class="form-label fw-bold text-muted small">عنوان الاستدعاء البرمجي (Developer API Url)</label>
+                                    <div class="input-group">
+                                        <input type="text" id="wsmApiUrlDisplay" class="form-control text-start bg-light" readonly style="direction: ltr;">
+                                        <button class="btn btn-primary" type="button" id="btnSendSmartApi" onclick="sendSmartRecommendationRequest()">إرسال الطلب ⚡</button>
                                     </div>
-                                    <div class="card-body p-3">
-                                        <div id="wsmMap" style="height: 420px; border-radius: 12px; z-index: 1;"></div>
+                                </div>
+                                <!-- WSM JSON Response Panel -->
+                                <div class="card mt-4 d-none" id="apiResponsePanel">
+                                    <div class="card-header bg-dark text-white py-2 d-flex justify-content-between align-items-center">
+                                        <small class="fw-bold">JSON API Response</small>
+                                        <div>
+                                            <span class="badge bg-success me-2" id="apiResponseStatus">200 OK</span>
+                                            <span class="badge bg-light text-dark"><span id="apiResponseTime">0</span> ms</span>
+                                        </div>
+                                    </div>
+                                    <div class="card-body bg-dark text-white p-3">
+                                        <pre id="apiResponseBody" style="max-height: 250px; overflow-y: auto; font-family: monospace; font-size: 0.85rem;" dir="ltr" class="text-start"></pre>
                                     </div>
                                 </div>
                             </div>
-                            <!-- القائمة الجانبية للتوصيات -->
+                        </div>
+
+                        <!-- Recommendations list & map container -->
+                        <div class="row g-4">
+                            <!-- Interactive Map -->
+                            <div class="col-lg-8">
+                                <div class="card h-100">
+                                    <div class="card-header fw-bold border-bottom">🗺️ خريطة المواقف الذكية (انقر لتحديد وجهتك 📍)</div>
+                                    <div class="card-body p-3">
+                                        <div id="wsmMap" style="height: 450px; border-radius: 16px; z-index: 1;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Recommendations List -->
                             <div class="col-lg-4">
-                                <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
-                                    <div class="card-header bg-white py-3 fw-bold border-bottom d-flex justify-content-between align-items-center">
+                                <div class="card h-100">
+                                    <div class="card-header fw-bold border-bottom d-flex justify-content-between align-items-center">
                                         <span>⭐ المواقف المقترحة</span>
                                         <span class="badge bg-success rounded-pill px-2 py-1" style="font-size: 0.85rem;">نسبة المطابقة</span>
                                     </div>
-                                    <div class="card-body p-0" style="max-height: 440px; overflow-y: auto;" id="wsmRecommendationSidebarList">
+                                    <div class="card-body p-0" style="max-height: 450px; overflow-y: auto;" id="wsmRecommendationSidebarList">
                                         <div class="text-center py-5 text-muted">جاري تحميل الترشيحات الذكية...</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
-
                     </div>
                 </div>
             </div>
         </section>
 
+        <!-- SECTION 3: Wallet Recharge -->
         <section id="walletTab" class="content-section d-none">
             <div class="row g-4">
+                <!-- File upload request -->
                 <div class="col-lg-5">
-                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
-                        <div class="card-header bg-gradient bg-warning text-dark p-4 border-0 d-flex align-items-center justify-content-between">
-                            <div>
-                                <h5 class="fw-bold mb-1">📄 طلب شحن الرصيد</h5>
-                            </div>
+                    <div class="card h-100">
+                        <div class="card-header bg-gradient text-dark p-4 border-0 d-flex align-items-center justify-content-between">
+                            <h5 class="fw-bold mb-0">📄 طلب شحن الرصيد</h5>
                             <span class="fs-2">💳</span>
                         </div>
                         <div class="card-body p-4">
                             <form id="rechargeRequestForm">
                                 <div class="mb-4">
                                     <label class="form-label fw-bold text-secondary">الساحة المستهدفة للشحن</label>
-                                    <select class="form-select form-select-lg shadow-none" id="targetParkingSelect" required>
+                                    <select class="form-select form-select-lg" id="targetParkingSelect" required>
                                         <option value="" selected disabled>اختر الساحة التي حولت إليها...</option>
-                                        </select>
+                                    </select>
                                 </div>
                                 <div class="mb-4">
                                     <label class="form-label fw-bold text-secondary">عدد النقاط المطلوب</label>
-                                    <input type="number" class="form-control form-control-lg shadow-none" id="rechargeAmountInput" min="5" placeholder="الحد الأدنى 5 نقاط" required>
+                                    <input type="number" class="form-control form-control-lg" id="rechargeAmountInput" min="5" placeholder="الحد الأدنى 5 نقاط" required>
                                 </div>
                                 <div class="mb-4">
                                     <label class="form-label fw-bold text-secondary">صورة إيصال التحويل</label>
-                                    <input type="file" class="form-control form-control-lg shadow-none" id="receiptFileInput" accept="image/*" required>
+                                    <input type="file" class="form-control form-control-lg" id="receiptFileInput" accept="image/*" required>
                                 </div>
-                                <button type="submit" class="btn btn-warning btn-lg w-100 fw-bold shadow-sm rounded-3 py-3" id="submitRechargeBtn">
+                                <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold py-3 mt-2" id="submitRechargeBtn">
                                     إرسال الطلب للمراجعة 🚀
                                 </button>
                             </form>
@@ -314,11 +635,12 @@
                     </div>
                 </div>
 
+                <!-- Recharge History -->
                 <div class="col-lg-7">
-                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
-                        <div class="card-header bg-gradient bg-info text-white p-4 border-0 d-flex align-items-center justify-content-between">
+                    <div class="card h-100">
+                        <div class="card-header p-4 border-0 d-flex align-items-center justify-content-between">
                             <h5 class="fw-bold mb-0">📜 سجل طلبات الشحن السابقة</h5>
-                            <button onclick="loadUserRechargeHistory()" class="btn btn-sm btn-light rounded-pill px-3">تحديث السجل</button>
+                            <button onclick="loadUserRechargeHistory()" class="btn btn-sm btn-light rounded-pill px-3">تحديث 🔄</button>
                         </div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
@@ -343,12 +665,12 @@
             </div>
         </section>
 
-        <!-- فواتير الشحن المباشر (الضمان) -->
+        <!-- SECTION 4: Invoices -->
         <section id="invoicesTab" class="content-section d-none">
-            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
-                <div class="card-header bg-gradient bg-success text-white p-4 border-0 d-flex align-items-center justify-content-between">
+            <div class="card">
+                <div class="card-header p-4 border-0 d-flex align-items-center justify-content-between">
                     <h5 class="fw-bold mb-0">💵 فواتير الشحن المباشر (إيصالات البوابة)</h5>
-                    <button onclick="loadUserDirectRechargeInvoices()" class="btn btn-sm btn-light rounded-pill px-3">تحديث الفواتير</button>
+                    <button onclick="loadUserDirectRechargeInvoices()" class="btn btn-sm btn-light rounded-pill px-3">تحديث 🔄</button>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -374,18 +696,18 @@
             </div>
         </section>
 
-        <!-- سجل الحجوزات التصفية الشهرية -->
+        <!-- SECTION 5: Booking History -->
         <section id="historyTab" class="content-section d-none">
-            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
-                <div class="card-header bg-white py-3">
+            <div class="card mb-4">
+                <div class="card-header">
                     <h5 class="fw-bold text-dark mb-0">📜 سجل الحجوزات التاريخي</h5>
                 </div>
-                <div class="card-body bg-light">
-                    <!-- فلاتر التصفية -->
+                <div class="card-body bg-light bg-opacity-25 p-4">
+                    <!-- Filters -->
                     <div class="row g-3 align-items-end mb-4">
                         <div class="col-md-4">
                             <label class="form-label fw-bold text-secondary">الشهر</label>
-                            <select class="form-select shadow-none" id="historyMonthSelect">
+                            <select class="form-select" id="historyMonthSelect">
                                 <option value="">كل الأشهر</option>
                                 <option value="1">يناير (1)</option>
                                 <option value="2">فبراير (2)</option>
@@ -403,9 +725,7 @@
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-bold text-secondary">السنة</label>
-                            <select class="form-select shadow-none" id="historyYearSelect">
-                                <!-- سيتم تعبئتها ديناميكياً بالجافا سكربت -->
-                            </select>
+                            <select class="form-select" id="historyYearSelect"></select>
                         </div>
                         <div class="col-md-4">
                             <button onclick="loadUserBookingHistory()" class="btn btn-primary w-100 fw-bold py-2 rounded-3">
@@ -414,7 +734,7 @@
                         </div>
                     </div>
 
-                    <!-- جدول الحجوزات -->
+                    <!-- History Table -->
                     <div class="table-responsive bg-white rounded-3 shadow-sm">
                         <table class="table table-hover mb-0 align-middle text-center">
                             <thead class="table-light">
@@ -439,14 +759,15 @@
             </div>
         </section>
 
+        <!-- SECTION 6: Personal Settings -->
         <section id="profileTab" class="content-section d-none">
             <div class="row justify-content-center">
                 <div class="col-lg-8 col-xl-7">
-                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                        <div class="card-header bg-gradient bg-primary text-white p-4 border-0 d-flex align-items-center justify-content-between">
+                    <div class="card h-100">
+                        <div class="card-header bg-gradient text-dark p-4 border-0 d-flex align-items-center justify-content-between">
                             <div>
-                                <h5 class="fw-bold mb-1">⚙️ تحديث البيانات الشخصية</h5>
-                                <p class="fs-6 mb-0 text-white text-opacity-75">إدارة بيانات الاتصال وتأمين حسابك</p>
+                                <h5 class="fw-bold mb-1">⚙️ البيانات الشخصية</h5>
+                                <p class="fs-6 mb-0 text-muted">إدارة بيانات الاتصال وتأمين حسابك</p>
                             </div>
                             <span class="fs-1">🔒</span>
                         </div>
@@ -458,14 +779,14 @@
                                 </div>
                                 <div class="mb-4">
                                     <label class="form-label fw-bold text-secondary">رقم الهاتف</label>
-                                    <input type="text" class="form-control form-control-lg shadow-none" id="profilePhoneInput" required>
+                                    <input type="text" class="form-control form-control-lg" id="profilePhoneInput" required>
                                 </div>
                                 <hr class="my-4 border-secondary border-opacity-25">
                                 <div class="mb-4">
                                     <label class="form-label fw-bold text-secondary">كلمة مرور جديدة (اختياري)</label>
-                                    <input type="password" class="form-control form-control-lg shadow-none" id="profilePasswordInput" placeholder="•••••••• (اتركها فارغة إذا لم ترغب بالتغيير)">
+                                    <input type="password" class="form-control form-control-lg" id="profilePasswordInput" placeholder="•••••••• (اتركها فارغة إذا لم ترغب بالتغيير)">
                                 </div>
-                                <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm rounded-3 py-3" id="updateProfileBtn">
+                                <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold py-3" id="updateProfileBtn">
                                     حفظ التعديلات الشخصية 💾
                                 </button>
                             </form>
@@ -482,7 +803,6 @@
 
         // ---  تهيئة الصفحة وقراءة بيانات الجلسة ---
         document.addEventListener('DOMContentLoaded', function() {
-            
             try {
                 const userDataString = localStorage.getItem('userData');
                 if (userDataString) {
@@ -493,6 +813,21 @@
                 }
             } catch (exception) {
                 console.error("خطأ في تهيئة لوحة السائق", exception);
+            }
+        });
+
+        // Toggle mobile sidebar
+        function toggleSidebarMenu() {
+            const sidebar = document.getElementById('dashboardSidebar');
+            sidebar.classList.toggle('active');
+        }
+
+        // Close sidebar if clicked outside (mobile)
+        document.addEventListener('click', function(e) {
+            const sidebar = document.getElementById('dashboardSidebar');
+            const menuToggle = document.querySelector('.menu-toggle');
+            if (window.innerWidth <= 991 && sidebar.classList.contains('active') && !sidebar.contains(e.target) && e.target !== menuToggle) {
+                sidebar.classList.remove('active');
             }
         });
 
@@ -508,13 +843,12 @@
                     const statusVal = currentUserData.profile.status;
                     const statusElem = document.getElementById('statusDisplay');
                     statusElem.innerText = statusVal === 'active' ? 'نشط' : 'محظور';
-                    statusElem.className = statusVal === 'active' ? 'fs-5 fw-bold mb-0 text-success' : 'fs-5 fw-bold mb-0 text-danger';
+                    statusElem.className = statusVal === 'active' ? 'fw-bold mb-0 text-success' : 'fw-bold mb-0 text-danger';
                 }
 
-                //  جلب الرصيد وفحص الحجوزات فور الدخول للنظام
                 fetchWalletBalance();
                 checkActiveBookingForOverview();
-                loadDashboardNotifications(); // FR4: عرض السجل فور الدخول
+                loadDashboardNotifications();
             } catch (exception) {
                 console.error(exception);
             }
@@ -523,19 +857,14 @@
         // ---  جلب رصيد المحفظة الرقمية ---
         async function fetchWalletBalance() {
             try {
-                // التأكد من وجود بيانات المستخدم وصلاحية المعرف
                 if (!currentUserData || !currentUserData.accountId) return;
 
-                //  طلب الرصيد من مسار API المحفظة لضمان جلب البيانات من جدول wallets
                 const apiResponse = await fetch('/api/wallet/balance?userId=' + currentUserData.accountId);
                 const resultData = await apiResponse.json();
 
                 if (apiResponse.ok && resultData.status === 'success') {
                     const balanceElement = document.getElementById('balanceDisplay');
-                    
-                    // تأثير بصري بسيط عند تحديث الرقم
                     balanceElement.style.opacity = '0.5';
-                    
                     setTimeout(() => {
                         try {
                             balanceElement.innerText = resultData.balance;
@@ -559,30 +888,25 @@
                 const data = await response.json();
 
                 if (response.ok && data.status === 'success') {
-                    // 1. تحديث رقم المخالفات في الواجهة
                     const fakeBookingElem = document.getElementById('fakeBookingDisplay');
                     if (fakeBookingElem && fakeBookingElem.innerText != data.fake_booking_count) {
                         fakeBookingElem.innerText = data.fake_booking_count;
-                        // تأثير بصري بسيط عند زيادة المخالفة
                         fakeBookingElem.parentElement.classList.add('animate-pulse');
                         setTimeout(() => fakeBookingElem.parentElement.classList.remove('animate-pulse'), 1000);
                     }
 
-                    // 2. تحديث حالة الحساب (نشط / محظور)
                     const statusElem = document.getElementById('statusDisplay');
                     if (statusElem) {
                         statusElem.innerText = data.account_status === 'active' ? 'نشط' : 'محظور';
-                        statusElem.className = data.account_status === 'active' ? 'fs-5 fw-bold mb-0 text-success' : 'fs-5 fw-bold mb-0 text-danger';
+                        statusElem.className = data.account_status === 'active' ? 'fw-bold mb-0 text-success' : 'fw-bold mb-0 text-danger';
                     }
 
-                    // 3. تحديث التخزين المحلي (localStorage) بيش تقعد البيانات متزامنة
                     if(currentUserData.profile) {
                         currentUserData.profile.fake_booking_count = data.fake_booking_count;
                         currentUserData.profile.status = data.account_status;
                         localStorage.setItem('userData', JSON.stringify(currentUserData));
                     }
 
-                    // 4. طرد السائق فوراً إذا تم حظره!
                     if (data.account_status === 'blocked') {
                         Swal.fire({
                             title: 'تم حظر الحساب!',
@@ -648,24 +972,20 @@
                 console.error(exception);
             }
         }
+
         // دالة جلب كافة المواقف وتعبئة قائمة الشحن المنسدلة ديناميكياً
         async function loadParkingOptionsForRecharge() {
             try {
-                // استدعاء واجهة البرمجيات لجلب الساحات المربوطة بالموظفين
                 const response = await fetch('/api/parkings/spots');
                 const resultData = await response.json();
                 const selectElement = document.getElementById('targetParkingSelect');
                 
                 if (selectElement && response.ok && resultData.status === 'success') {
-                    // تفريغ القائمة وتجهيزها للاختيار
                     selectElement.innerHTML = '<option value="" selected disabled>اختر الساحة التي حولت لرقم حسابها...</option>';
-                    
-                    //  تكرار البيانات الواردة من الباك إند وتوليد خيارات القائمة
                     resultData.data.forEach(parkingItem => {
                         try {
                             const optionElement = document.createElement('option');
                             optionElement.value = parkingItem.id;
-                            // عرض اسم الساحة وموقعها لتسهيل التعرف عليها من قبل السائق
                             optionElement.textContent = `${parkingItem.name} (${parkingItem.location_park})`;
                             selectElement.appendChild(optionElement);
                         } catch (innerException) {
@@ -677,6 +997,7 @@
                 console.error("خطأ في تحميل قائمة الساحات للشحن", exception);
             }
         }
+
         // --- دالة فحص التذكرة النشطة (لإظهار التنبيه في الصفحة الرئيسية) ---
         async function checkActiveBookingForOverview() {
             try {
@@ -693,16 +1014,13 @@
                 console.error(exception);
             }
         }
+
         // ---  التبديل الديناميكي بين التبويبات ---
         function switchTab(sectionIdValue, clickedLinkElement) {
             try {
                 const allSections = document.querySelectorAll('.content-section');
                 allSections.forEach(sectionItem => {
-                    try {
-                        sectionItem.classList.add('d-none');
-                    } catch (innerException) {
-                        console.error(innerException);
-                    }
+                    sectionItem.classList.add('d-none');
                 });
 
                 const targetSection = document.getElementById(sectionIdValue);
@@ -712,23 +1030,23 @@
 
                 const allNavLinks = document.querySelectorAll('.sidebar .nav-link');
                 allNavLinks.forEach(linkItem => {
-                    try {
-                        linkItem.classList.remove('active');
-                    } catch (innerException) {
-                        console.error(innerException);
-                    }
+                    linkItem.classList.remove('active');
                 });
 
                 clickedLinkElement.classList.add('active');
                 document.getElementById('pageTitleDisplay').innerText = clickedLinkElement.innerText.trim();
 
-                //  تنفيذ تحديثات البيانات بناءً على القسم النشط
-                if (sectionIdValue === 'overviewTab') {
-                    fetchWalletBalance(); // تحديث الرصيد فور العودة للرئيسية
-                    checkActiveBookingForOverview(); // فحص الحجوزات
-                    refreshDriverStats(); // تحديث المخالفات عند العودة للرئيسية
-                    loadDashboardNotifications(); // تحديث السجل عند العودة للرئيسية
+                // Close mobile menu sidebar if switching tabs
+                const sidebar = document.getElementById('dashboardSidebar');
+                if (window.innerWidth <= 991) {
+                    sidebar.classList.remove('active');
+                }
 
+                if (sectionIdValue === 'overviewTab') {
+                    fetchWalletBalance();
+                    checkActiveBookingForOverview();
+                    refreshDriverStats();
+                    loadDashboardNotifications();
                 } else if (sectionIdValue === 'profileTab') {
                     loadProfileData();
                 } else if (sectionIdValue === 'bookingTab') {
@@ -742,24 +1060,21 @@
                     initializeHistoryYearSelect();
                     loadUserBookingHistory();
                 }
-
             } catch (exception) {
                 console.error("خطأ في التبديل وتحديث البيانات", exception);
             }
         }
 
-        // معالجة رفع إيصال التحويل البنكي للشحن مع تضمين معرف الساحة
+        // معالجة رفع إيصال التحويل البنكي للشحن
         document.getElementById('rechargeRequestForm').addEventListener('submit', async function(event) {
             try {
                 event.preventDefault();
                 
-                //  قراءة معرف الساحة، المبلغ، والملف من الواجهة
                 const parkingIdValue = document.getElementById('targetParkingSelect').value;
                 const amountInputValue = document.getElementById('rechargeAmountInput').value;
                 const fileInputValue = document.getElementById('receiptFileInput').files[0];
                 const submitButtonElement = document.getElementById('submitRechargeBtn');
 
-                // تحقق إضافي لمنع الإرسال إذا نسي السائق اختيار الساحة
                 if (!parkingIdValue) {
                     Swal.fire('تنبيه هام', 'يرجى اختيار الساحة المستهدفة من القائمة قبل الإرسال.', 'warning');
                     return;
@@ -768,38 +1083,28 @@
                 submitButtonElement.disabled = true;
 
                 try {
-                    //  بناء حزمة البيانات (FormData) لتشمل parkingId الإلزامي
-                    const formDataPayload = new FormData();
-                    formDataPayload.append('userId', currentUserData.accountId);
-                    formDataPayload.append('parkingId', parkingIdValue); 
-                    formDataPayload.append('amount', amountInputValue);
-                    formDataPayload.append('receipt', fileInputValue);
+                    const formData = new FormData();
+                    formData.append('userId', currentUserData.accountId);
+                    formData.append('parkingId', parkingIdValue);
+                    formData.append('amount', amountInputValue);
+                    formData.append('receiptFile', fileInputValue);
 
                     Swal.fire({
-                        title: 'جاري رفع الإيصال...',
+                        title: 'جاري رفع البيانات...',
+                        text: 'يرجى عدم إغلاق الصفحة لحين استكمال رفع صورة الإيصال بنجاح.',
                         allowOutsideClick: false,
-                        didOpen: () => {
-                            try {
-                                Swal.showLoading();
-                            } catch (innerException) {
-                                console.error(innerException);
-                            }
-                        }
+                        didOpen: () => { Swal.showLoading(); }
                     });
 
-                    // إرسال الطلب إلى الخادم
-                    const response = await fetch('/api/recharges/request', {
+                    const response = await fetch('/api/recharges/submit', {
                         method: 'POST',
-                        headers: { 'Accept': 'application/json' },
-                        body: formDataPayload
+                        body: formData
                     });
 
                     const resultData = await response.json();
 
-                    if (response.ok) {
+                    if (response.ok && resultData.status === 'success') {
                         Swal.fire('تم الإرسال بنجاح', 'تم توجيه طلبك للموظف المسؤول عن الساحة.', 'success');
-                        
-                        // تصفير النموذج وتحديث جدول السجل فوراً
                         document.getElementById('rechargeRequestForm').reset();
                         loadUserRechargeHistory();
                     } else {
@@ -815,12 +1120,10 @@
             }
         });
 
-        // متغير عام لتخزين رقم الحجز النشط لكي نستخدمه في دوال الإلغاء والتبديل
         let activeBookingId = null;
 
         // ---  فحص التذكرة النشطة وتحميل شبكة المواقف ---
         async function checkActiveTicketAndLoadGrid() {
-            // 1. الإخفاء الاستباقي (Pre-emptive Hide): نغلق التذكرة فوراً قبل أي شيء
             const activeTicketCard = document.getElementById('activeTicketSection');
             const gridMapCard = document.getElementById('bookingSpotsGridSection');
 
@@ -830,16 +1133,13 @@
             }
 
             try {
-                // التأكد من وجود بيانات المستخدم لتجنب أخطاء توقف السكربت
                 if (!currentUserData || !currentUserData.accountId) {
                     throw new Error("بيانات المستخدم غير مكتملة");
                 }
 
-                // 2. الاتصال بالباك إند
                 const response = await fetch('/api/bookings/active?userId=' + currentUserData.accountId);
                 const resultData = await response.json();
 
-                // 3. اتخاذ القرار
                 if (response.ok && resultData.status === 'success' && resultData.hasActiveBooking) {
                     const bookingRecord = resultData.bookingData;
                     activeBookingId = bookingRecord.id;
@@ -847,7 +1147,6 @@
                     document.getElementById('ticketSpotNumber').innerText = bookingRecord.parking_name || '--';
                     document.getElementById('ticketPaymentMethod').innerText = bookingRecord.type === 'initial' ? '⏱️ حجز مبدئي (مؤقت)' : '✅ حجز فعلي';
 
-                    // إظهار التذكرة وإخفاء الخريطة لأن هناك حجز فعلي
                     if (activeTicketCard) {
                         activeTicketCard.classList.remove('d-none');
                         activeTicketCard.style.setProperty('display', 'block', 'important');
@@ -857,18 +1156,16 @@
                         gridMapCard.style.setProperty('display', 'none', 'important');
                     }
                 } else {
-                    // لا يوجد حجز: نصفر المتغير ونظهر الخريطة (التذكرة مخفية مسبقاً في الخطوة 1)
                     activeBookingId = null;
 
                     if (gridMapCard) {
                         gridMapCard.classList.remove('d-none');
                         gridMapCard.style.setProperty('display', 'block', 'important');
                     }
-                    loadLiveSpotsGrid(); // تحميل بيانات المواقف المتاحة
+                    loadLiveSpotsGrid();
                 }
             } catch (exception) {
                 console.error("خطأ في فحص التذكرة النشطة:", exception);
-                // في حالة حدوث أي خطأ برمجي، نعرض الخريطة كإجراء احتياطي (Fallback)
                 if (gridMapCard) {
                     gridMapCard.classList.remove('d-none');
                     gridMapCard.style.setProperty('display', 'block', 'important');
@@ -893,30 +1190,33 @@
                             const areaBadgeClass = isAreaAvailable ? 'bg-success' : 'bg-danger';
                             const areaStatusLabel = isAreaAvailable ? 'متاح للحجز' : 'ممتلئ بالكامل';
                             const areaOpacityStyle = isAreaAvailable ? 'opacity: 1;' : 'opacity: 0.6; cursor: not-allowed;';
-                            
-                            // التأكد من وجود رقم حساب أو عرض رسالة تنبيه
                             const bankAccountDisplay = parkingArea.employee_bank_account || 'غير متوفر حالياً';
 
                             gridContainerElement.innerHTML += `
                                 <div class="col-12 col-md-6 col-lg-4">
-                                    <div class="card spot-card text-center p-3 border-0 shadow-sm rounded-4 h-100" 
-                                         style="${areaOpacityStyle} transition: all 0.3s; ${isAreaAvailable ? 'cursor: pointer;' : ''}"
+                                    <div class="card spot-card text-center p-3 border-0 h-100" 
+                                         style="${areaOpacityStyle} ${isAreaAvailable ? 'cursor: pointer;' : ''}"
                                          onclick="initiateSpotReservation(${parkingArea.id}, '${parkingArea.name}', ${parkingArea.available_capacity})">
-                                        <div class="card-body p-3">
-                                            <span class="display-6 d-block mb-3">${isAreaAvailable ? '🅿️' : '⛔'}</span>
-                                            <h4 class="fw-bold text-dark mb-1">${parkingArea.name}</h4>
-                                            <p class="text-muted small mb-3"><i class="me-1">📍</i> ${parkingArea.location_park}</p>
-                                            
-                                            <div class="alert alert-light border-0 py-2 mb-3 rounded-3" style="background-color: #f8fafc;">
-                                                <small class="text-muted d-block mb-1">الحساب المصرفي للتحويل:</small>
-                                                <span class="fw-bold text-primary" style="letter-spacing: 1px;">${bankAccountDisplay}</span>
+                                        <div class="card-body p-3 d-flex flex-column justify-content-between h-100">
+                                            <div>
+                                                <span class="display-6 d-block mb-3">${isAreaAvailable ? '🅿️' : '⛔'}</span>
+                                                <h4 class="fw-bold mb-1">${parkingArea.name}</h4>
+                                                <p class="text-muted small mb-3"><i class="me-1">📍</i> ${parkingArea.location_park}</p>
+                                                
+                                                <div class="alert alert-light border-0 py-2 mb-3 rounded-3" style="background-color: var(--input-bg);">
+                                                    <small class="text-muted d-block mb-1">الحساب المصرفي للتحويل:</small>
+                                                    <span class="fw-bold text-primary" style="letter-spacing: 1px;">${bankAccountDisplay}</span>
+                                                </div>
                                             </div>
-
-                                            <div class="d-flex justify-content-center align-items-center gap-2">
-                                                <span class="badge ${areaBadgeClass} rounded-pill px-3 py-2">${areaStatusLabel}</span>
-                                                <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">
-                                                    السعة: ${parkingArea.available_capacity} / ${parkingArea.total_capacity}
-                                                </span>
+                                            
+                                            <div>
+                                                <div class="d-flex justify-content-center align-items-center gap-2 mb-3">
+                                                    <span class="badge ${areaBadgeClass} rounded-pill px-3 py-2">${areaStatusLabel}</span>
+                                                    <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">
+                                                        الشاغر: ${parkingArea.available_capacity} / ${parkingArea.total_capacity}
+                                                    </span>
+                                                </div>
+                                                <button class="btn btn-primary w-100 rounded-pill py-2" ${isAreaAvailable ? '' : 'disabled'}>احجز الآن 🚀</button>
                                             </div>
                                         </div>
                                     </div>
@@ -944,14 +1244,13 @@
                 tabSmart.classList.remove('active');
                 manualContent.style.display = 'block';
                 smartContent.style.display = 'none';
-                loadLiveSpotsGrid(); // تحديث المواقف المباشرة
+                loadLiveSpotsGrid();
             } else {
                 tabSmart.classList.add('active');
                 tabManual.classList.remove('active');
                 manualContent.style.display = 'none';
                 smartContent.style.display = 'block';
                 
-                // تهيئة الخريطة لأول مرة أو تحديث حجمها لتفادي مشاكل الأبعاد
                 if (!wsmMap) {
                     setTimeout(() => {
                         initWsmMap();
@@ -974,9 +1273,8 @@
         let wsmAvailWeight = 0.5;
         let wsmParkingsData = [];
 
-        // 1. دالة حساب المسافة الجغرافية بالكيلومتر بين نقطتين (Haversine Formula)
         function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // نصف قطر الأرض بالكيلومتر
+            const R = 6371;
             const dLat = deg2rad(lat2 - lat1);
             const dLon = deg2rad(lon2 - lon1);
             const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -989,7 +1287,6 @@
             return deg * (Math.PI / 180);
         }
 
-        // 2. تحديث وتعديل أوزان Sliders بطريقة تفاعلية ومجموع 100%
         window.adjustWsmSliders = function(source) {
             const distSlider = document.getElementById('wsmDistanceSlider');
             const availSlider = document.getElementById('wsmAvailabilitySlider');
@@ -1000,7 +1297,6 @@
                 distSlider.value = 100 - parseInt(availSlider.value);
             }
             
-            // تحديث بطاقات الأرقام
             document.getElementById('lblDistWeight').innerText = distSlider.value + '%';
             document.getElementById('lblAvailWeight').innerText = availSlider.value + '%';
             
@@ -1011,7 +1307,6 @@
             updateWsmCalculations();
         };
 
-        // 3. تهيئة خريطة الـ WSM الذكية
         window.initWsmMap = async function() {
             try {
                 if (wsmMap) return;
@@ -1019,43 +1314,40 @@
                 const container = document.getElementById('wsmMap');
                 if (!container) return;
 
-                // تهيئة الخريطة وتوسيطها عند موقع الجامعة
                 wsmMap = L.map('wsmMap').setView([wsmLat, wsmLng], 13);
                 
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; OpenStreetMap contributors'
                 }).addTo(wsmMap);
 
-                // تعريف الأيقونات بتنسيق CSS دائري مميز
                 window.greenIcon = L.divIcon({
-                    html: '<div style="background-color: #2ecc71; width: 28px; height: 28px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px; font-family: sans-serif;">P</div>',
+                    html: '<div style="background-color: #34c759; width: 28px; height: 28px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px; font-family: sans-serif;">P</div>',
                     className: 'custom-div-icon',
                     iconSize: [28, 28],
                     iconAnchor: [14, 14]
                 });
                 
                 window.yellowIcon = L.divIcon({
-                    html: '<div style="background-color: #f1c40f; width: 28px; height: 28px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px; font-family: sans-serif;">P</div>',
+                    html: '<div style="background-color: #ffcc00; width: 28px; height: 28px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px; font-family: sans-serif;">P</div>',
                     className: 'custom-div-icon',
                     iconSize: [28, 28],
                     iconAnchor: [14, 14]
                 });
                 
                 window.redIcon = L.divIcon({
-                    html: '<div style="background-color: #e74c3c; width: 28px; height: 28px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px; font-family: sans-serif;">P</div>',
+                    html: '<div style="background-color: #ff3b30; width: 28px; height: 28px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px; font-family: sans-serif;">P</div>',
                     className: 'custom-div-icon',
                     iconSize: [28, 28],
                     iconAnchor: [14, 14]
                 });
 
                 window.userDestIcon = L.divIcon({
-                    html: '<div style="background-color: #3498db; width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 12px rgba(52, 152, 219, 0.6); display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">📍</div>',
+                    html: '<div style="background-color: #0071e3; width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 12px rgba(0, 113, 227, 0.6); display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">📍</div>',
                     className: 'custom-div-icon-dest',
                     iconSize: [34, 34],
                     iconAnchor: [17, 17]
                 });
 
-                // إضافة علامة السائق الزرقاء القابلة للسحب
                 wsmMapMarker = L.marker([wsmLat, wsmLng], {
                     icon: userDestIcon,
                     draggable: true
@@ -1069,7 +1361,6 @@
                     updateWsmCalculations();
                 });
 
-                // نقرة على الخريطة لتحديث الوجهة
                 wsmMap.on('click', function(e) {
                     wsmLat = e.latlng.lat;
                     wsmLng = e.latlng.lng;
@@ -1078,7 +1369,6 @@
                     updateWsmCalculations();
                 });
 
-                // جلب المواقف وتعبئة البيانات محلياً
                 const response = await fetch('/api/parkings/spots');
                 const res = await response.json();
                 if (response.ok && res.status === 'success') {
@@ -1090,23 +1380,19 @@
             }
         };
 
-        // 4. تنفيذ الخوارزمية محلياً وإصدار النتائج
         window.updateWsmCalculations = function() {
             if (!wsmParkingsData || wsmParkingsData.length === 0) return;
 
-            // حساب المسافات بالكيلومتر
             let dataCopy = wsmParkingsData.map(p => {
                 const distance = calculateDistance(wsmLat, wsmLng, p.latitude, p.longitude);
                 return { ...p, computed_distance: distance };
             });
 
-            // الحصول على القيم للتطبيع
             const distances = dataCopy.map(p => p.computed_distance);
             const maxDist = Math.max(...distances) || 1;
             const minDist = Math.min(...distances) || 0;
             const distRange = maxDist - minDist || 1;
 
-            // تطبيق معادلة WSM
             dataCopy.forEach(p => {
                 const normDist = (maxDist - p.computed_distance) / distRange;
                 const normAvail = p.total_capacity > 0 ? (p.available_capacity / p.total_capacity) : 0;
@@ -1116,26 +1402,21 @@
                 p.match_percentage = Math.round(score * 100);
             });
 
-            // فرز تنازلي حسب الدرجة الأعلى
             dataCopy.sort((a, b) => b.wsm_score - a.wsm_score);
 
-            // تحديث العلامات والقائمة
             updateWsmMapMarkers(dataCopy);
             updateWsmRecommendationList(dataCopy);
         };
 
-        // 5. رسم وتلوين علامات المواقف على الخريطة
         window.updateWsmMapMarkers = function(sortedData) {
             if (!wsmMap) return;
 
-            // تنظيف المواقع السابقة
             wsmMarkersList.forEach(m => wsmMap.removeLayer(m));
             wsmMarkersList = [];
 
             sortedData.forEach((p, idx) => {
                 if (!p.latitude || !p.longitude) return;
 
-                // أخضر للأول، أصفر للثاني والثالث (متاحين)، أحمر للبقية أو الممتلئ
                 let markerIcon = yellowIcon;
                 if (p.available_capacity === 0) {
                     markerIcon = redIcon;
@@ -1163,7 +1444,6 @@
             });
         };
 
-        // 6. تحديث قائمة المقترحات الجانبية
         window.updateWsmRecommendationList = function(sortedData) {
             const list = document.getElementById('wsmRecommendationSidebarList');
             if (!list) return;
@@ -1201,7 +1481,6 @@
             });
         };
 
-        // 7. التركيز على الموقف على الخريطة
         window.focusParkingOnWsmMap = function(lat, lng, name) {
             if (wsmMap) {
                 wsmMap.setView([lat, lng], 15);
@@ -1212,7 +1491,6 @@
             }
         };
 
-        // 8. تحديث نص استعلام الـ API للمطورين
         window.updateWsmApiUrlDisplay = function() {
             const display = document.getElementById('wsmApiUrlDisplay');
             if (display) {
@@ -1220,7 +1498,6 @@
             }
         };
 
-        // 9. إرسال طلب الـ API الفعلي للسيرفر لعرض استجابة المطور (JSON)
         window.sendSmartRecommendationRequest = async function() {
             const btnSend = document.getElementById('btnSendSmartApi');
             btnSend.disabled = true;
@@ -1235,7 +1512,6 @@
                 const endTime = performance.now();
                 const latency = Math.round(endTime - startTime);
 
-                // إظهار لوحة المطور وتحديث بيانات الاستجابة
                 document.getElementById('apiResponsePanel').classList.remove('d-none');
                 document.getElementById('apiResponseStatus').innerText = `${response.status} ${response.statusText || (response.ok ? 'OK' : 'Error')}`;
                 
@@ -1264,7 +1540,6 @@
             }
         };
 
-        // دالة مساعدة لإظهار/إخفاء حقول الوقت بناءً على اختيار السائق
         window.toggleTimeInputs = function(isActualSelected) {
             const timeInputsDiv = document.getElementById('actualTimeInputs');
             if (timeInputsDiv) {
@@ -1272,18 +1547,15 @@
             }
         };
 
-        // ---  بدء إجراءات الحجز التفاعلي  ---
         async function initiateSpotReservation(spotIdValue, spotNameValue, availableCapacity) {
             try {
-                // إصلاح المشكلة: الاعتماد على السعة الرقمية بدلاً من حالة نصية
                 if (availableCapacity <= 0) {
                     Swal.fire({
-                        icon: 'warning', title: 'الموقف ممتلئ', text: 'عذراً، هذه الساحة لا تحتوي على أماكن شاغرة حالياً.', confirmButtonColor: '#2c3e50'
+                        icon: 'warning', title: 'الموقف ممتلئ', text: 'عذراً، هذه الساحة لا تحتوي على أماكن شاغرة حالياً.', confirmButtonColor: '#0071e3'
                     });
                     return;
                 }
 
-                // عرض نافذة مخصصة تحتوي على خيارات الحجز المطلوبة في السيناريو
                 const { value: formValues } = await Swal.fire({
                     title: `حجز موقف في (${spotNameValue})`,
                     html: `
@@ -1316,8 +1588,8 @@
                     showCancelButton: true,
                     confirmButtonText: 'تأكيد الحجز 🚀',
                     cancelButtonText: 'تراجع',
-                    confirmButtonColor: '#2c3e50',
-                    cancelButtonColor: '#d33',
+                    confirmButtonColor: '#0071e3',
+                    cancelButtonColor: '#ff3b30',
                     preConfirm: () => {
                         try {
                             const typeSelected = document.querySelector('input[name="bookingType"]:checked').value;
@@ -1346,13 +1618,11 @@
                 if (formValues) {
                     executeBookingRequest(spotIdValue, formValues);
                 }
-
             } catch (exception) {
                 console.error("خطأ في نافذة الحجز", exception);
             }
         }
 
-        // ---  إرسال طلب الاعتماد النهائي وإصدار التذكرة ---
         async function executeBookingRequest(targetSpotIdValue, bookingDataValues) {
             try {
                 Swal.fire({
@@ -1361,7 +1631,6 @@
                     didOpen: () => { Swal.showLoading(); }
                 });
 
-                // تجهيز حزمة البيانات للإرسال
                 const payloadData = {
                     userId: currentUserData.accountId,
                     parkingId: targetSpotIdValue,
@@ -1386,7 +1655,7 @@
                         icon: 'success',
                         title: 'تم الحجز بنجاح! 🎟️',
                         text: bookingDataValues.type === 'initial' ? 'تم تأمين موقفك لـ 30 دقيقة القادمة.' : 'تم تأكيد حجزك الفعلي وخصم التكلفة.',
-                        confirmButtonColor: '#2c3e50'
+                        confirmButtonColor: '#0071e3'
                     }).then(() => {
                         fetchWalletBalance();
                         checkActiveTicketAndLoadGrid();
@@ -1395,11 +1664,10 @@
                     throw new Error(responseData.message || 'تعذر إتمام عملية الحجز.');
                 }
             } catch (exception) {
-                Swal.fire({ icon: 'error', title: 'فشل الحجز', text: exception.message, confirmButtonColor: '#d33' });
+                Swal.fire({ icon: 'error', title: 'فشل الحجز', text: exception.message, confirmButtonColor: '#ff3b30' });
             }
         }
 
-        // دالة لجلب الساحات المتاحة وتعبئة القائمة المنسدلة
         async function loadParkingOptions() {
             try {
                 const response = await fetch('/api/parkings/spots');
@@ -1415,11 +1683,8 @@
             } catch (exception) { console.error(exception); }
         }
 
-
-        // وظيفة إلغاء الحجز الحالي مع شروط الوقت
         async function cancelCurrentBooking() {
             try {
-                // التأكد من وجود رقم الحجز قبل إرسال الطلب
                 if (!activeBookingId) {
                     Swal.fire('خطأ', 'لم يتم التعرف على رقم الحجز النشط. يرجى تحديث الصفحة.', 'error');
                     return;
@@ -1432,12 +1697,12 @@
                     showCancelButton: true,
                     confirmButtonText: 'نعم، إلغاء الحجز',
                     cancelButtonText: 'تراجع',
-                    confirmButtonColor: '#d33'
+                    confirmButtonColor: '#ff3b30',
+                    cancelButtonColor: '#8e8e93'
                 });
 
                 if (!isConfirmed) return;
 
-                // إظهار حالة التحميل
                 Swal.fire({
                     title: 'جاري الإلغاء...',
                     allowOutsideClick: false,
@@ -1448,7 +1713,7 @@
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json' // ضروري لاستقبال أخطاء لارافيل بوضوح
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify({ bookingId: activeBookingId })
                 });
@@ -1456,17 +1721,14 @@
                 const result = await response.json();
 
                 if (response.ok && result.status === 'success') {
-                    // 1. إخفاء إجباري وفوري للتذكرة من الواجهة باستخدام CSS
                     const ticketSection = document.getElementById('activeTicketSection');
                     if (ticketSection) {
                         ticketSection.style.setProperty('display', 'none', 'important');
                         ticketSection.classList.add('d-none');
                     }
 
-                    // 2. إظهار رسالة النجاح
                     Swal.fire('تم الإلغاء', result.message, 'success');
                     
-                    // 3. تصفير المتغير وتحديث البيانات
                     activeBookingId = null;
                     checkActiveTicketAndLoadGrid();
                     fetchWalletBalance();
@@ -1479,7 +1741,6 @@
             }
         }
 
-        // وظيفة طلب تبديل الساحة
         async function requestChangeSpot() {
             try {
                 const response = await fetch('/api/parkings/spots');
@@ -1518,13 +1779,6 @@
             } catch (e) { console.error(e); }
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | دوال الإعدادات والمحفظة وتسجيل الخروج
-        |--------------------------------------------------------------------------
-        */
-
         function loadProfileData() {
             try {
                 document.getElementById('profileNameDisplay').value = currentUserData.name;
@@ -1541,8 +1795,8 @@
                     text: "هل ترغب في مغادرة بوابة السائق؟",
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
+                    confirmButtonColor: '#0071e3',
+                    cancelButtonColor: '#8e8e93',
                     confirmButtonText: 'نعم، تسجيل الخروج',
                     cancelButtonText: 'إلغاء'
                 }).then((result) => {
@@ -1560,8 +1814,6 @@
             }
         }
 
-
-        // معالجة تحديث البيانات الشخصية للسائق
         document.getElementById('profileForm').addEventListener('submit', async function(event) {
             try {
                 event.preventDefault();
@@ -1599,7 +1851,7 @@
             }
         });
 
-        // --- FR4: دالة جلب وعرض سجل الإشعارات في لوحة التحكم ---
+        // --- FR4: سجل الإشعارات ---
         async function loadDashboardNotifications() {
             try {
                 if (!currentUserData || !currentUserData.accountId) return;
@@ -1638,12 +1890,12 @@
                             });
 
                             logContainer.innerHTML += `
-                                <div class="list-group-item list-group-item-action p-3 ${borderClass} bg-white shadow-sm mb-2 rounded-3">
+                                <div class="list-group-item list-group-item-action p-3 ${borderClass} bg-white bg-opacity-50 shadow-sm mb-2 rounded-3">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="d-flex align-items-center">
                                             <span class="fs-4 me-3">${icon}</span>
                                             <div>
-                                                <p class="mb-1 fw-bold text-dark" style="font-size: 0.95rem;">${item.message}</p>
+                                                <p class="mb-1 fw-bold text-dark-emphasis" style="font-size: 0.95rem;">${item.message}</p>
                                                 <small class="text-muted" style="font-size: 0.8rem;">${timeAgo}</small>
                                             </div>
                                         </div>
@@ -1652,8 +1904,6 @@
                             `;
                         } catch (e) { console.error(e); }
                     });
-                } else {
-                    console.error("الباك إند أرجع خطأ:", resultData.message);
                 }
             } catch (exception) {
                 console.error("خطأ في جلب سجل التنبيهات", exception);
@@ -1876,13 +2126,11 @@
                 Swal.fire('خطأ', 'فشل في تحميل تفاصيل الإيصال.', 'error');
             }
         }
-        // --- مشغل أوتوماتيكي صامت لتنظيف الحجوزات المنتهية (يعمل كل دقيقة) ---
+
         setInterval(async () => {
             try {
-                // 1. تحديث الإحصائيات (المخالفات)
                 refreshDriverStats();
 
-                // 2. فحص الحجوزات المنتهية
                 const response = await fetch('/api/bookings/cleanup-expired', {
                     method: 'POST',
                     headers: { 'Accept': 'application/json' }
