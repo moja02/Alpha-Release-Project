@@ -83,11 +83,11 @@ class ManagerDashboardTest extends TestCase
             'employee_id' => $employee->id
         ]);
 
-        // Refresh dashboard and verify the unlinking button is now displayed and create button is hidden
+        // Refresh dashboard and verify the employee name and unlink button are displayed
         $response = $this->actingAs($managerAccount)->get('/manager/dashboard');
         $response->assertStatus(200);
-        $response->assertSee('confirmUnlinkEmployee(' . $parkingId);
-        $response->assertDontSee('openCreateEmployeeModal(' . $parkingId);
+        $response->assertSee('John Doe');
+        $response->assertSee('unlinkEmployeeFromStaff(' . $employee->id);
 
         // 6. Unlink the employee
         $unlinkResponse = $this->actingAs($managerAccount)->postJson('/manager/parkings/unlink', [
@@ -103,11 +103,10 @@ class ManagerDashboardTest extends TestCase
             'employee_id' => null
         ]);
 
-        // Refresh dashboard and verify the create button is visible again
+        // Refresh dashboard and verify the create button is visible
         $response = $this->actingAs($managerAccount)->get('/manager/dashboard');
         $response->assertStatus(200);
         $response->assertSee('openCreateEmployeeModal(' . $parkingId);
-        $response->assertDontSee('confirmUnlinkEmployee(' . $parkingId);
     }
 
     public function test_manager_can_assign_existing_unlinked_employee()

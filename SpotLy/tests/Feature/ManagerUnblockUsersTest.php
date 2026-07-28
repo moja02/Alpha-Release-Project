@@ -132,6 +132,6 @@ class ManagerUnblockUsersTest extends TestCase
 
         // 4. Try to unblock as user -> redirects to /login by role:manager middleware
         $response = $this->actingAs($userAccount)->postJson("/manager/users/unblock", ['user_id' => $userId]);
-        $response->assertRedirect('/login');
+        $response->assertStatus(403);
     }
 }

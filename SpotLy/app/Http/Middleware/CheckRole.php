@@ -15,6 +15,14 @@ class CheckRole
             return $next($request);
         }
 
+        // إذا كان الطلب يتوقع استجابة JSON أو يبدأ بـ api، نرجع 403 بدلاً من التوجيه
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Forbidden. You do not have permission to access this resource.'
+            ], 403);
+        }
+
         // إذا لم يكن لديه صلاحية، نطرده لصفحة الدخول أو نعطيه 403
         return redirect('/login')->with('error', 'غير مصرح لك بالدخول!');
     }

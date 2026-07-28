@@ -1384,22 +1384,26 @@
             if (!wsmParkingsData || wsmParkingsData.length === 0) return;
 
             let dataCopy = wsmParkingsData.map(p => {
-                const distance = calculateDistance(wsmLat, wsmLng, p.latitude, p.longitude);
-                return { ...p, computed_distance: distance };
+                const lat = parseFloat(p.latitude);
+                const lng = parseFloat(p.longitude);
+                const distance = (!isNaN(lat) && !isNaN(lng) && lat !== 0) ? calculateDistance(wsmLat, wsmLng, lat, lng) : 1.0;
+                return { ...p, computed_distance: isNaN(distance) ? 1.0 : distance };
             });
 
             const distances = dataCopy.map(p => p.computed_distance);
             const maxDist = Math.max(...distances) || 1;
             const minDist = Math.min(...distances) || 0;
-            const distRange = maxDist - minDist || 1;
+            const distRange = (maxDist - minDist) || 1;
 
             dataCopy.forEach(p => {
-                const normDist = (maxDist - p.computed_distance) / distRange;
-                const normAvail = p.total_capacity > 0 ? (p.available_capacity / p.total_capacity) : 0;
+                const normDist = distRange > 0 ? ((maxDist - p.computed_distance) / distRange) : 1;
+                const totalCap = parseInt(p.total_capacity) || 0;
+                const availCap = parseInt(p.available_capacity) || 0;
+                const normAvail = totalCap > 0 ? (availCap / totalCap) : 0;
                 
                 const score = (wsmDistWeight * normDist) + (wsmAvailWeight * normAvail);
-                p.wsm_score = score;
-                p.match_percentage = Math.round(score * 100);
+                p.wsm_score = isNaN(score) ? 0 : score;
+                p.match_percentage = Math.min(100, Math.max(0, Math.round(p.wsm_score * 100)));
             });
 
             dataCopy.sort((a, b) => b.wsm_score - a.wsm_score);
@@ -1415,7 +1419,9 @@
             wsmMarkersList = [];
 
             sortedData.forEach((p, idx) => {
-                if (!p.latitude || !p.longitude) return;
+                const lat = parseFloat(p.latitude);
+                const lng = parseFloat(p.longitude);
+                if (isNaN(lat) || isNaN(lng) || lat === 0) return;
 
                 let markerIcon = yellowIcon;
                 if (p.available_capacity === 0) {
@@ -1426,16 +1432,17 @@
                     markerIcon = redIcon;
                 }
 
-                const marker = L.marker([p.latitude, p.longitude], { icon: markerIcon }).addTo(wsmMap);
+                const marker = L.marker([lat, lng], { icon: markerIcon }).addTo(wsmMap);
+                const safeName = (p.name || '').replace(/['"\\]/g, '\\$&');
                 
                 const popupContent = `
                     <div style="direction: rtl; text-align: right; font-family: sans-serif; min-width: 170px; line-height: 1.4;">
                         <h6 class="fw-bold mb-1 text-dark">${p.name}</h6>
                         <span class="badge bg-success text-white mb-2">تطابق: ${p.match_percentage}%</span>
-                        <p class="mb-1 text-muted small">📍 <b>المسافة:</b> ${p.computed_distance.toFixed(2)} كم</p>
+                        <p class="mb-1 text-muted small">📍 <b>المسافة:</b> ${(p.computed_distance || 0).toFixed(2)} كم</p>
                         <p class="mb-2 text-muted small">🚗 <b>الشاغر:</b> ${p.available_capacity} / ${p.total_capacity}</p>
                         ${p.available_capacity > 0 
-                            ? `<button onclick="initiateSpotReservation(${p.id}, '${p.name}', ${p.available_capacity})" class="btn btn-sm btn-primary w-100 fw-bold py-1">حجز فوري 🚀</button>` 
+                            ? `<button onclick="initiateSpotReservation(${p.id}, '${safeName}', ${p.available_capacity})" class="btn btn-sm btn-primary w-100 fw-bold py-1">حجز فوري 🚀</button>` 
                             : '<span class="badge bg-danger w-100 d-block text-center py-1">ممتلئ بالكامل</span>'}
                     </div>
                 `;
@@ -1461,18 +1468,21 @@
                 }
 
                 const isAvailable = p.available_capacity > 0;
+                const safeName = (p.name || '').replace(/['"\\]/g, '\\$&');
+                const lat = parseFloat(p.latitude) || wsmLat;
+                const lng = parseFloat(p.longitude) || wsmLng;
 
                 const itemHtml = `
-                    <div class="p-3 border-bottom list-group-item-action transition-all" style="cursor: pointer;" onclick="focusParkingOnWsmMap(${p.latitude}, ${p.longitude}, '${p.name}')">
+                    <div class="p-3 border-bottom list-group-item-action transition-all" style="cursor: pointer;" onclick="focusParkingOnWsmMap(${lat}, ${lng}, '${safeName}')">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <span class="fw-bold text-dark" style="font-size: 0.9rem;">${p.name}</span>
                             <span class="badge ${badgeStyle} rounded-pill px-2 py-1" style="font-size: 0.75rem;">${p.match_percentage}%</span>
                         </div>
-                        <small class="text-muted d-block mb-2">📍 ${p.location_park} (${p.computed_distance.toFixed(2)} كم)</small>
+                        <small class="text-muted d-block mb-2">📍 ${p.location_park} (${(p.computed_distance || 0).toFixed(2)} كم)</small>
                         <div class="d-flex justify-content-between align-items-center">
                             <small class="text-secondary fw-semibold">الشاغر: ${p.available_capacity} / ${p.total_capacity}</small>
                             ${isAvailable 
-                                ? `<button onclick="event.stopPropagation(); initiateSpotReservation(${p.id}, '${p.name}', ${p.available_capacity})" class="btn btn-sm btn-primary px-3 py-1 rounded-pill fw-bold" style="font-size: 0.75rem;">حجز 🚀</button>` 
+                                ? `<button onclick="event.stopPropagation(); initiateSpotReservation(${p.id}, '${safeName}', ${p.available_capacity})" class="btn btn-sm btn-primary px-3 py-1 rounded-pill fw-bold" style="font-size: 0.75rem;">حجز 🚀</button>` 
                                 : '<span class="badge bg-danger rounded-pill px-2 py-1" style="font-size: 0.7rem;">ممتلئ</span>'}
                         </div>
                     </div>

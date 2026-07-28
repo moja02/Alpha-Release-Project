@@ -8,6 +8,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RechargeController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\FieldController;
+use App\Http\Controllers\DeveloperController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -57,3 +58,21 @@ Route::get('/notifications', [App\Http\Controllers\AccountController::class, 'ge
 Route::get('/bookings/history', [BookingController::class, 'getBookingHistory']);
 // مسار جلب فواتير وإيصالات الشحن المباشر (كاش) التي تمت عند البوابة
 Route::get('/recharges/invoices', [RechargeController::class, 'getDirectRechargeInvoices']);
+
+// مسارات المشرف العام (Super Admin)
+Route::prefix('v1')->middleware(['auth:sanctum', 'role:admin,developer'])->group(function () {
+    Route::get('/super-admin/dashboard/statistics', [DeveloperController::class, 'dashboardStatistics']);
+    Route::get('/super-admin/dashboard/financial-reports', [DeveloperController::class, 'financialReports']);
+    
+    Route::get('/super-admin/parkings', [DeveloperController::class, 'listParkings']);
+    Route::post('/super-admin/parkings', [DeveloperController::class, 'createParking']);
+    Route::put('/super-admin/parkings/{id}', [DeveloperController::class, 'updateParking']);
+    Route::delete('/super-admin/parkings/{id}', [DeveloperController::class, 'deleteParking']);
+    
+    Route::get('/super-admin/managers', [DeveloperController::class, 'listManagers']);
+    Route::post('/super-admin/managers', [DeveloperController::class, 'createManager']);
+    Route::put('/super-admin/managers/{id}/status', [DeveloperController::class, 'updateManagerStatus']);
+    Route::delete('/super-admin/managers/{id}', [DeveloperController::class, 'deleteManager']);
+    Route::post('/super-admin/managers/{id}/assign-parking', [DeveloperController::class, 'assignParking']);
+    Route::post('/super-admin/managers/{id}/reassign-parking', [DeveloperController::class, 'reassignParking']);
+});

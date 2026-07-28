@@ -352,6 +352,37 @@
         
         <!-- SECTION 1: Overview -->
         <section id="overviewTab" class="content-section">
+            <!-- SHIFT CLOCK-IN / CLOCK-OUT WIDGET -->
+            <div class="card mb-4 border-0 shadow-sm overflow-hidden" style="border-radius: 20px;">
+                <div class="card-body p-4 bg-gradient">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div>
+                            <h5 class="fw-bold mb-1"><i class="fas fa-user-clock text-primary me-2"></i>تسجيل حضور وانصراف المناوبة (Shift Clock-In / Out)</h5>
+                            <p class="text-muted mb-0 small">تتبع ساعات عملك الميداني ومواظبة مناوبتك بشكل فوري</p>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span id="shiftStatusBadge" class="badge bg-secondary px-3 py-2 fs-6">جاري التحقق من الحالة...</span>
+                        </div>
+                    </div>
+                    <hr class="my-3 border-secondary border-opacity-10">
+                    <div class="row align-items-center g-3">
+                        <div class="col-md-7">
+                            <div id="shiftInfoText" class="small text-secondary">
+                                💡 اضغط على "بدء المناوبة" عند بدء عملك الميداني، وعلى "إنهاء المناوبة" عند مغادرتك الساحة.
+                            </div>
+                        </div>
+                        <div class="col-md-5 d-flex gap-2">
+                            <button id="clockInBtn" class="btn btn-success fw-bold w-100 py-3 rounded-3 d-flex align-items-center justify-content-center gap-2" onclick="triggerClockIn()">
+                                🟢 بدء المناوبة
+                            </button>
+                            <button id="clockOutBtn" class="btn btn-danger fw-bold w-100 py-3 rounded-3 d-flex align-items-center justify-content-center gap-2" onclick="triggerClockOut()" disabled>
+                                🔴 إنهاء المناوبة
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="alert alert-info border-0 shadow-sm rounded-4 p-4 mb-4">
                 📌 <strong>مرحباً بك في لوحة التحكم الميدانية:</strong> 
                 تتيح لك هذه اللوحة إدارة حسابات السائقين الجدد، شحن الأرصدة المباشر للمستخدمين، وإدخال السيارات والتحقق من الحجوزات عند المَدخل.
@@ -756,13 +787,75 @@
             if (userDataString) {
                 const userDataObject = JSON.parse(userDataString);
                 document.getElementById('employeeNameDisplay').innerText = 'مرحباً، ' + userDataObject.name;
-            } else {
-                window.location.href = '/login';
             }
+            checkShiftStatus();
         } catch (exception) {
             console.error("خطأ في تهيئة الصفحة", exception);
         }
     });
+
+    async function checkShiftStatus() {
+        try {
+            const res = await fetch('/employee/shift/status', { method: 'GET', headers: fetchHeaders });
+            const data = await res.json();
+            if (data.status === 'success') {
+                const badge = document.getElementById('shiftStatusBadge');
+                const clockInBtn = document.getElementById('clockInBtn');
+                const clockOutBtn = document.getElementById('clockOutBtn');
+                const shiftInfoText = document.getElementById('shiftInfoText');
+
+                if (data.is_active) {
+                    badge.className = 'badge bg-success px-3 py-2 fs-6';
+                    badge.innerHTML = '🟢 مناوبة نشطة حالياً';
+                    clockInBtn.disabled = true;
+                    clockOutBtn.disabled = false;
+                    shiftInfoText.innerHTML = `⏱️ بدأت مناوبتك في: <b>${data.active_shift.clock_in_at}</b> (${data.active_shift.clock_in_formatted}).`;
+                } else {
+                    badge.className = 'badge bg-secondary px-3 py-2 fs-6';
+                    badge.innerHTML = '🔴 غير متصل بمناوبة';
+                    clockInBtn.disabled = false;
+                    clockOutBtn.disabled = true;
+                    if (data.last_shift && data.last_shift.clock_out_at) {
+                        shiftInfoText.innerHTML = `✅ آخر مناوبة مكتملة انتهت في: <b>${data.last_shift.clock_out_at}</b>.`;
+                    } else {
+                        shiftInfoText.innerHTML = '💡 اضغط على "بدء المناوبة" عند بدء عملك الميداني.';
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Error checking shift status:', e);
+        }
+    }
+
+    async function triggerClockIn() {
+        try {
+            const res = await fetch('/employee/shift/clock-in', { method: 'POST', headers: fetchHeaders, body: JSON.stringify({}) });
+            const result = await res.json();
+            if (res.ok && result.status === 'success') {
+                Swal.fire({ icon: 'success', title: 'بدء المناوبة', text: result.message, confirmButtonColor: '#0071e3' });
+                checkShiftStatus();
+            } else {
+                Swal.fire({ icon: 'error', title: 'خطأ', text: result.message || 'فشل تسجيل البدء.', confirmButtonColor: '#ff3b30' });
+            }
+        } catch (err) {
+            Swal.fire({ icon: 'error', title: 'خطأ اتصال', text: 'تعذر الاتصال بالخادم.' });
+        }
+    }
+
+    async function triggerClockOut() {
+        try {
+            const res = await fetch('/employee/shift/clock-out', { method: 'POST', headers: fetchHeaders, body: JSON.stringify({}) });
+            const result = await res.json();
+            if (res.ok && result.status === 'success') {
+                Swal.fire({ icon: 'success', title: 'إنهاء المناوبة', text: result.message, confirmButtonColor: '#0071e3' });
+                checkShiftStatus();
+            } else {
+                Swal.fire({ icon: 'error', title: 'خطأ', text: result.message || 'فشل تسجيل الانهاء.', confirmButtonColor: '#ff3b30' });
+            }
+        } catch (err) {
+            Swal.fire({ icon: 'error', title: 'خطأ اتصال', text: 'تعذر الاتصال بالخادم.' });
+        }
+    }
 
     function switchTab(sectionId, clickedLink) {
         try {

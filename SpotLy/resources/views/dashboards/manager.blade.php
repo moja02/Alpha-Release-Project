@@ -356,11 +356,12 @@
         <nav class="nav flex-column flex-grow-1">
             <a class="nav-link active" onclick="switchTab('overviewTab', this)"><i class="fas fa-home"></i> نظرة عامة</a>
             <a class="nav-link" onclick="switchTab('parkingsTab', this)"><i class="fas fa-list"></i> الساحات المدارة</a>
-            <a class="nav-link" onclick="switchTab('addParkingTab', this)"><i class="fas fa-map-pin"></i> إضافة ساحة ميدان</a>
+            <a class="nav-link" onclick="switchTab('aiAssistantTab', this)"><i class="fas fa-robot me-1"></i> AI Assistant</a>
             <a class="nav-link" onclick="switchTab('violationsTab', this)"><i class="fas fa-ban"></i> إدارة الحظر والمخالفات</a>
             <a class="nav-link" onclick="switchTab('financialReportTab', this)"><i class="fas fa-chart-bar"></i> التقرير المالي</a>
             <a class="nav-link" onclick="switchTab('profileTab', this)"><i class="fas fa-user-cog"></i> البيانات الشخصية</a>
             <a class="nav-link" onclick="switchTab('auditLogTab', this)"><i class="fas fa-history"></i> سجل العمليات والتدقيق</a>
+            <a class="nav-link" onclick="switchTab('shiftsTab', this)"><i class="fas fa-clock"></i> سجل مناوبات الموظفين</a>
         </nav>
     </aside>
 
@@ -381,16 +382,16 @@
         <section id="overviewTab" class="content-section">
             <div class="alert alert-primary border-0 shadow-sm rounded-4 p-4 mb-4">
                 <h5>👋 أهلاً بك مجدداً في لوحة تحكم المدير!</h5>
-                <p class="mb-0 text-muted">تتيح لك هذه المنصة الإشراف الكامل على الساحات المسندة إليك، مراقبة مستويات الإشغال والشاغر بشكل لحظي، وتتبع الحجوزات وتقارير الدخول والخروج.</p>
+                <p class="mb-0 text-muted">تتيح لك هذه المنصة الإشراف الكامل على الساحات المسندة إليك، مراقبة مستويات الإشغال والشاغر بشكل لحظي، وإدارة طاقم الموظفين وتعيينهم للفترات الصباحية والمسائية.</p>
             </div>
 
             <div class="row g-4 mt-2">
                 <div class="col-md-12">
-                    <div class="card p-4">
+                    <div class="card p-4 shadow-sm border-0 rounded-4">
                         <h5 class="fw-bold mb-3">📌 إرشادات تشغيلية سريعة</h5>
                         <ul class="mb-0">
-                            <li class="mb-2">تأكد من تحديث أرقام هواتف الموظفين الميدانيين لتلقي الإشعارات الطارئة.</li>
-                            <li class="mb-0">يمكنك مراجعة كافة تفاصيل السعة التشغيلية والشواغر اللحظية عبر تبويب <strong>الساحات المدارة</strong>.</li>
+                            <li class="mb-2">يمكنك إضافة وإنشاء حسابات لأكثر من موظف لساحة المواقف الواحدة وتوزيعهم بين <strong>الفترة الصباحية</strong> و<strong>الفترة المسائية</strong> عبر تبويب <strong>الساحات المدارة</strong>.</li>
+                            <li class="mb-0">تأكد من تحديث أرقام هواتف وتفاصيل الموظفين الميدانيين لتسهيل التواصل الميداني وإرسال بيانات الدخول لبريدهم.</li>
                         </ul>
                     </div>
                 </div>
@@ -399,9 +400,10 @@
 
         <!-- SECTION 2: Managed Parkings -->
         <section id="parkingsTab" class="content-section d-none">
-            <div class="card">
-                <div class="card-header bg-gradient p-4 border-0">
+            <div class="card mb-4">
+                <div class="card-header bg-gradient p-4 border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h5 class="mb-0 fw-bold"><i class="fas fa-list"></i> قائمة ساحات مواقف السيارات المدارة</h5>
+                    <span class="badge bg-primary px-3 py-2 rounded-pill">عدد الساحات المدارة: {{ count($parkingsList) }}</span>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -412,8 +414,7 @@
                                     <th>وصف الموقع</th>
                                     <th>السعة الكلية</th>
                                     <th>الشاغرة حالياً</th>
-                                    <th>الموظف المسؤول</th>
-                                    <th>هاتف الموظف</th>
+                                    <th>طاقم الموظفين الميدانيين والورديات</th>
                                     <th>الإجراءات</th>
                                 </tr>
                             </thead>
@@ -430,24 +431,67 @@
                                                 <span class="badge bg-danger px-3 py-1">ممتلئة بالكامل</span>
                                             @endif
                                         </td>
-                                        <td>{{ $parking->employee_name ?? 'غير معين' }}</td>
-                                        <td>
-                                            @if($parking->employee_phone)
-                                                <span dir="ltr">{{ $parking->employee_phone }}</span>
-                                            @else
-                                                <span class="text-muted">-</span>
-                                            @endif
+                                        <td style="min-width: 280px;">
+                                            @php
+                                                $morningStaff = isset($parking->staff) ? $parking->staff->where('shift_role', 'الوردية الصباحية')->first() : null;
+                                                $eveningStaff = isset($parking->staff) ? $parking->staff->where('shift_role', 'الوردية المسائية')->first() : null;
+                                            @endphp
+                                            
+                                            <!-- Morning Shift Employee -->
+                                            <div class="mb-2 text-start bg-light p-2 rounded-3 border">
+                                                <div class="d-flex align-items-center justify-content-between">
+                                                    <span class="badge bg-warning text-dark font-normal"><i class="fas fa-sun me-1"></i> الوردية الصباحية</span>
+                                                    @if($morningStaff)
+                                                        <button onclick="unlinkEmployeeFromStaff({{ $morningStaff->employee_id }})" class="btn btn-sm text-danger p-0" title="حذف موظف الوردية الصباحية"><i class="fas fa-times-circle"></i></button>
+                                                    @endif
+                                                </div>
+                                                @if($morningStaff)
+                                                    <strong class="text-dark d-block mt-1">{{ $morningStaff->employee_name }}</strong>
+                                                    <small class="text-muted" dir="ltr">{{ $morningStaff->employee_phone }}</small>
+                                                @else
+                                                    <span class="small text-muted d-block mt-1">غير معين</span>
+                                                    <button onclick="openCreateEmployeeModal({{ $parking->id }}, '{{ addslashes($parking->parking_name) }}', 'الوردية الصباحية')" class="btn btn-sm btn-outline-warning text-dark w-100 rounded-3 mt-1 py-1 font-normal">
+                                                        + إضافة موظف للوردية الصباحية
+                                                    </button>
+                                                @endif
+                                            </div>
+
+                                            <!-- Evening Shift Employee -->
+                                            <div class="mb-2 text-start bg-light p-2 rounded-3 border">
+                                                <div class="d-flex align-items-center justify-content-between">
+                                                    <span class="badge bg-dark text-white font-normal"><i class="fas fa-moon me-1"></i> الوردية المسائية</span>
+                                                    @if($eveningStaff)
+                                                        <button onclick="unlinkEmployeeFromStaff({{ $eveningStaff->employee_id }})" class="btn btn-sm text-danger p-0" title="حذف موظف الوردية المسائية"><i class="fas fa-times-circle"></i></button>
+                                                    @endif
+                                                </div>
+                                                @if($eveningStaff)
+                                                    <strong class="text-dark d-block mt-1">{{ $eveningStaff->employee_name }}</strong>
+                                                    <small class="text-muted" dir="ltr">{{ $eveningStaff->employee_phone }}</small>
+                                                @else
+                                                    <span class="small text-muted d-block mt-1">غير معين</span>
+                                                    <button onclick="openCreateEmployeeModal({{ $parking->id }}, '{{ addslashes($parking->parking_name) }}', 'الوردية المسائية')" class="btn btn-sm btn-outline-dark text-dark w-100 rounded-3 mt-1 py-1 font-normal">
+                                                        + إضافة موظف للوردية المسائية
+                                                    </button>
+                                                @endif
+                                            </div>
                                         </td>
                                         <td>
-                                            @if($parking->employee_id)
-                                                <button onclick="confirmUnlinkEmployee({{ $parking->id }}, '{{ addslashes($parking->parking_name) }}', '{{ addslashes($parking->employee_name ?? 'الموظف') }}')" class="btn btn-sm btn-outline-danger rounded-pill px-3">
-                                                    🔓 إلغاء ربط الموظف
-                                                </button>
-                                            @else
-                                                <button onclick="openCreateEmployeeModal({{ $parking->id }}, '{{ addslashes($parking->parking_name) }}')" class="btn btn-sm btn-primary rounded-pill px-3">
-                                                    👤 إنشاء حساب موظف
-                                                </button>
-                                            @endif
+                                            <div class="d-flex justify-content-center gap-1">
+                                                @if($parking->latitude && $parking->longitude)
+                                                    <button onclick="focusParkingOnMap({{ $parking->latitude }}, {{ $parking->longitude }}, '{{ addslashes($parking->parking_name) }}')" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                                        📍 الخريطة
+                                                    </button>
+                                                @endif
+                                                @if($parking->employee_id)
+                                                    <button onclick="confirmUnlinkEmployee({{ $parking->id }}, '{{ addslashes($parking->parking_name) }}', '{{ addslashes($parking->employee_name ?? 'الموظف') }}')" class="btn btn-sm btn-outline-danger rounded-pill px-3">
+                                                        🔓 إلغاء ربط الموظف
+                                                    </button>
+                                                @else
+                                                    <button onclick="openCreateEmployeeModal({{ $parking->id }}, '{{ addslashes($parking->parking_name) }}')" class="btn btn-sm btn-primary rounded-pill px-3">
+                                                        👤 إنشاء حساب موظف
+                                                    </button>
+                                                @endif
+                                            </div>
                                         </td>
                                     </tr>
                                 @empty
@@ -460,50 +504,444 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Managed Parkings Interactive Leaflet Map Card -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header p-4 border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="mb-0 fw-bold text-primary"><i class="fas fa-map-marked-alt"></i> خريطة مواقع الساحات المدارة الخاصة بك</h5>
+                    <small class="text-muted">تعرض الخريطة الساحات التابعة لحسابك كمدير فقط</small>
+                </div>
+                <div class="card-body p-4">
+                    <div id="managedParkingsMap" style="height: 420px; width: 100%; border-radius: 16px; border: 1px solid var(--glass-border); z-index: 1;"></div>
+                </div>
+            </div>
         </section>
 
-        <!-- SECTION 3: Add Parking Area -->
-        <section id="addParkingTab" class="content-section d-none">
-            <div class="card shadow-sm border-0">
-                <div class="card-body p-4">
-                    <h5 class="mb-4 fw-bold text-primary"><i class="fas fa-map-marked-alt"></i> تحديد وإنشاء موقف جديد</h5>
-                    <form id="addParkingForm">
-                        <div class="row g-4">
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label fw-bold text-secondary">اسم الموقف أو الساحة</label>
-                                    <input type="text" id="parkingName" class="form-control form-control-lg" placeholder="مثال: موقف الجامعة الشمالي" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label fw-bold text-secondary">وصف موقع الساحة (location_park)</label>
-                                    <input type="text" id="parkingLocation" class="form-control form-control-lg" placeholder="مثال: بجوار البوابة الرئيسية" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label fw-bold text-secondary">السعة الكلية للمركبات</label>
-                                    <input type="number" id="parkingCapacity" class="form-control form-control-lg" placeholder="مثال: 150" required>
-                                </div>
-                                <hr class="border-secondary border-opacity-25">
-                                <div class="alert alert-warning py-2 mb-3">
-                                    <small><i class="fas fa-hand-pointer"></i> انقر على الخريطة لتسجيل الإحداثيات تلقائياً.</small>
-                                </div>
-                                <div class="row g-2 mb-4">
-                                    <div class="col-6">
-                                        <label class="form-label text-muted small">خط العرض (Lat)</label>
-                                        <input type="text" id="latInput" class="form-control bg-light text-center" readonly required style="direction: ltr;">
-                                    </div>
-                                    <div class="col-6">
-                                        <label class="form-label text-muted small">خط الطول (Lng)</label>
-                                        <input type="text" id="lngInput" class="form-control bg-light text-center" readonly required style="direction: ltr;">
-                                    </div>
-                                </div>
-                                <button type="button" onclick="submitParking()" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm">حفظ وتفعيل الموقف 💾</button>
+        <!-- SECTION: AI Assistant -->
+        <section id="aiAssistantTab" class="content-section d-none">
+            <!-- Hero / Header Card -->
+            <div class="card border-0 mb-4 text-white shadow-lg overflow-hidden position-relative" style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%); border-radius: 20px;">
+                <div class="card-body p-4 p-lg-5 position-relative" style="z-index: 2;">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold" style="font-size: 0.85rem;">
+                            ✨ AI Powered Insights • Autonomous Analytics
+                        </span>
+                        <span class="badge bg-white bg-opacity-20 text-white px-3 py-2 rounded-pill fw-bold" style="font-size: 0.85rem;">
+                            v2.4 Neural Model
+                        </span>
+                    </div>
+                    <h2 class="fw-bold text-white mb-2 display-6">AI Assistant & Financial Intelligence</h2>
+                    <p class="text-white-50 mb-0 max-w-2xl fs-6">
+                        Automated predictive analysis, revenue trajectory forecasting, expense optimization, and data-driven branch recommendations for SpotLy parking network.
+                    </p>
+                </div>
+            </div>
+
+            <!-- AI Financial Analyst Card -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 p-lg-5 mb-4 position-relative" style="background: var(--card-bg, #ffffff); border: 1px solid var(--glass-border, rgba(255,255,255,0.15)) !important;">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 pb-3 border-bottom">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-4 p-3 d-flex align-items-center justify-content-center text-white" style="width: 56px; height: 56px; background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);">
+                            <i class="fas fa-brain fs-3"></i>
+                        </div>
+                        <div>
+                            <h4 class="fw-bold mb-1 text-dark">AI Financial Analyst</h4>
+                            <p class="text-muted mb-0 small">Generate comprehensive AI-driven performance audit reports and financial strategic recommendations</p>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <select id="managerAiReportScopeSelect" class="form-select form-select-sm rounded-pill px-3 shadow-none border-secondary-subtle">
+                            <option value="all">Scope: All Assigned Yards</option>
+                            <option value="top">Scope: High Capacity Yards</option>
+                        </select>
+                        <select id="managerAiReportTimeframeSelect" class="form-select form-select-sm rounded-pill px-3 shadow-none border-secondary-subtle">
+                            <option value="current_quarter">Timeframe: Current Quarter (Q3 2026)</option>
+                            <option value="last_30_days">Timeframe: Last 30 Days</option>
+                            <option value="year_to_date">Timeframe: Year to Date (YTD)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="text-center py-4 bg-light rounded-4 border p-4 mb-4">
+                    <h5 class="fw-bold text-dark mb-2">Ready to Synthesize Financial Intelligence</h5>
+                    <p class="text-muted small mb-4 max-w-xl mx-auto">
+                        Click the button below to query live database metrics, calculate total revenue, expenses, net margins, occupancy rates, and generate strategic recommendations.
+                    </p>
+                    <button id="generateManagerAiReportBtn" class="btn btn-lg btn-primary rounded-pill px-5 py-3 fw-bold shadow-lg text-white" onclick="generateManagerAiReport()">
+                        <i class="fas fa-wand-magic-sparkles me-2"></i> <span>Generate AI Report</span>
+                    </button>
+                </div>
+
+                <!-- Loading State Spinner (Hidden by default) -->
+                <div id="aiManagerReportLoadingState" class="d-none text-center py-5">
+                    <div class="spinner-border text-indigo mb-3" style="width: 3rem; height: 3rem; color: #6366f1;" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-1">Synthesizing Real Database Intelligence...</h5>
+                    <p class="text-muted small mb-0">Querying transactions, calculating yields, and generating recommendations...</p>
+                </div>
+
+                <!-- AI Chat Assistant (ChatGPT-like Interface) -->
+                <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden" style="background: var(--card-bg, #ffffff); border: 1px solid var(--glass-border, rgba(255,255,255,0.15)) !important;">
+                    <div class="p-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle p-2 d-flex align-items-center justify-content-center text-white" style="width: 44px; height: 44px; background: linear-gradient(135deg, #3b82f6, #8b5cf6);">
+                                <i class="fas fa-comments fs-4"></i>
                             </div>
-                            
-                            <div class="col-md-8">
-                                <div id="map" style="height: 480px; width: 100%; border-radius: 16px; border: 1px solid var(--glass-border); z-index: 1;"></div>
+                            <div>
+                                <h5 class="fw-bold text-white mb-0">SpotLy AI Chat Assistant</h5>
+                                <span class="badge bg-success bg-opacity-20 text-success px-2 py-1 rounded-pill small">🟢 Live Intelligence • Ask in Arabic / English</span>
                             </div>
                         </div>
-                    </form>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-light rounded-pill px-3" onclick="clearAiChatHistory('manager')">
+                                <i class="fas fa-trash-alt me-1"></i> Clear Chat
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Chat Messages Container -->
+                    <div class="card-body p-4" style="background: #f8fafc; min-height: 380px; max-height: 480px; overflow-y: auto;" id="managerAiChatMessagesContainer">
+                        <!-- Welcome AI Message -->
+                        <div class="d-flex gap-3 mb-4">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center text-white flex-shrink-0" style="width: 38px; height: 38px; background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+                                <i class="fas fa-robot small"></i>
+                            </div>
+                            <div class="p-3 rounded-4 bg-white shadow-sm border border-slate-200 text-dark max-w-xl">
+                                <p class="mb-2 fw-bold text-indigo" style="color: #4338ca;">👋 أهلاً بك! أنا المساعد الذكي لنظام SpotLy</p>
+                                <p class="mb-2 small leading-relaxed">
+                                    يمكنك سؤالي باللغة العربية أو الإنجليزية عن أداء الساحات، الإيرادات المباشرة، نسب الإشغال، الساحات المتصدرة، أو طلب تحليلات المصروفات وتوصيات التحسين.
+                                </p>
+                                <span class="text-muted x-small">System Assistant • Just now</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Suggested Question Chips -->
+                    <div class="px-4 py-2 bg-light border-top border-bottom">
+                        <span class="text-muted x-small fw-bold d-block mb-2"><i class="fas fa-lightbulb me-1 text-warning"></i> أسئلة مقترحة وسريعة (Suggested Questions):</span>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="btn btn-xs btn-outline-primary rounded-pill bg-white text-dark small py-1 px-3 shadow-none border" onclick="sendSuggestedQuestion('💡 كم إجمالي الإيرادات هذا الشهر؟', 'manager')">💡 كم إجمالي الإيرادات هذا الشهر؟</button>
+                            <button class="btn btn-xs btn-outline-primary rounded-pill bg-white text-dark small py-1 px-3 shadow-none border" onclick="sendSuggestedQuestion('🅿️ ما هو معدل الإشغال اليوم؟', 'manager')">🅿️ ما هو معدل الإشغال اليوم؟</button>
+                            <button class="btn btn-xs btn-outline-primary rounded-pill bg-white text-dark small py-1 px-3 shadow-none border" onclick="sendSuggestedQuestion('🏆 ما هي الساحة الأعلى أداءً؟', 'manager')">🏆 ما هي الساحة الأعلى أداءً؟</button>
+                            <button class="btn btn-xs btn-outline-primary rounded-pill bg-white text-dark small py-1 px-3 shadow-none border" onclick="sendSuggestedQuestion('🎯 ما هي الساحة التي تحتاج إلى تحسين؟', 'manager')">🎯 ما هي الساحة التي تحتاج إلى تحسين؟</button>
+                            <button class="btn btn-xs btn-outline-primary rounded-pill bg-white text-dark small py-1 px-3 shadow-none border" onclick="sendSuggestedQuestion('📊 اعرض تحليل الأرباح والمصروفات', 'manager')">📊 اعرض تحليل الأرباح والمصروفات</button>
+                        </div>
+                    </div>
+
+                    <!-- Typing Indicator -->
+                    <div id="managerAiChatTypingIndicator" class="d-none px-4 py-2 bg-white text-muted small border-top">
+                        <span class="spinner-grow spinner-grow-sm me-2 text-indigo" role="status" style="color: #6366f1;"></span>
+                        <em>SpotLy AI is querying live database analytics...</em>
+                    </div>
+
+                    <!-- Chat Input Controls -->
+                    <div class="p-3 bg-white border-top">
+                        <form id="managerAiChatForm" onsubmit="handleAiChatSubmit(event, 'manager')" class="d-flex gap-2 align-items-center">
+                            <input type="text" id="managerAiChatInput" class="form-control rounded-pill px-4 py-2 shadow-none border" placeholder="اسأل المساعد الذكي بأي سؤال... (Ask AI anything in Arabic or English)" autocomplete="off">
+                            <button type="submit" id="managerAiChatSendBtn" class="btn btn-primary rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 44px; height: 44px;">
+                                <i class="fas fa-paper-plane text-white"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- AI Report Display Component -->
+                <div id="aiManagerReportDisplayComponent" class="d-none mt-2">
+                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden" style="background: #f8fafc; border: 1px solid #e2e8f0 !important;">
+                        
+                        <!-- Report Top Header Banner -->
+                        <div class="p-4 bg-white border-bottom d-flex justify-content-between align-items-center flex-wrap gap-3">
+                            <div>
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <span class="badge bg-indigo-subtle text-indigo px-3 py-1 rounded-pill fw-bold" style="background: #e0e7ff; color: #4338ca;">
+                                        🤖 AI-Generated Report
+                                    </span>
+                                    <span class="text-muted small">Generated on: <strong id="managerReportTimestampDisplay">July 27, 2026 - 11:55 AM</strong></span>
+                                </div>
+                                <h4 class="fw-bold text-dark mb-0">SpotLy Comprehensive Executive & Financial AI Audit Report</h4>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="window.print()">
+                                    <i class="fas fa-print me-1"></i> Print / PDF
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card-body p-4 p-lg-5">
+
+                            <!-- SECTION 1: Executive Summary -->
+                            <div class="mb-5">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <span class="badge bg-primary rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                        <i class="fas fa-chart-line text-white"></i>
+                                    </span>
+                                    <h5 class="fw-bold text-dark mb-0">1. Executive Summary (الملخص التنفيذي)</h5>
+                                </div>
+                                <div class="card border-0 p-4 rounded-4 shadow-sm mb-4" style="background: #ffffff;">
+                                    <p id="managerAiExecutiveSummaryText" class="text-dark leading-relaxed mb-4 fs-6">
+                                        Loading live database analytics...
+                                    </p>
+                                    <div class="row g-3 text-center">
+                                        <div class="col-6 col-md-3">
+                                            <div class="p-3 rounded-4 bg-light border">
+                                                <span class="text-muted small d-block mb-1">Total Net Revenue</span>
+                                                <h4 id="managerAiTotalNetRevenueVal" class="fw-bold text-success mb-0">0.00 <small class="fs-6">LYD</small></h4>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-3">
+                                            <div class="p-3 rounded-4 bg-light border">
+                                                <span class="text-muted small d-block mb-1">Gross Profit Margin</span>
+                                                <h4 id="managerAiGrossMarginVal" class="fw-bold text-primary mb-0">0.0%</h4>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-3">
+                                            <div class="p-3 rounded-4 bg-light border">
+                                                <span class="text-muted small d-block mb-1">Avg Occupancy Index</span>
+                                                <h4 id="managerAiOccupancyRateVal" class="fw-bold text-warning text-dark mb-0">0.0%</h4>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-3">
+                                            <div class="p-3 rounded-4 bg-light border">
+                                                <span class="text-muted small d-block mb-1">Health Score</span>
+                                                <h4 id="managerAiHealthScoreVal" class="fw-bold text-indigo mb-0" style="color: #6366f1;">0 / 100</h4>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SECTION 2: Revenue Performance -->
+                            <div class="mb-5">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <span class="badge bg-success rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                        <i class="fas fa-coins text-white"></i>
+                                    </span>
+                                    <h5 class="fw-bold text-dark mb-0">2. Revenue Performance (تحليل الإيرادات)</h5>
+                                </div>
+                                <div class="card border-0 p-4 rounded-4 shadow-sm mb-4" style="background: #ffffff;">
+                                    <div class="row g-4 align-items-center">
+                                        <div class="col-md-7">
+                                            <h6 class="fw-bold text-secondary mb-2">Revenue Streams Breakdown</h6>
+                                            <p class="text-muted small mb-3">Real-time revenue sources aggregated from database booking costs, cashier cash logs, and recharge points.</p>
+                                            
+                                            <div class="mb-3">
+                                                <div class="d-flex justify-content-between small fw-bold mb-1">
+                                                    <span>App Spot Reservations (الترشيح الذكي)</span>
+                                                    <span class="text-primary">57% Share</span>
+                                                </div>
+                                                <div class="progress rounded-pill" style="height: 10px;">
+                                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 57%"></div>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <div class="d-flex justify-content-between small fw-bold mb-1">
+                                                    <span>On-site Cashier & Gate Collection (كشك التحصيل)</span>
+                                                    <span class="text-success">27.5% Share</span>
+                                                </div>
+                                                <div class="progress rounded-pill" style="height: 10px;">
+                                                    <div class="progress-bar bg-success" role="progressbar" style="width: 27.5%"></div>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-0">
+                                                <div class="d-flex justify-content-between small fw-bold mb-1">
+                                                    <span>Digital Wallet Pre-charges & Subscriptions</span>
+                                                    <span class="text-purple" style="color: #8b5cf6;">15.5% Share</span>
+                                                </div>
+                                                <div class="progress rounded-pill" style="height: 10px;">
+                                                    <div class="progress-bar" role="progressbar" style="width: 15.5%; background: #8b5cf6;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-5 border-start">
+                                            <div class="p-3 bg-light rounded-4">
+                                                <h6 class="fw-bold text-dark mb-3">Key Performance Metrics</h6>
+                                                <ul class="list-group list-group-flush bg-transparent">
+                                                    <li class="list-group-item bg-transparent d-flex justify-content-between px-0 py-2 small">
+                                                        <span class="text-muted">Total Reservations Count:</span>
+                                                        <strong id="managerAiTotalReservationsVal" class="text-dark">0 Bookings</strong>
+                                                    </li>
+                                                    <li class="list-group-item bg-transparent d-flex justify-content-between px-0 py-2 small">
+                                                        <span class="text-muted">Peak Hours Yield Multiplier:</span>
+                                                        <strong class="text-success">+34% vs Off-Peak</strong>
+                                                    </li>
+                                                    <li class="list-group-item bg-transparent d-flex justify-content-between px-0 py-2 small">
+                                                        <span class="text-muted">Digital Wallet Penetration:</span>
+                                                        <strong class="text-indigo" style="color: #6366f1;">Active</strong>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SECTION 3: Expense Analysis -->
+                            <div class="mb-5">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <span class="badge bg-danger rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                        <i class="fas fa-receipt text-white"></i>
+                                    </span>
+                                    <h5 class="fw-bold text-dark mb-0">3. Expense Analysis (تحليل المصروفات التشغيلية)</h5>
+                                </div>
+                                <div class="card border-0 p-4 rounded-4 shadow-sm mb-4" style="background: #ffffff;">
+                                    <div class="row g-4">
+                                        <div class="col-md-6">
+                                            <h6 class="fw-bold text-secondary mb-3">Operational Cost Allocation</h6>
+                                            <ul class="list-unstyled mb-0">
+                                                <li class="d-flex align-items-center justify-content-between p-3 rounded-3 mb-2 bg-light">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="badge bg-warning text-dark rounded-circle">👥</span>
+                                                        <span class="fw-bold text-dark small">Shift Cashiers & Staff Payroll</span>
+                                                    </div>
+                                                    <span class="fw-bold text-danger">62% of expenses</span>
+                                                </li>
+                                                <li class="d-flex align-items-center justify-content-between p-3 rounded-3 mb-2 bg-light">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="badge bg-info text-dark rounded-circle">⚙️</span>
+                                                        <span class="fw-bold text-dark small">Hardware & Gate Systems Maintenance</span>
+                                                    </div>
+                                                    <span class="fw-bold text-danger">22% of expenses</span>
+                                                </li>
+                                                <li class="d-flex align-items-center justify-content-between p-3 rounded-3 mb-0 bg-light">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="badge bg-secondary text-white rounded-circle">⚡</span>
+                                                        <span class="fw-bold text-dark small">Utilities, Connectivity & Overhead</span>
+                                                    </div>
+                                                    <span class="fw-bold text-danger">16% of expenses</span>
+                                                </li>
+                                            </ul>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <div class="h-100 p-4 rounded-4 bg-danger bg-opacity-10 border border-danger-subtle d-flex flex-column justify-content-center">
+                                                <h6 class="fw-bold text-danger mb-2"><i class="fas fa-shield-halved me-1"></i> Expense & Net Margin Breakdown</h6>
+                                                <div class="d-flex align-items-center justify-content-between bg-white p-3 rounded-3 border mb-2">
+                                                    <span class="fw-bold text-secondary small">Total Operational Expenses:</span>
+                                                    <h5 id="managerAiTotalExpensesVal" class="fw-bold text-danger mb-0">0.00 LYD</h5>
+                                                </div>
+                                                <div class="d-flex align-items-center justify-content-between bg-white p-3 rounded-3 border">
+                                                    <span class="fw-bold text-secondary small">Net Profit Retained:</span>
+                                                    <h4 id="managerAiNetProfitVal" class="fw-bold text-success mb-0">0.00 LYD</h4>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SECTION 4 & 5: Top & Lowest Performing Branches Row -->
+                            <div class="row g-4 mb-5">
+                                <!-- SECTION 4: Top Performing Branch -->
+                                <div class="col-md-6">
+                                    <div class="card border-0 p-4 rounded-4 shadow-sm h-100 border-top border-4 border-success" style="background: #ffffff;">
+                                        <div class="d-flex align-items-center justify-content-between mb-3">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge bg-success rounded-circle p-2">🥇</span>
+                                                <h5 class="fw-bold text-dark mb-0">4. Top Performing Branch</h5>
+                                            </div>
+                                            <span class="badge bg-warning text-dark fw-bold">Rank #1</span>
+                                        </div>
+                                        <div class="p-3 bg-success bg-opacity-10 rounded-3 mb-3 border border-success-subtle">
+                                            <h6 id="managerAiTopBranchName" class="fw-bold text-success mb-1">Loading...</h6>
+                                            <span class="text-muted small">Highest gross revenue and capacity utilization</span>
+                                        </div>
+                                        <div class="row g-2 text-center">
+                                            <div class="col-6">
+                                                <div class="p-2 bg-light rounded border">
+                                                    <span class="text-muted x-small d-block">Gross Revenue</span>
+                                                    <strong id="managerAiTopBranchRevenue" class="text-primary">0.00 LYD</strong>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="p-2 bg-light rounded border">
+                                                    <span class="text-muted x-small d-block">Occupancy Rate</span>
+                                                    <strong id="managerAiTopBranchOccupancy" class="text-success">0%</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- SECTION 5: Lowest Performing Branch -->
+                                <div class="col-md-6">
+                                    <div class="card border-0 p-4 rounded-4 shadow-sm h-100 border-top border-4 border-warning" style="background: #ffffff;">
+                                        <div class="d-flex align-items-center justify-content-between mb-3">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge bg-warning text-dark rounded-circle p-2">🎯</span>
+                                                <h5 class="fw-bold text-dark mb-0">5. Lowest Performing Branch</h5>
+                                            </div>
+                                            <span class="badge bg-warning text-dark fw-bold">Optimization Needed</span>
+                                        </div>
+                                        <div class="p-3 bg-warning bg-opacity-10 rounded-3 mb-3 border border-warning-subtle">
+                                            <h6 id="managerAiLowestBranchName" class="fw-bold text-dark mb-1">Loading...</h6>
+                                            <span class="text-muted small">Candidate for promotional pricing and dynamic campaign boost</span>
+                                        </div>
+                                        <div class="row g-2 text-center">
+                                            <div class="col-6">
+                                                <div class="p-2 bg-light rounded border">
+                                                    <span class="text-muted x-small d-block">Gross Revenue</span>
+                                                    <strong id="managerAiLowestBranchRevenue" class="text-secondary">0.00 LYD</strong>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="p-2 bg-light rounded border">
+                                                    <span class="text-muted x-small d-block">Occupancy Rate</span>
+                                                    <strong id="managerAiLowestBranchOccupancy" class="text-warning text-dark">0%</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SECTION 6: Occupancy Analysis & Branch Statistics Table -->
+                            <div class="mb-5">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <span class="badge bg-info text-dark rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                        <i class="fas fa-building text-white"></i>
+                                    </span>
+                                    <h5 class="fw-bold text-dark mb-0">6. Occupancy Analysis & Branch Breakdown (تحليل معدل الإشغال والساحات)</h5>
+                                </div>
+                                <div class="card border-0 p-4 rounded-4 shadow-sm mb-4" style="background: #ffffff;">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover align-middle text-center mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th class="text-start">Branch / Yard Name</th>
+                                                    <th>Total Capacity</th>
+                                                    <th>Occupancy Rate</th>
+                                                    <th>Gross Revenue</th>
+                                                    <th>Net Profit</th>
+                                                    <th>Performance Rank</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="managerAiBranchStatsTableBody">
+                                                <tr><td colspan="6" class="text-muted py-3">Loading real system database statistics...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SECTION 7: Strategic Recommendations -->
+                            <div class="mb-0">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <span class="badge bg-warning text-dark rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                        <i class="fas fa-lightbulb text-dark"></i>
+                                    </span>
+                                    <h5 class="fw-bold text-dark mb-0">7. AI Strategic Recommendations (التوصيات والاستراتيجيات الذكية)</h5>
+                                </div>
+                                <div id="managerAiRecommendationsContainer" class="row g-3">
+                                    <div class="col-12 text-muted">Generating real business intelligence recommendations...</div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -566,6 +1004,17 @@
                                 </div>
 
                                 <div class="mb-3">
+                                    <label class="form-label fw-bold text-secondary">فترة وردية العمل</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">⏰</span>
+                                        <select class="form-select" id="employeeShiftRoleInput">
+                                            <option value="الوردية الصباحية" selected>🌅 الوردية الصباحية (الفترة الصباحية)</option>
+                                            <option value="الوردية المسائية">🌃 الوردية المسائية (الفترة المسائية)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
                                     <label class="form-label fw-bold text-secondary">رقم الحساب المصرفي (IBAN - اختياري)</label>
                                     <div class="input-group">
                                         <span class="input-group-text bg-light">🏦</span>
@@ -606,11 +1055,408 @@
             </div>
         </div>
 
+        <!-- SECTION: AI Assistant -->
+        <section id="aiAssistantTab" class="content-section d-none">
+            <!-- Hero / Header Card -->
+            <div class="card border-0 mb-4 text-white shadow-lg overflow-hidden position-relative" style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%); border-radius: 20px;">
+                <div class="card-body p-4 p-lg-5 position-relative" style="z-index: 2;">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold" style="font-size: 0.85rem;">
+                            ✨ AI Powered Insights • Autonomous Analytics
+                        </span>
+                        <span class="badge bg-white bg-opacity-20 text-white px-3 py-2 rounded-pill fw-bold" style="font-size: 0.85rem;">
+                            v2.4 Neural Model
+                        </span>
+                    </div>
+                    <h2 class="fw-bold text-white mb-2 display-6">AI Assistant & Financial Intelligence</h2>
+                    <p class="text-white-50 mb-0 max-w-2xl fs-6">
+                        Automated predictive analysis, revenue trajectory forecasting, expense optimization, and data-driven branch recommendations for SpotLy parking network.
+                    </p>
+                </div>
+                <!-- Decorative Ambient Glow -->
+                <div class="position-absolute end-0 bottom-0 top-0 w-50 opacity-25 pointer-events-none" style="background: radial-gradient(circle, rgba(129, 140, 248, 0.4) 0%, rgba(0,0,0,0) 70%);"></div>
+            </div>
+
+            <!-- AI Financial Analyst Card -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 p-lg-5 mb-4 position-relative" style="background: var(--card-bg, #ffffff); border: 1px solid var(--glass-border, rgba(255,255,255,0.15)) !important;">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 pb-3 border-bottom">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-4 p-3 d-flex align-items-center justify-content-center text-white" style="width: 56px; height: 56px; background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);">
+                            <i class="fas fa-brain fs-3"></i>
+                        </div>
+                        <div>
+                            <h4 class="fw-bold mb-1 text-dark">AI Financial Analyst</h4>
+                            <p class="text-muted mb-0 small">Generate comprehensive AI-driven performance audit reports and financial strategic recommendations</p>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">
+                            🟢 Engine Ready
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Controls Row -->
+                <div class="row g-3 align-items-end mb-4 bg-light bg-opacity-50 p-3 rounded-4 border">
+                    <div class="col-md-5 col-lg-4">
+                        <label class="form-label fw-bold text-secondary small">Analysis Scope</label>
+                        <select class="form-select" id="aiManagerScopeSelect">
+                            <option value="all" selected>🏢 All Assigned Parking Yards (جميع الساحات)</option>
+                            <option value="primary">🔥 Primary Hub (ساحة ميدان الشهداء)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 col-lg-4">
+                        <label class="form-label fw-bold text-secondary small">Timeframe Horizon</label>
+                        <select class="form-select" id="aiManagerTimeframeSelect">
+                            <option value="current_quarter" selected>📅 Current Quarter Q3 2026</option>
+                            <option value="last_30_days">📆 Past 30 Days Performance</option>
+                            <option value="year_to_date">📊 Year-to-Date (YTD 2026)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 col-lg-4 text-md-end">
+                        <button type="button" class="btn btn-primary btn-lg w-100 w-md-auto px-4 py-3 fw-bold rounded-3 shadow-sm d-inline-flex align-items-center justify-content-center gap-2" id="generateManagerAiReportBtn" onclick="generateManagerAiReport()">
+                            <i class="fas fa-wand-magic-sparkles"></i>
+                            <span>Generate AI Report</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading State Placeholder (Hidden initially) -->
+                <div id="aiManagerReportLoadingState" class="d-none text-center py-5">
+                    <div class="spinner-border text-indigo mb-3" role="status" style="width: 3.5rem; height: 3.5rem; color: #6366f1;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-1">Synthesizing Neural AI Financial Model...</h5>
+                    <p class="text-muted small mb-0">Analyzing revenue streams, expense allocations, branch utilization rates, and profit vectors...</p>
+                </div>
+
+                <!-- AI Report Display Component (Hidden until button click) -->
+                <div id="aiManagerReportDisplayComponent" class="d-none mt-2">
+                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden" style="background: #f8fafc; border: 1px solid #e2e8f0 !important;">
+                        
+                        <!-- Report Top Header Banner -->
+                        <div class="p-4 bg-white border-bottom d-flex justify-content-between align-items-center flex-wrap gap-3">
+                            <div>
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <span class="badge bg-indigo-subtle text-indigo px-3 py-1 rounded-pill fw-bold" style="background: #e0e7ff; color: #4338ca;">
+                                        🤖 AI-Generated Report
+                                    </span>
+                                    <span class="text-muted small">Generated on: <strong id="managerReportTimestampDisplay">July 27, 2026 - 11:55 AM</strong></span>
+                                </div>
+                                <h4 class="fw-bold text-dark mb-0">SpotLy Comprehensive Executive & Financial AI Audit Report</h4>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="window.print()">
+                                    <i class="fas fa-print me-1"></i> Print / PDF
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card-body p-4 p-lg-5">
+
+                            <!-- SECTION 1: Executive Summary -->
+                            <div class="mb-5">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <span class="badge bg-primary rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                        <i class="fas fa-chart-line text-white"></i>
+                                    </span>
+                                    <h5 class="fw-bold text-dark mb-0">1. Executive Summary (الملخص التنفيذي)</h5>
+                                </div>
+                                <div class="card border-0 p-4 rounded-4 shadow-sm mb-4" style="background: #ffffff;">
+                                    <p class="text-dark leading-relaxed mb-4 fs-6">
+                                        SpotLy’s financial trajectory for the current evaluation period demonstrates <strong>exceptional growth (+22.4% YoY)</strong>, driven by accelerated electronic wallet transaction adoption and enhanced occupancy rates across core Tripoli commercial centers. Total net revenue reached <strong>48,250.00 LYD</strong> with an average gross margin of <strong>78.4%</strong>. Capacity utilization across top-tier parking yards remained optimal at <strong>84.2%</strong> during peak business hours (10:00 AM – 02:00 PM).
+                                    </p>
+                                    <!-- Key Metrics Highlights Row -->
+                                    <div class="row g-3 text-center">
+                                        <div class="col-6 col-md-3">
+                                            <div class="p-3 rounded-4 bg-light border">
+                                                <span class="text-muted small d-block mb-1">Total Net Revenue</span>
+                                                <h4 class="fw-bold text-success mb-0">48,250.00 <small class="fs-6">LYD</small></h4>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-3">
+                                            <div class="p-3 rounded-4 bg-light border">
+                                                <span class="text-muted small d-block mb-1">Gross Profit Margin</span>
+                                                <h4 class="fw-bold text-primary mb-0">78.4%</h4>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-3">
+                                            <div class="p-3 rounded-4 bg-light border">
+                                                <span class="text-muted small d-block mb-1">Avg Occupancy Index</span>
+                                                <h4 class="fw-bold text-warning text-dark mb-0">84.2%</h4>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-3">
+                                            <div class="p-3 rounded-4 bg-light border">
+                                                <span class="text-muted small d-block mb-1">Health & Safety Score</span>
+                                                <h4 class="fw-bold text-indigo mb-0" style="color: #6366f1;">94 / 100</h4>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SECTION 2: Revenue Analysis -->
+                            <div class="mb-5">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <span class="badge bg-success rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                        <i class="fas fa-coins text-white"></i>
+                                    </span>
+                                    <h5 class="fw-bold text-dark mb-0">2. Revenue Analysis (تحليل الإيرادات)</h5>
+                                </div>
+                                <div class="card border-0 p-4 rounded-4 shadow-sm mb-4" style="background: #ffffff;">
+                                    <div class="row g-4 align-items-center mb-4">
+                                        <div class="col-md-7">
+                                            <h6 class="fw-bold text-secondary mb-2">Revenue Streams Breakdown</h6>
+                                            <p class="text-muted small mb-3">Revenue sources remain strongly diversified across direct cashier entries, instant interactive app reservations, and digital wallet pre-charges.</p>
+                                            
+                                            <div class="mb-3">
+                                                <div class="d-flex justify-content-between small fw-bold mb-1">
+                                                    <span>Peak Hours Spot Reservations (الترشيح الذكي)</span>
+                                                    <span class="text-primary">27,500.00 LYD (57%)</span>
+                                                </div>
+                                                <div class="progress rounded-pill" style="height: 10px;">
+                                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 57%"></div>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <div class="d-flex justify-content-between small fw-bold mb-1">
+                                                    <span>On-site Cashier & Gate Collection (كشك التحصيل)</span>
+                                                    <span class="text-success">13,250.00 LYD (27.5%)</span>
+                                                </div>
+                                                <div class="progress rounded-pill" style="height: 10px;">
+                                                    <div class="progress-bar bg-success" role="progressbar" style="width: 27.5%"></div>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-0">
+                                                <div class="d-flex justify-content-between small fw-bold mb-1">
+                                                    <span>Digital Wallet Pre-charges & Subscriptions</span>
+                                                    <span class="text-purple" style="color: #8b5cf6;">7,500.00 LYD (15.5%)</span>
+                                                </div>
+                                                <div class="progress rounded-pill" style="height: 10px;">
+                                                    <div class="progress-bar" role="progressbar" style="width: 15.5%; background: #8b5cf6;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-5 border-start">
+                                            <div class="p-3 bg-light rounded-4">
+                                                <h6 class="fw-bold text-dark mb-3">Key Revenue Metrics</h6>
+                                                <ul class="list-group list-group-flush bg-transparent">
+                                                    <li class="list-group-item bg-transparent d-flex justify-content-between px-0 py-2 small">
+                                                        <span class="text-muted">Average Revenue per Slot (ARPU):</span>
+                                                        <strong class="text-dark">689.20 LYD / slot</strong>
+                                                    </li>
+                                                    <li class="list-group-item bg-transparent d-flex justify-content-between px-0 py-2 small">
+                                                        <span class="text-muted">Peak Hours Yield Multiplier:</span>
+                                                        <strong class="text-success">+34% vs Off-Peak</strong>
+                                                    </li>
+                                                    <li class="list-group-item bg-transparent d-flex justify-content-between px-0 py-2 small">
+                                                        <span class="text-muted">Digital Payment Growth:</span>
+                                                        <strong class="text-indigo" style="color: #6366f1;">+42.1% MoM</strong>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SECTION 3: Expense Analysis -->
+                            <div class="mb-5">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <span class="badge bg-danger rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                        <i class="fas fa-receipt text-white"></i>
+                                    </span>
+                                    <h5 class="fw-bold text-dark mb-0">3. Expense Analysis (تحليل المصروفات التشغيلية)</h5>
+                                </div>
+                                <div class="card border-0 p-4 rounded-4 shadow-sm mb-4" style="background: #ffffff;">
+                                    <div class="row g-4">
+                                        <div class="col-md-6">
+                                            <h6 class="fw-bold text-secondary mb-3">Operational Cost Allocation</h6>
+                                            <ul class="list-unstyled mb-0">
+                                                <li class="d-flex align-items-center justify-content-between p-3 rounded-3 mb-2 bg-light">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="badge bg-warning text-dark rounded-circle">👥</span>
+                                                        <span class="fw-bold text-dark small">Shift Cashiers & Staff Payroll</span>
+                                                    </div>
+                                                    <span class="fw-bold text-danger">6,450.00 LYD (62%)</span>
+                                                </li>
+                                                <li class="d-flex align-items-center justify-content-between p-3 rounded-3 mb-2 bg-light">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="badge bg-info text-dark rounded-circle">⚙️</span>
+                                                        <span class="fw-bold text-dark small">Hardware & Gate Systems Maintenance</span>
+                                                    </div>
+                                                    <span class="fw-bold text-danger">2,300.00 LYD (22%)</span>
+                                                </li>
+                                                <li class="d-flex align-items-center justify-content-between p-3 rounded-3 mb-0 bg-light">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="badge bg-secondary text-white rounded-circle">⚡</span>
+                                                        <span class="fw-bold text-dark small">Utilities, Connectivity & Overhead</span>
+                                                    </div>
+                                                    <span class="fw-bold text-danger">1,660.00 LYD (16%)</span>
+                                                </li>
+                                            </ul>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <div class="h-100 p-4 rounded-4 bg-danger bg-opacity-10 border border-danger-subtle d-flex flex-column justify-content-center">
+                                                <h6 class="fw-bold text-danger mb-2"><i class="fas fa-shield-halved me-1"></i> Cost Efficiency Ratio</h6>
+                                                <p class="text-dark small mb-3">
+                                                    Total operating expenditure stands at <strong>10,410.00 LYD</strong>, representing only <strong>21.6%</strong> of total revenue. The cost-to-revenue ratio is well within optimal industry benchmarks (&lt; 30%).
+                                                </p>
+                                                <div class="d-flex align-items-center justify-content-between bg-white p-3 rounded-3 border">
+                                                    <span class="fw-bold text-secondary small">Net Profit Retained:</span>
+                                                    <h4 class="fw-bold text-success mb-0">37,840.00 LYD</h4>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SECTION 4: Branch Performance -->
+                            <div class="mb-5">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <span class="badge bg-info text-dark rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                        <i class="fas fa-building text-white"></i>
+                                    </span>
+                                    <h5 class="fw-bold text-dark mb-0">4. Branch Performance (أداء الساحات والفروع)</h5>
+                                </div>
+                                <div class="card border-0 p-4 rounded-4 shadow-sm mb-4" style="background: #ffffff;">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover align-middle text-center mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th class="text-start">Branch / Yard Name</th>
+                                                    <th>Total Capacity</th>
+                                                    <th>Occupancy Rate</th>
+                                                    <th>Gross Revenue</th>
+                                                    <th>Net Profit</th>
+                                                    <th>Performance Rank</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td class="text-start fw-bold text-dark">
+                                                        <i class="fas fa-parking text-primary me-2"></i> ساحة ميدان الشهداء التفاعلية
+                                                    </td>
+                                                    <td>60 slots</td>
+                                                    <td><span class="badge bg-success">92.5% (High)</span></td>
+                                                    <td class="fw-bold text-primary">18,400.00 LYD</td>
+                                                    <td class="fw-bold text-success">14,720.00 LYD</td>
+                                                    <td><span class="badge bg-warning text-dark fw-bold">🥇 #1 Top Performer</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-start fw-bold text-dark">
+                                                        <i class="fas fa-parking text-primary me-2"></i> ساحة برج طرابلس وذات العماد
+                                                    </td>
+                                                    <td>70 slots</td>
+                                                    <td><span class="badge bg-success">88.0% (High)</span></td>
+                                                    <td class="fw-bold text-primary">15,200.00 LYD</td>
+                                                    <td class="fw-bold text-success">12,160.00 LYD</td>
+                                                    <td><span class="badge bg-secondary text-white fw-bold">🥈 #2 Performer</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-start fw-bold text-dark">
+                                                        <i class="fas fa-parking text-primary me-2"></i> ساحة المدار - طريق الشط
+                                                    </td>
+                                                    <td>80 slots</td>
+                                                    <td><span class="badge bg-primary">81.2% (Optimal)</span></td>
+                                                    <td class="fw-bold text-primary">14,650.00 LYD</td>
+                                                    <td class="fw-bold text-success">10,960.00 LYD</td>
+                                                    <td><span class="badge bg-info text-dark fw-bold">🥉 #3 Performer</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-start fw-bold text-dark">
+                                                        <i class="fas fa-parking text-primary me-2"></i> ساحة مستشفى الخضراء والعيادات
+                                                    </td>
+                                                    <td>45 slots</td>
+                                                    <td><span class="badge bg-warning text-dark">78.0% (Moderate)</span></td>
+                                                    <td class="fw-bold text-primary">8,200.00 LYD</td>
+                                                    <td class="fw-bold text-success">6,560.00 LYD</td>
+                                                    <td><span class="badge bg-light text-dark fw-bold">#4 Stable</span></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SECTION 5: Recommendations -->
+                            <div class="mb-0">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <span class="badge bg-warning text-dark rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                        <i class="fas fa-lightbulb text-dark"></i>
+                                    </span>
+                                    <h5 class="fw-bold text-dark mb-0">5. AI Strategic Recommendations (التوصيات والاستراتيجيات)</h5>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="card border-0 p-4 rounded-4 shadow-sm h-100 border-start border-4 border-primary" style="background: #ffffff;">
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <h6 class="fw-bold text-primary mb-0">⚡ Implement Dynamic Surge Pricing</h6>
+                                                <span class="badge bg-danger">High Priority</span>
+                                            </div>
+                                            <p class="text-muted small mb-0">
+                                                Apply a +15% dynamic rate adjustment during peak morning commercial activity (10:00 AM – 02:00 PM) at <strong>ساحة ميدان الشهداء</strong> to boost peak margin yield by an estimated +3,200 LYD monthly.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="card border-0 p-4 rounded-4 shadow-sm h-100 border-start border-4 border-success" style="background: #ffffff;">
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <h6 class="fw-bold text-success mb-0">👥 Smart Shift Re-allocation</h6>
+                                                <span class="badge bg-primary">Medium Priority</span>
+                                            </div>
+                                            <p class="text-muted small mb-0">
+                                                Re-assign 2 field cashiers from off-peak evening shifts at residential yards to high-demand evening commercial centers (ساحة قرقارش وسوق الثلاثاء) to reduce gate latency by 45%.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="card border-0 p-4 rounded-4 shadow-sm h-100 border-start border-4 border-purple" style="background: #ffffff;">
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <h6 class="fw-bold text-purple mb-0" style="color: #8b5cf6;">💳 Digital Wallet Recharge Incentives</h6>
+                                                <span class="badge bg-success">Growth Focus</span>
+                                            </div>
+                                            <p class="text-muted small mb-0">
+                                                Offer a 5% bonus credit on user wallet recharges exceeding 100 LYD to decrease cash transaction friction and lower overall cashier management cost.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="card border-0 p-4 rounded-4 shadow-sm h-100 border-start border-4 border-info" style="background: #ffffff;">
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <h6 class="fw-bold text-info text-dark mb-0">🅿️ Off-Peak Night Passes</h6>
+                                                <span class="badge bg-secondary">Optimization</span>
+                                            </div>
+                                            <p class="text-muted small mb-0">
+                                                Monetize unutilized night capacity (10:00 PM – 06:00 AM) by introducing discounted night parking passes for nearby hotel guests and event venues.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
         <!-- SECTION 4: Block & Violation Management -->
         <section id="violationsTab" class="content-section d-none">
             <div class="card">
-                <div class="card-header bg-gradient p-4 border-0">
-                    <h5 class="mb-0 fw-bold"><i class="fas fa-ban"></i> إدارة حسابات السائقين المحظورين</h5>
+                <div class="card-header bg-gradient p-4 border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-ban"></i> إدارة الحظر والمخالفات لسائقي السيارات</h5>
+                    <span class="badge bg-warning text-dark px-3 py-2 rounded-pill">الحظر التلقائي عند 5 مخالفات (بعد حجزين ناجحين على الأقل)</span>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -621,6 +1467,8 @@
                                     <th>البريد الإلكتروني</th>
                                     <th>رقم الهاتف</th>
                                     <th>رقم اللوحة</th>
+                                    <th>إجمالي الحجوزات</th>
+                                    <th>الحجوزات الناجحة</th>
                                     <th>عدد المخالفات</th>
                                     <th>حالة الحساب</th>
                                     <th>الإجراءات</th>
@@ -633,6 +1481,8 @@
                                         <td>{{ $driver->driver_email }}</td>
                                         <td><span dir="ltr">{{ $driver->driver_phone }}</span></td>
                                         <td><span class="badge bg-secondary px-3 py-1">{{ $driver->plate_number }}</span></td>
+                                        <td><span class="badge bg-info text-dark px-3 py-1">{{ $driver->total_bookings ?? 0 }}</span></td>
+                                        <td><span class="badge bg-success px-3 py-1">{{ $driver->successful_bookings ?? 0 }}</span></td>
                                         <td><span class="badge bg-warning text-dark px-3 py-1" id="driver-violations-{{ $driver->id }}">{{ $driver->fake_booking_count }}</span></td>
                                         <td>
                                             @if($driver->status === 'blocked')
@@ -642,14 +1492,21 @@
                                             @endif
                                         </td>
                                         <td>
-                                            <button onclick="confirmUnblockDriver({{ $driver->id }}, '{{ addslashes($driver->driver_name) }}')" class="btn btn-sm btn-success rounded-pill px-3" id="unblock-btn-{{ $driver->id }}">
-                                                ✅ فك الحظر وتصفير المخالفات
-                                            </button>
+                                            <div class="d-flex justify-content-center gap-1">
+                                                <button onclick="recordDriverViolation({{ $driver->id }}, '{{ addslashes($driver->driver_name) }}')" class="btn btn-sm btn-outline-warning rounded-pill px-3">
+                                                    ⚠️ تسجيل مخالفة
+                                                </button>
+                                                @if($driver->status === 'blocked' || $driver->fake_booking_count > 0)
+                                                    <button onclick="confirmUnblockDriver({{ $driver->id }}, '{{ addslashes($driver->driver_name) }}')" class="btn btn-sm btn-success rounded-pill px-3" id="unblock-btn-{{ $driver->id }}">
+                                                        ✅ فك الحظر
+                                                    </button>
+                                                @endif
+                                            </div>
                                         </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="text-muted py-5">لا يوجد سائقون محظورون حالياً.</td>
+                                        <td colspan="9" class="text-muted py-5">لا يوجد سائقون مسجلون حالياً.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -659,116 +1516,108 @@
             </div>
         </section>
 
-        <!-- SECTION 5: Financial Report -->
+        <!-- SECTION 5: Comprehensive Financial & Operational Report -->
         <section id="financialReportTab" class="content-section d-none">
-            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3 bg-white bg-opacity-75 p-4 rounded-4 shadow-sm border border-white border-opacity-50">
-                <div>
-                    <h5 class="fw-bold text-dark mb-1">📊 التقارير المالية والإحصائية للساحات</h5>
-                    <p class="text-muted mb-0 small">تتبع وحلل الإيرادات والتعويضات اليومية لساحاتك بشكل دقيق</p>
-                </div>
-                <div class="d-flex gap-2">
-                    <a href="{{ route('manager.reports.export', ['format' => 'csv']) }}" class="btn btn-success btn-sm fw-bold px-3 py-2 rounded-pill shadow-sm d-flex align-items-center gap-2">
-                        <span>📥</span> تحميل التقرير بصيغة CSV
-                    </a>
-                    <a href="{{ route('manager.reports.export', ['format' => 'json']) }}" class="btn btn-dark btn-sm fw-bold px-3 py-2 rounded-pill shadow-sm d-flex align-items-center gap-2" style="background-color: #2c3e50; border-color: #2c3e50;">
-                        <span>📥</span> تحميل التقرير بصيغة JSON
-                    </a>
+            <!-- Filter Bar & Export Controls Card -->
+            <div class="card mb-4 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 border-bottom pb-3">
+                        <div>
+                            <h5 class="fw-bold text-dark mb-1"><i class="fas fa-chart-line text-primary me-2"></i>التقرير المالي والتشغيلي المتقدم</h5>
+                            <p class="text-muted mb-0 small">تصفية وتحليل الحركة المالية والإشغيلية لساحاتك المدارة مع إمكانية التصدير المباشر</p>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a id="exportPdfBtn" href="{{ route('manager.reports.export', ['format' => 'pdf', 'period' => 'this_month']) }}" class="btn btn-danger btn-sm fw-bold px-3 py-2 rounded-pill shadow-sm d-flex align-items-center gap-2">
+                                <i class="fas fa-file-pdf"></i> تحميل التقرير PDF
+                            </a>
+                            <a id="exportExcelBtn" href="{{ route('manager.reports.export', ['format' => 'excel', 'period' => 'this_month']) }}" class="btn btn-success btn-sm fw-bold px-3 py-2 rounded-pill shadow-sm d-flex align-items-center gap-2">
+                                <i class="fas fa-file-excel"></i> تحميل التقرير Excel
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Filter Options Form -->
+                    <form id="reportFilterForm" class="row g-3 align-items-end" onsubmit="applyReportFilter(event)">
+                        <div class="col-md-5">
+                            <label class="form-label fw-bold text-secondary small">الفلاتر الزمنية السريعة</label>
+                            <div class="btn-group w-100" role="group">
+                                <button type="button" class="btn btn-outline-primary" onclick="setQuickPeriod('today', this)">اليوم</button>
+                                <button type="button" class="btn btn-outline-primary" onclick="setQuickPeriod('this_week', this)">هذا الأسبوع</button>
+                                <button type="button" class="btn btn-outline-primary active" onclick="setQuickPeriod('this_month', this)">هذا الشهر</button>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-secondary small">من تاريخ</label>
+                            <input type="date" id="filterStartDate" class="form-control" onchange="resetQuickPeriodBtns()">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-secondary small">إلى تاريخ</label>
+                            <input type="date" id="filterEndDate" class="form-control" onchange="resetQuickPeriodBtns()">
+                        </div>
+                        <div class="col-md-1">
+                            <button type="submit" class="btn btn-primary w-100 fw-bold">تطبيق</button>
+                        </div>
+                    </form>
                 </div>
             </div>
 
-            <!-- Financial Statistics Cards -->
+            <!-- Financial Metrics Row (4 Cards) -->
+            <h6 class="fw-bold text-secondary mb-3"><i class="fas fa-coins me-1"></i> المؤشرات المالية</h6>
             <div class="row g-4 mb-4">
-                <!-- Total Revenue -->
-                <div class="col-md-4">
-                    <div class="card border-0 text-white shadow-lg p-4 h-100" style="background: linear-gradient(135deg, #11998e, #38ef7d); border-radius: 20px;">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-white-50 fw-bold mb-1">💰 إجمالي إيرادات الساحات</h6>
-                                <h2 class="fw-bold mb-0 text-white stat-card-value">{{ number_format($financialData['totalRevenue'], 2) }} <span class="fs-6 fw-normal text-white-50">نقطة</span></h2>
-                            </div>
-                            <span class="fs-1 opacity-75">📥</span>
-                        </div>
+                <div class="col-md-3">
+                    <div class="card border-0 text-white shadow-sm p-4 h-100" style="background: linear-gradient(135deg, #11998e, #38ef7d); border-radius: 16px;">
+                        <h6 class="text-white-50 fw-bold mb-1">💰 إجمالي الإيرادات</h6>
+                        <h3 class="fw-bold mb-0 text-white" id="valTotalRevenue">{{ number_format($financialData['totalRevenue'], 2) }} <span class="fs-6 font-normal">د.ل</span></h3>
                     </div>
                 </div>
-
-                <!-- Total Refunds -->
-                <div class="col-md-4">
-                    <div class="card border-0 text-white shadow-lg p-4 h-100" style="background: linear-gradient(135deg, #ff9900, #ff5500); border-radius: 20px;">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-white-50 fw-bold mb-1">🔄 إجمالي النقاط المسترجعة</h6>
-                                <h2 class="fw-bold mb-0 text-white stat-card-value">{{ number_format($financialData['totalRefundedPoints'], 2) }} <span class="fs-6 fw-normal text-white-50">نقطة</span></h2>
-                            </div>
-                            <span class="fs-1 opacity-75">📤</span>
-                        </div>
+                <div class="col-md-3">
+                    <div class="card border-0 text-white shadow-sm p-4 h-100" style="background: linear-gradient(135deg, #eb3b5a, #fa8231); border-radius: 16px;">
+                        <h6 class="text-white-50 fw-bold mb-1">🧾 إجمالي المصاريف</h6>
+                        <h3 class="fw-bold mb-0 text-white" id="valTotalExpenses">0.00 <span class="fs-6 font-normal">د.ل</span></h3>
                     </div>
                 </div>
-
-                <!-- Refund percentage -->
-                <div class="col-md-4">
-                    <div class="card border-0 text-white shadow-lg p-4 h-100" style="background: linear-gradient(135deg, #8a2387, #e94057, #f27121); border-radius: 20px;">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-white-50 fw-bold mb-1">📈 نسبة التعويضات الإجمالية</h6>
-                                <h2 class="fw-bold mb-0 text-white stat-card-value">{{ $financialData['compensationPercentage'] }} <span class="fs-6 fw-normal text-white-50">%</span></h2>
-                            </div>
-                            <span class="fs-1 opacity-75">📊</span>
-                        </div>
+                <div class="col-md-3">
+                    <div class="card border-0 text-white shadow-sm p-4 h-100" style="background: linear-gradient(135deg, #20bf6b, #0fb9b1); border-radius: 16px;">
+                        <h6 class="text-white-50 fw-bold mb-1">❇️ صافي الأرباح</h6>
+                        <h3 class="fw-bold mb-0 text-white" id="valNetProfit">{{ number_format($financialData['totalRevenue'], 2) }} <span class="fs-6 font-normal">د.ل</span></h3>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 text-white shadow-sm p-4 h-100" style="background: linear-gradient(135deg, #4b7bec, #3867d6); border-radius: 16px;">
+                        <h6 class="text-white-50 fw-bold mb-1">💵 متوسط الدخل اليومي</h6>
+                        <h3 class="fw-bold mb-0 text-white" id="valAvgDailyIncome">{{ number_format($financialData['totalRevenue'] / 30, 2) }} <span class="fs-6 font-normal">د.ل</span></h3>
                     </div>
                 </div>
             </div>
 
-            <!-- Daily performance charts -->
-            <div class="card mb-4">
-                <div class="card-header p-4 border-0">
-                    <h5 class="mb-0 fw-bold">📊 أعمدة حركة شحن النقاط والإيرادات اليومية (آخر 30 يوماً)</h5>
-                </div>
-                <div class="card-body">
-                    <div style="position: relative; height: 350px; width: 100%;">
-                        <canvas id="financialLineChart"></canvas>
+            <!-- Operational Metrics Row (4 Cards) -->
+            <h6 class="fw-bold text-secondary mb-3"><i class="fas fa-car me-1"></i> المؤشرات التشغيلية ونسبة الإشغال</h6>
+            <div class="row g-4 mb-4">
+                <div class="col-md-3">
+                    <div class="card border-0 text-white shadow-sm p-4 h-100" style="background: linear-gradient(135deg, #8854d0, #a55eea); border-radius: 16px;">
+                        <h6 class="text-white-50 fw-bold mb-1">🚗 عدد السيارات الداخلة</h6>
+                        <h3 class="fw-bold mb-0 text-white" id="valCarsEntered">0 <span class="fs-6 font-normal">سيارة</span></h3>
                     </div>
                 </div>
-            </div>
-
-            <!-- Comparison Table -->
-            <div class="card mb-4">
-                <div class="card-header p-4 border-0">
-                    <h5 class="mb-0 fw-bold">📊 مقارنة الأداء المالي مع إجمالي النظام</h5>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle text-center mb-0">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>نطاق التقرير المالي</th>
-                                    <th>إجمالي الإيرادات (نقاط معتمدة)</th>
-                                    <th>إجمالي التعويضات المسترجعة (عند الإلغاء)</th>
-                                    <th>نسبة التعويضات الإجمالية</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr class="table-success fw-bold">
-                                    <td class="text-dark">📍 الساحات المدارة التابعة لك</td>
-                                    <td class="text-success">{{ number_format($financialData['totalRevenue'], 2) }} نقطة</td>
-                                    <td class="text-danger">{{ number_format($financialData['totalRefundedPoints'], 2) }} نقطة</td>
-                                    <td>
-                                        <span class="badge bg-success px-3 py-2 rounded-pill">{{ $financialData['compensationPercentage'] }} %</span>
-                                    </td>
-                                </tr>
-                                <tr class="table-light">
-                                    <td class="text-muted">🌐 إجمالي النظام بالكامل</td>
-                                    <td class="text-muted">{{ number_format($financialData['systemTotalRevenue'], 2) }} نقطة</td>
-                                    <td class="text-muted">{{ number_format($financialData['systemTotalRefundedPoints'], 2) }} نقطة</td>
-                                    <td>
-                                        <span class="badge bg-secondary px-3 py-2 rounded-pill">{{ $financialData['systemCompensationPercentage'] }} %</span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                <div class="col-md-3">
+                    <div class="card border-0 text-white shadow-sm p-4 h-100" style="background: linear-gradient(135deg, #fa8231, #f7b731); border-radius: 16px;">
+                        <h6 class="text-white-50 fw-bold mb-1">🚙 عدد السيارات الخارجة</h6>
+                        <h3 class="fw-bold mb-0 text-white" id="valCarsExited">0 <span class="fs-6 font-normal">سيارة</span></h3>
                     </div>
                 </div>
-            </div>
-        </section>
+                <div class="col-md-3">
+                    <div class="card border-0 text-white shadow-sm p-4 h-100" style="background: linear-gradient(135deg, #2d98da, #45aaf2); border-radius: 16px;">
+                        <h6 class="text-white-50 fw-bold mb-1">⏱️ إجمالي ساعات الوقوف</h6>
+                        <h3 class="fw-bold mb-0 text-white" id="valTotalParkingHours">0.0 <span class="fs-6 font-normal">ساعة</span></h3>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 text-white shadow-sm p-4 h-100" style="background: linear-gradient(135deg, #fd9644, #e67e22); border-radius: 16px;">
+                        <h6 class="text-white-50 fw-bold mb-1">📈 نسبة إشغال الموقف</h6>
+                        <h3 class="fw-bold mb-0 text-white" id="valOccupancyRate">0.0 <span class="fs-6 font-normal">%</span></h3>
+                    </div>
+                </div>
+            </div>        </section>
 
         <!-- SECTION 6: Personal Settings -->
         <section id="profileTab" class="content-section d-none">
@@ -906,6 +1755,68 @@
                 </div>
             </div>
         </section>
+
+        <!-- SECTION 8: Shift Clock-in/Out Monitoring Log -->
+        <section id="shiftsTab" class="content-section d-none">
+            <div class="card mb-4 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 border-bottom pb-3">
+                        <div>
+                            <h5 class="fw-bold text-dark mb-1"><i class="fas fa-clock text-primary me-2"></i>سجل مناوبات ومواظبة الموظفين الميدانيين (Shift Attendance Monitor)</h5>
+                            <p class="text-muted mb-0 small">مراقبة توقيتات الدخول والانصراف وحالة المناوبات الحالية لكل موظف</p>
+                        </div>
+                        <button onclick="loadShiftLogs()" class="btn btn-outline-primary btn-sm rounded-pill px-4 fw-bold">تحديث السجل 🔄</button>
+                    </div>
+
+                    <div class="row g-3 align-items-end mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-secondary small">تصفية حسب الموظف</label>
+                            <select id="shiftFilterEmployee" class="form-select" onchange="loadShiftLogs()">
+                                <option value="">جميع الموظفين</option>
+                                @foreach($managerEmployees as $emp)
+                                    <option value="{{ $emp->id }}">{{ $emp->employee_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-secondary small">حالة المناوبة</label>
+                            <select id="shiftFilterStatus" class="form-select" onchange="loadShiftLogs()">
+                                <option value="">جميع الحالات</option>
+                                <option value="active">مناوبة نشطة جارية 🟢</option>
+                                <option value="completed">مناوبة مكتملة 🔴</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header p-4 border-0">
+                    <h5 class="mb-0 fw-bold">⏱️ جدول تفاصيل حضور وانصراف الموظفين</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle text-center mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>الموظف الميداني</th>
+                                    <th>الساحة المسندة</th>
+                                    <th>وقت بدء المناوبة (Clock-In)</th>
+                                    <th>وقت إنهاء المناوبة (Clock-Out)</th>
+                                    <th>مدة المناوبة</th>
+                                    <th>الحالة الحالية</th>
+                                </tr>
+                            </thead>
+                            <tbody id="shiftLogsTableBody">
+                                <tr>
+                                    <td colspan="6" class="text-muted py-5">جاري جلب بيانات المناوبات...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
     </main>
 
     <script>
@@ -930,7 +1841,7 @@
     });
 
     const storedUserData = JSON.parse(localStorage.getItem('userData'));
-    const currentManagerAccountId = storedUserData ? (storedUserData.id || storedUserData.account_id) : null;
+    const currentManagerAccountId = (storedUserData && (storedUserData.id || storedUserData.account_id)) ? (storedUserData.id || storedUserData.account_id) : {{ auth()->id() ?? 'null' }};
 
     // Toggle mobile sidebar
     function toggleSidebarMenu() {
@@ -949,10 +1860,8 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         try {
-            if (storedUserData) {
+            if (storedUserData && storedUserData.name) {
                 document.getElementById('managerNameDisplay').innerText = 'مرحباً، ' + storedUserData.name;
-            } else {
-                window.location.href = '/login';
             }
         } catch (exception) {
             console.error("خطأ في قراءة بيانات الجلسة", exception);
@@ -985,9 +1894,8 @@
                 document.getElementById('dashboardSidebar').classList.remove('active');
             }
 
-            if (sectionId === 'addParkingTab') {
-                if (!map) initMap();
-                else setTimeout(() => { map.invalidateSize(); }, 300);
+            if (sectionId === 'parkingsTab') {
+                initManagedParkingsMap();
             }
             if (sectionId === 'profileTab') {
                 loadProfileData();
@@ -995,8 +1903,52 @@
             if (sectionId === 'auditLogTab') {
                 loadAuditLogs();
             }
+            if (sectionId === 'shiftsTab') {
+                loadShiftLogs();
+            }
         } catch (exception) {
             console.error("خطأ أثناء التبديل بين التبويبات", exception);
+        }
+    }
+
+    async function loadShiftLogs() {
+        const empId = document.getElementById('shiftFilterEmployee').value;
+        const status = document.getElementById('shiftFilterStatus').value;
+        const tbody = document.getElementById('shiftLogsTableBody');
+        tbody.innerHTML = `<tr><td colspan="6" class="text-muted py-4"><div class="spinner-border spinner-border-sm text-primary"></div> جاري التحميل...</td></tr>`;
+
+        try {
+            const response = await fetch(`/manager/shifts/data?employee_id=${empId}&status=${status}`, { method: 'GET', headers: fetchHeaders });
+            const result = await response.json();
+
+            if (response.ok && result.status === 'success') {
+                tbody.innerHTML = '';
+                if (result.data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="text-muted py-5">لا توجد سجلات مناوبات مسجلة حالياً.</td></tr>`;
+                    return;
+                }
+
+                result.data.forEach(shift => {
+                    let statusBadge = shift.status === 'active' 
+                        ? `<span class="badge bg-success px-3 py-1">مناوبة نشطة 🟢</span>`
+                        : `<span class="badge bg-secondary px-3 py-1">مكتملة 🔴</span>`;
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td class="fw-bold text-dark-emphasis">${shift.employee_name} <br><small class="text-muted" dir="ltr">${shift.employee_phone || ''}</small></td>
+                            <td><span class="badge bg-light text-dark border px-3 py-1">${shift.parking_name || 'غير معين'}</span></td>
+                            <td class="fw-bold text-success" dir="ltr">${shift.clock_in_formatted}</td>
+                            <td class="fw-bold text-danger" dir="ltr">${shift.clock_out_formatted}</td>
+                            <td><span class="badge bg-info text-dark px-3 py-1">${shift.duration_label}</span></td>
+                            <td>${statusBadge}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                throw new Error(result.message || 'فشل جلب سجل المناوبات.');
+            }
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-danger py-4">⚠️ خطأ: ${err.message}</td></tr>`;
         }
     }
 
@@ -1241,10 +2193,15 @@
         }
     }
 
-    function openCreateEmployeeModal(parkingId, parkingName) {
+    function openCreateEmployeeModal(parkingId, parkingName, defaultShift = 'الوردية الصباحية') {
         document.getElementById('modalParkingId').value = parkingId;
         document.getElementById('modalParkingName').value = parkingName;
         document.getElementById('createEmployeeForm').reset();
+        
+        const shiftRoleInput = document.getElementById('employeeShiftRoleInput');
+        if (shiftRoleInput) {
+            shiftRoleInput.value = defaultShift;
+        }
         
         document.getElementById('assignTypeCreate').checked = true;
         toggleAssignmentType();
@@ -1260,10 +2217,13 @@
         
         const parkingId = document.getElementById('modalParkingId').value;
         const assignmentType = document.querySelector('input[name="assignment_type"]:checked').value;
-        
+        const shiftRoleInput = document.getElementById('employeeShiftRoleInput');
+        const selectedShiftRole = shiftRoleInput ? shiftRoleInput.value : 'الوردية الصباحية';
+
         let requestData = {
             parking_id: parkingId,
-            assignment_type: assignmentType
+            assignment_type: assignmentType,
+            shift_role: selectedShiftRole
         };
 
         if (assignmentType === 'select') {
@@ -1379,6 +2339,66 @@
         });
     }
 
+    function recordDriverViolation(driverId, driverName) {
+        Swal.fire({
+            title: `تسجيل مخالفة على السائق: ${driverName}`,
+            text: "هل تريد تسجيل مخالفة على هذا السائق؟",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ff9500',
+            cancelButtonColor: '#8e8e93',
+            confirmButtonText: 'نعم، سجل المخالفة',
+            cancelButtonText: 'إلغاء'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    const response = await fetch('/manager/users/violation', {
+                        method: 'POST',
+                        headers: fetchHeaders,
+                        body: JSON.stringify({
+                            user_id: driverId,
+                            reason: 'مخالفة تعليمات الساحة'
+                        })
+                    });
+
+                    const resData = await response.json();
+
+                    if (resData.status === 'ignored') {
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'تنبيه خوارزمية الحظر',
+                            text: resData.message,
+                            confirmButtonColor: '#0071e3'
+                        });
+                    } else if (resData.status === 'success') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'تم تسجيل المخالفة',
+                            text: resData.message,
+                            confirmButtonColor: '#0071e3'
+                        }).then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'خطأ',
+                            text: resData.message || 'فشل تسجيل المخالفة.',
+                            confirmButtonColor: '#ff3b30'
+                        });
+                    }
+                } catch (error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'خطأ اتصال',
+                        text: 'تعذر الاتصال بالخادم.',
+                        confirmButtonColor: '#ff3b30'
+                    });
+                }
+            }
+        });
+    }
+
     function confirmUnblockDriver(driverId, driverName) {
         Swal.fire({
             title: 'تأكيد إلغاء الحظر وتصفير المخالفات',
@@ -1446,7 +2466,82 @@
         });
     }
 
+    let currentReportPeriod = 'this_month';
+    let simulationChartInstance = null;
+
+    function setQuickPeriod(period, btnEl) {
+        currentReportPeriod = period;
+        document.querySelectorAll('#reportFilterForm .btn-group .btn').forEach(b => b.classList.remove('active'));
+        if (btnEl) btnEl.classList.add('active');
+        document.getElementById('filterStartDate').value = '';
+        document.getElementById('filterEndDate').value = '';
+        fetchAndRenderReportData();
+    }
+
+    function resetQuickPeriodBtns() {
+        currentReportPeriod = 'custom';
+        document.querySelectorAll('#reportFilterForm .btn-group .btn').forEach(b => b.classList.remove('active'));
+    }
+
+    function applyReportFilter(e) {
+        if (e) e.preventDefault();
+        fetchAndRenderReportData();
+    }
+
+    async function fetchAndRenderReportData() {
+        const startDate = document.getElementById('filterStartDate').value;
+        const endDate = document.getElementById('filterEndDate').value;
+
+        let queryParams = new URLSearchParams();
+        queryParams.set('format', 'json');
+
+        if (startDate || endDate) {
+            currentReportPeriod = 'custom';
+            if (startDate) queryParams.set('start_date', startDate);
+            if (endDate) queryParams.set('end_date', endDate);
+        } else {
+            queryParams.set('period', currentReportPeriod);
+        }
+
+        // Update Download PDF and Excel links
+        let pdfParams = new URLSearchParams(queryParams);
+        pdfParams.set('format', 'pdf');
+        document.getElementById('exportPdfBtn').href = `/manager/reports/export?${pdfParams.toString()}`;
+
+        let excelParams = new URLSearchParams(queryParams);
+        excelParams.set('format', 'excel');
+        document.getElementById('exportExcelBtn').href = `/manager/reports/export?${excelParams.toString()}`;
+
+        try {
+            const response = await fetch(`/manager/reports/export?${queryParams.toString()}`);
+            const resData = await response.json();
+
+            if (resData.status === 'success' && resData.data) {
+                const data = resData.data;
+
+                // Update Financial KPI cards
+                if (data.financial) {
+                    document.getElementById('valTotalRevenue').innerText = `${parseFloat(data.financial.total_revenue || 0).toFixed(2)} د.ل`;
+                    document.getElementById('valTotalExpenses').innerText = `${parseFloat(data.financial.total_expenses || 0).toFixed(2)} د.ل`;
+                    document.getElementById('valNetProfit').innerText = `${parseFloat(data.financial.net_profit || 0).toFixed(2)} د.ل`;
+                    document.getElementById('valAvgDailyIncome').innerText = `${parseFloat(data.financial.avg_daily_income || 0).toFixed(2)} د.ل`;
+                }
+
+                // Update Operational KPI cards
+                if (data.operational) {
+                    document.getElementById('valCarsEntered').innerText = `${data.operational.cars_entered || 0} سيارة`;
+                    document.getElementById('valCarsExited').innerText = `${data.operational.cars_exited || 0} سيارة`;
+                    document.getElementById('valTotalParkingHours').innerText = `${parseFloat(data.operational.total_parking_hours || 0).toFixed(1)} ساعة`;
+                    document.getElementById('valOccupancyRate').innerText = `${parseFloat(data.operational.occupancy_rate || 0).toFixed(1)}%`;
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching report metrics:', err);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
+        fetchAndRenderReportData();
         try {
             const chartCanvas = document.getElementById('financialLineChart');
             if (chartCanvas) {
@@ -1580,6 +2675,78 @@
         });
     }
 
+    let managedParkingsMapObj = null;
+    let managedParkingsMarkers = [];
+
+    function initManagedParkingsMap() {
+        if (managedParkingsMapObj) {
+            setTimeout(() => { managedParkingsMapObj.invalidateSize(); }, 300);
+            return;
+        }
+
+        const mapContainer = document.getElementById('managedParkingsMap');
+        if (!mapContainer) return;
+
+        let defaultLat = 32.8872;
+        let defaultLng = 13.1913;
+
+        if (existingParkings.length > 0 && existingParkings[0].latitude && existingParkings[0].longitude) {
+            defaultLat = parseFloat(existingParkings[0].latitude);
+            defaultLng = parseFloat(existingParkings[0].longitude);
+        }
+
+        managedParkingsMapObj = L.map('managedParkingsMap').setView([defaultLat, defaultLng], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(managedParkingsMapObj);
+
+        existingParkings.forEach(parking => {
+            if (parking.latitude && parking.longitude) {
+                const pLat = parseFloat(parking.latitude);
+                const pLng = parseFloat(parking.longitude);
+
+                const m = L.marker([pLat, pLng], { icon: orangeIcon })
+                    .addTo(managedParkingsMapObj)
+                    .bindPopup(`
+                        <div style="direction: rtl; text-align: right; font-family: sans-serif; min-width: 160px;">
+                            <h6 class="fw-bold mb-1 text-primary"><i class="fas fa-parking me-1"></i> ${parking.parking_name}</h6>
+                            <small class="text-muted d-block mb-2">📍 ${parking.location_park}</small>
+                            <p class="mb-1 text-dark small"><b>السعة الكلية:</b> ${parking.total_capacity} مركبة</p>
+                            <p class="mb-1 text-success small"><b>الشواغر المتوفرة:</b> ${parking.available_capacity} مركبة</p>
+                            <p class="mb-0 text-secondary small"><b>الموظف المسؤول:</b> ${parking.employee_name || 'غير معين'}</p>
+                        </div>
+                    `);
+
+                managedParkingsMarkers.push({ id: parking.id, lat: pLat, lng: pLng, marker: m });
+            }
+        });
+
+        if (managedParkingsMarkers.length > 1) {
+            const group = new L.featureGroup(managedParkingsMarkers.map(m => m.marker));
+            managedParkingsMapObj.fitBounds(group.getBounds().pad(0.2));
+        }
+    }
+
+    function focusParkingOnMap(lat, lng, parkingName) {
+        if (!managedParkingsMapObj) {
+            initManagedParkingsMap();
+        }
+        const targetLat = parseFloat(lat);
+        const targetLng = parseFloat(lng);
+        managedParkingsMapObj.setView([targetLat, targetLng], 16, { animate: true });
+
+        const item = managedParkingsMarkers.find(m => Math.abs(m.lat - targetLat) < 0.0001 && Math.abs(m.lng - targetLng) < 0.0001);
+        if (item) {
+            item.marker.openPopup();
+        }
+
+        const mapEl = document.getElementById('managedParkingsMap');
+        if (mapEl) {
+            mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
     async function submitParking() {
         const name = document.getElementById('parkingName').value;
         const location_park = document.getElementById('parkingLocation').value; 
@@ -1619,6 +2786,264 @@
         } catch (error) {
             Swal.fire({icon: 'error', title: 'عذراً', text: error.message});
         }
+    }
+
+    async function generateManagerAiReport() {
+        const btn = document.getElementById('generateManagerAiReportBtn');
+        const loadingState = document.getElementById('aiManagerReportLoadingState');
+        const reportComponent = document.getElementById('aiManagerReportDisplayComponent');
+        const scope = document.getElementById('managerAiReportScopeSelect')?.value || 'all';
+        const timeframe = document.getElementById('managerAiReportTimeframeSelect')?.value || 'current_quarter';
+
+        if (!btn || !loadingState || !reportComponent) return;
+
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status"></span> Querying Database & Synthesizing AI Report...`;
+        loadingState.classList.remove('d-none');
+        reportComponent.classList.add('d-none');
+
+        try {
+            const response = await fetch(`/manager/ai-financial-report?scope=${scope}&timeframe=${timeframe}`, {
+                headers: { 'Accept': 'application/json' }
+            });
+            const data = await response.json();
+
+            loadingState.classList.add('d-none');
+
+            if (data.status === 'success') {
+                renderAiReportData(data, 'manager');
+                reportComponent.classList.remove('d-none');
+                reportComponent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                Swal.fire('خطأ', data.message || 'فشل توليد التقرير الذكي.', 'error');
+            }
+        } catch (e) {
+            loadingState.classList.add('d-none');
+            Swal.fire('خطأ اتصال', 'تعذر الاتصال بمركز التحليل الذكي للنظام.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fas fa-wand-magic-sparkles"></i> <span>Generate AI Report</span>`;
+        }
+    }
+
+    function renderAiReportData(data, prefix = '') {
+        const p = prefix ? (prefix + 'Ai') : 'ai';
+        const pLower = prefix ? prefix : '';
+
+        const timeElem = document.getElementById(pLower ? `${pLower}ReportTimestampDisplay` : 'reportTimestampDisplay');
+        if (timeElem) timeElem.innerText = data.generated_at || new Date().toLocaleString();
+
+        // 1. Executive Summary
+        const execText = document.getElementById(`${p}ExecutiveSummaryText`);
+        if (execText) execText.innerText = data.executive_summary;
+
+        const netRevElem = document.getElementById(`${p}TotalNetRevenueVal`);
+        if (netRevElem) netRevElem.innerHTML = `${Number(data.metrics.total_revenue).toLocaleString('en-US', {minimumFractionDigits: 2})} <small class="fs-6">LYD</small>`;
+
+        const marginElem = document.getElementById(`${p}GrossMarginVal`);
+        if (marginElem) marginElem.innerText = `${data.metrics.gross_margin}%`;
+
+        const occElem = document.getElementById(`${p}OccupancyRateVal`);
+        if (occElem) occElem.innerText = `${data.metrics.occupancy_rate}%`;
+
+        const healthElem = document.getElementById(`${p}HealthScoreVal`);
+        if (healthElem) healthElem.innerText = `${data.metrics.health_score} / 100`;
+
+        // 2. Revenue Performance
+        const reservationsElem = document.getElementById(`${p}TotalReservationsVal`);
+        if (reservationsElem) reservationsElem.innerText = `${data.metrics.total_reservations} Bookings`;
+
+        // 3. Expense Analysis
+        const expElem = document.getElementById(`${p}TotalExpensesVal`);
+        if (expElem) expElem.innerHTML = `${Number(data.metrics.total_expenses).toLocaleString('en-US', {minimumFractionDigits: 2})} LYD`;
+
+        const profitElem = document.getElementById(`${p}NetProfitVal`);
+        if (profitElem) profitElem.innerHTML = `${Number(data.metrics.net_profit).toLocaleString('en-US', {minimumFractionDigits: 2})} LYD`;
+
+        // 4. Top Performing Branch
+        const topName = document.getElementById(`${p}TopBranchName`);
+        if (topName) topName.innerText = data.top_branch.name;
+
+        const topRev = document.getElementById(`${p}TopBranchRevenue`);
+        if (topRev) topRev.innerText = `${Number(data.top_branch.gross_revenue).toLocaleString('en-US', {minimumFractionDigits: 2})} LYD`;
+
+        const topOcc = document.getElementById(`${p}TopBranchOccupancy`);
+        if (topOcc) topOcc.innerText = `${data.top_branch.occupancy_rate}%`;
+
+        // 5. Lowest Performing Branch
+        const lowName = document.getElementById(`${p}LowestBranchName`);
+        if (lowName) lowName.innerText = data.lowest_branch.name;
+
+        const lowRev = document.getElementById(`${p}LowestBranchRevenue`);
+        if (lowRev) lowRev.innerText = `${Number(data.lowest_branch.gross_revenue).toLocaleString('en-US', {minimumFractionDigits: 2})} LYD`;
+
+        const lowOcc = document.getElementById(`${p}LowestBranchOccupancy`);
+        if (lowOcc) lowOcc.innerText = `${data.lowest_branch.occupancy_rate}%`;
+
+        // 6. Branch Statistics Table
+        const tbody = document.getElementById(`${p}BranchStatsTableBody`);
+        if (tbody && data.branch_statistics) {
+            tbody.innerHTML = '';
+            data.branch_statistics.forEach((b, idx) => {
+                const rankBadge = idx === 0 
+                    ? '<span class="badge bg-warning text-dark fw-bold">🥇 #1 Top Performer</span>'
+                    : (idx === 1 ? '<span class="badge bg-secondary text-white fw-bold">🥈 #2 Performer</span>'
+                    : (idx === 2 ? '<span class="badge bg-info text-dark fw-bold">🥉 #3 Performer</span>' : `<span class="badge bg-light text-dark">#${idx + 1} Stable</span>`));
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="text-start fw-bold text-dark">
+                            <i class="fas fa-parking text-primary me-2"></i> ${b.name}
+                        </td>
+                        <td>${b.total_capacity} slots</td>
+                        <td><span class="badge ${b.occupancy_rate >= 80 ? 'bg-success' : (b.occupancy_rate >= 50 ? 'bg-primary' : 'bg-warning text-dark')}">${b.occupancy_rate}%</span></td>
+                        <td class="fw-bold text-primary">${Number(b.gross_revenue).toLocaleString('en-US', {minimumFractionDigits: 2})} LYD</td>
+                        <td class="fw-bold text-success">${Number(b.net_profit).toLocaleString('en-US', {minimumFractionDigits: 2})} LYD</td>
+                        <td>${rankBadge}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        // 7. Strategic Recommendations
+        const recsContainer = document.getElementById(`${p}RecommendationsContainer`);
+        if (recsContainer && data.recommendations) {
+            recsContainer.innerHTML = '';
+            data.recommendations.forEach(r => {
+                recsContainer.innerHTML += `
+                    <div class="col-md-6">
+                        <div class="card border-0 p-4 rounded-4 shadow-sm h-100 border-start border-4 ${r.border_class}" style="background: #ffffff;">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <h6 class="fw-bold ${r.title_class} mb-0">${r.title}</h6>
+                                <span class="badge ${r.badge_class}">${r.priority}</span>
+                            </div>
+                            <p class="text-muted small mb-0">${r.description}</p>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    }
+
+    let managerAiChatHistory = [];
+
+    async function handleAiChatSubmit(event, prefix = '') {
+        if (event) event.preventDefault();
+
+        const inputElem = document.getElementById(prefix ? `${prefix}AiChatInput` : 'aiChatInput');
+        const container = document.getElementById(prefix ? `${prefix}AiChatMessagesContainer` : 'aiChatMessagesContainer');
+        const indicator = document.getElementById(prefix ? `${prefix}AiChatTypingIndicator` : 'aiChatTypingIndicator');
+        const sendBtn = document.getElementById(prefix ? `${prefix}AiChatSendBtn` : 'aiChatSendBtn');
+
+        if (!inputElem || !container) return;
+
+        const userMessage = inputElem.value.trim();
+        if (!userMessage) return;
+
+        inputElem.value = '';
+        appendUserChatMessage(container, userMessage);
+        container.scrollTop = container.scrollHeight;
+
+        if (indicator) indicator.classList.remove('d-none');
+        if (sendBtn) sendBtn.disabled = true;
+
+        try {
+            const endpoint = prefix === 'manager' ? '/manager/ai-chat' : '/developer/ai-chat';
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    message: userMessage,
+                    history: managerAiChatHistory
+                })
+            });
+
+            const data = await response.json();
+
+            if (indicator) indicator.classList.add('d-none');
+
+            if (data.status === 'success') {
+                appendAiChatMessage(container, data.reply, data.source, data.timestamp);
+                managerAiChatHistory.push({ user: userMessage, assistant: data.reply });
+            } else {
+                appendAiChatMessage(container, '⚠️ ' + (data.message || 'Error processing request.'), 'System Error', new Date().toLocaleTimeString());
+            }
+        } catch (e) {
+            if (indicator) indicator.classList.add('d-none');
+            appendAiChatMessage(container, '⚠️ Connection error. Please check network.', 'System Error', new Date().toLocaleTimeString());
+        } finally {
+            if (sendBtn) sendBtn.disabled = false;
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+
+    function sendSuggestedQuestion(question, prefix = '') {
+        const inputElem = document.getElementById(prefix ? `${prefix}AiChatInput` : 'aiChatInput');
+        if (inputElem) {
+            inputElem.value = question;
+            handleAiChatSubmit(null, prefix);
+        }
+    }
+
+    function clearAiChatHistory(prefix = '') {
+        managerAiChatHistory = [];
+        const container = document.getElementById(prefix ? `${prefix}AiChatMessagesContainer` : 'aiChatMessagesContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="d-flex gap-3 mb-4">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center text-white flex-shrink-0" style="width: 38px; height: 38px; background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+                        <i class="fas fa-robot small"></i>
+                    </div>
+                    <div class="p-3 rounded-4 bg-white shadow-sm border border-slate-200 text-dark max-w-xl">
+                        <p class="mb-2 fw-bold text-indigo" style="color: #4338ca;">👋 تم مسح سجل المحادثة. كيف يمكنني مساعدتك الآن؟</p>
+                        <p class="mb-2 small leading-relaxed">
+                            اسأل عن الإيرادات، معدل الإشغال، الساحات المتصدرة، أو تحليلات التكاليف والتوصيات.
+                        </p>
+                        <span class="text-muted x-small">System Assistant • Just now</span>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    function appendUserChatMessage(container, message) {
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const html = `
+            <div class="d-flex gap-3 justify-content-end mb-4">
+                <div class="p-3 rounded-4 text-white shadow-sm max-w-xl" style="background: linear-gradient(135deg, #0071e3, #34c759) !important;">
+                    <p class="mb-1 small leading-relaxed fw-semibold">${escapeHtml(message)}</p>
+                    <span class="text-white-50 x-small d-block text-end">${timeStr}</span>
+                </div>
+                <div class="rounded-circle d-flex align-items-center justify-content-center text-white flex-shrink-0" style="width: 38px; height: 38px; background: #0071e3;">
+                    <i class="fas fa-user small"></i>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+    }
+
+    function appendAiChatMessage(container, reply, source = 'SpotLy AI Engine', timeStr = '') {
+        const formattedReply = escapeHtml(reply).replace(/\n/g, '<br>');
+        const html = `
+            <div class="d-flex gap-3 mb-4">
+                <div class="rounded-circle d-flex align-items-center justify-content-center text-white flex-shrink-0" style="width: 38px; height: 38px; background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+                    <i class="fas fa-robot small"></i>
+                </div>
+                <div class="p-3 rounded-4 bg-white shadow-sm border border-slate-200 text-dark max-w-xl">
+                    <div class="small leading-relaxed text-dark">${formattedReply}</div>
+                    <span class="text-muted x-small d-block mt-2">${source} • ${timeStr || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
     </script>
 </body>

@@ -126,6 +126,73 @@ class DeveloperDashboardPermissionsTest extends TestCase
             'longitude' => 13.1804
         ]);
 
-        $response->assertRedirect('/login');
+        $response->assertStatus(403);
+    }
+
+    public function test_developer_can_delete_manager_account()
+    {
+        $developer = Account::create([
+            'name' => 'Developer User',
+            'email' => 'developer@test.com',
+            'phone' => '1234567890',
+            'password' => Hash::make('password123'),
+            'role' => 'developer',
+        ]);
+
+        $managerAccount = Account::create([
+            'name' => 'Manager To Delete',
+            'email' => 'todelete@test.com',
+            'phone' => '0999999999',
+            'password' => Hash::make('password123'),
+            'role' => 'manager',
+        ]);
+
+        $managerId = \Illuminate\Support\Facades\DB::table('managers')->insertGetId([
+            'account_id' => $managerAccount->id,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $parking = \App\Models\Parking::create([
+            'name' => 'Assigned Parking',
+            'location_park' => 'Location X',
+            'total_capacity' => 20,
+            'available_capacity' => 20,
+            'manager_id' => $managerId
+        ]);
+
+        $response = $this->actingAs($developer)->deleteJson("/developer/managers/{$managerId}");
+
+        $response->assertStatus(200);
+        $response->assertJson(['status' => 'success']);
+
+        $this->assertDatabaseMissing('managers', ['id' => $managerId]);
+        $this->assertDatabaseMissing('accounts', ['id' => $managerAccount->id]);
+        $this->assertDatabaseHas('parkings', ['id' => $parking->id, 'manager_id' => null]);
+    }
+
+    public function test_developer_can_delete_parking_lot()
+    {
+        $developer = Account::create([
+            'name' => 'Developer User',
+            'email' => 'developer@test.com',
+            'phone' => '1234567890',
+            'password' => Hash::make('password123'),
+            'role' => 'developer',
+        ]);
+
+        $parking = \App\Models\Parking::create([
+            'name' => 'Parking To Delete',
+            'location_park' => 'Location Y',
+            'total_capacity' => 15,
+            'available_capacity' => 15,
+        ]);
+
+        $response = $this->actingAs($developer)->deleteJson("/developer/parkings/{$parking->id}");
+
+        $response->assertStatus(200);
+        $response->assertJson(['status' => 'success']);
+        $this->assertDatabaseMissing('parkings', ['id' => $parking->id]);
     }
 }
