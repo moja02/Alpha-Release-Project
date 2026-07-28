@@ -10,6 +10,7 @@ use App\Http\Controllers\ManagerController;
 // 1. مسارات الدخول 
 Route::get('/', fn() => redirect('/login'));
 Route::get('/login', fn() => view('auth.login'))->name('login');
+Route::get('/forgot-password', fn() => view('auth.forgot-password'))->name('password.request');
 Route::post('/web-login', [AuthController::class, 'login']);
 
 // 2. مسارات لوحات التحكم (Dashboards)
