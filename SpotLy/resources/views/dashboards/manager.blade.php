@@ -638,7 +638,7 @@
                     <!-- Chat Input Controls -->
                     <div class="p-3 bg-white border-top">
                         <form id="managerAiChatForm" onsubmit="handleAiChatSubmit(event, 'manager')" class="d-flex gap-2 align-items-center">
-                            <input type="text" id="managerAiChatInput" class="form-control rounded-pill px-4 py-2 shadow-none border" placeholder="اسأل المساعد الذكي بأي سؤال... (Ask AI anything in Arabic or English)" autocomplete="off">
+                            <input type="text" id="managerAiChatInput" class="form-control rounded-pill px-4 py-2 shadow-none border" placeholder="اختر سؤالاً من المقترحات أعلاه..." autocomplete="off">
                             <button type="submit" id="managerAiChatSendBtn" class="btn btn-primary rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 44px; height: 44px;">
                                 <i class="fas fa-paper-plane text-white"></i>
                             </button>
